@@ -1,0 +1,5 @@
+sympy
+z3-solver
+cvxpy
+symengine
+picos
