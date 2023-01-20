@@ -124,9 +124,9 @@ getNumCommonLoops(const FlatAffineValueConstraints &srcDomain,
             std::min(srcDomain.getNumDimVars(), dstDomain.getNumDimVars());
     unsigned numCommonLoops = 0;
     for (unsigned i = 0; i < minNumLoops; ++i) {
-        if ((!isAffineForInductionVar(srcDomain.getValue(i)) &&
+        if ((!mlir::isForInductionVar(srcDomain.getValue(i)) &&
              !isAffineParallelInductionVar(srcDomain.getValue(i))) ||
-            (!isAffineForInductionVar(dstDomain.getValue(i)) &&
+            (!mlir::isForInductionVar(dstDomain.getValue(i)) &&
              !isAffineParallelInductionVar(dstDomain.getValue(i))) ||
             srcDomain.getValue(i) != dstDomain.getValue(i))
             break;
@@ -223,7 +223,7 @@ void printDependenceConstraints(FlatAffineValueConstraints dep, const std::strin
     for (unsigned i = 0, e = dep.getNumEqualities(); i < e; ++i) {
         Row_t row;
         for (unsigned j = 0, f = dep.getNumCols(); j < f; ++j) {
-            row.emplace_back(std::to_string(int64FromMPInt(dep.atEq(i, j))));
+            row.emplace_back(std::to_string(dep.atEq(i, j)));
         }
         row.emplace_back("=");
         row.emplace_back("0");
@@ -232,7 +232,7 @@ void printDependenceConstraints(FlatAffineValueConstraints dep, const std::strin
     for (unsigned i = 0, e = dep.getNumInequalities(); i < e; ++i) {
         Row_t row;
         for (unsigned j = 0, f = dep.getNumCols(); j < f; ++j) {
-            row.emplace_back(std::to_string(int64FromMPInt(dep.atIneq(i, j))));
+            row.emplace_back(std::to_string(dep.atIneq(i, j)));
         }
         row.emplace_back(">=");
         row.emplace_back("0");
@@ -289,11 +289,11 @@ static void computeDirectionVector(
     for (unsigned j = 0; j < numCommonLoops; ++j) {
         (*dependenceComponents)[j].op = commonLoops[j].getOperation();
         auto lbConst =
-                dependenceDomain->getConstantBound64(IntegerPolyhedron::LB, j);
+                dependenceDomain->getConstantBound(IntegerPolyhedron::LB, j);
         (*dependenceComponents)[j].lb =
                 lbConst.value_or(std::numeric_limits<int64_t>::min());
         auto ubConst =
-                dependenceDomain->getConstantBound64(IntegerPolyhedron::UB, j);
+                dependenceDomain->getConstantBound(IntegerPolyhedron::UB, j);
         (*dependenceComponents)[j].ub =
                 ubConst.value_or(std::numeric_limits<int64_t>::max());
     }

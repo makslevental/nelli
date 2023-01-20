@@ -17,31 +17,11 @@ if (POLICY CMP0116)
     cmake_policy(SET CMP0116 NEW)
 endif ()
 
-project(PI LANGUAGES CXX C)
+project(loopy LANGUAGES CXX C)
 
 set(CMAKE_BUILD_WITH_INSTALL_NAME_DIR ON)
 
 set(CMAKE_CXX_STANDARD 17 CACHE STRING "C++ standard to conform to")
-
-if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
-    #    MESSAGE("Clang")
-elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
-    execute_process(
-            COMMAND ${Python3_EXECUTABLE} get_torch_mlir_pybind_v_abi.py
-            WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/scripts
-            ERROR_VARIABLE error
-            OUTPUT_VARIABLE ABI_VERSION
-    )
-    if (NOT error STREQUAL "")
-        message(STATUS "Torch-MLIR ABI Version ERROR: ${error}")
-    endif ()
-    message(STATUS "Torch-MLIR ABI Version: ${ABI_VERSION}")
-    add_definitions("-fabi-version=${ABI_VERSION}")
-elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
-    #    MESSAGE("Intel")
-elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
-    #    MESSAGE("MSVC")
-endif ()
 
 find_package(MLIR REQUIRED CONFIG)
 
@@ -64,18 +44,6 @@ include_directories(${MLIR_INCLUDE_DIRS})
 link_directories(${LLVM_BUILD_LIBRARY_DIR})
 add_definitions(${LLVM_DEFINITIONS})
 
+include(MLIRDetectPythonEnv)
 
-add_executable(loopy main.cpp)
-get_property(dialect_libs GLOBAL PROPERTY MLIR_DIALECT_LIBS)
-
-target_link_libraries(loopy
-        ${dialect_libs}
-        MLIRPresburger
-        MLIRAffineAnalysis
-        MLIRParser
-        MLIRTransforms
-        MLIRPass
-        MLIRIR
-        MLIRSupport
-        LLVMSupport
-        )
+add_subdirectory(loopy)

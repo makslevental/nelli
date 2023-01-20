@@ -83,16 +83,16 @@ void showAccessRelations(Operation *operation, MLIRContext &ctx) {
     dependenceConstraints = dstRel;
     printDependenceConstraints(dependenceConstraints, "dependenceConstraints");
 
-    auto isEmpty = dependenceConstraints.isEmpty();
-    std::cerr << "is empty " << isEmpty;
-
-    SmallVector<DependenceComponent, 2> dependenceComponents;
-    if (!isEmpty)
-        computeDirectionVector(srcDomain, dstDomain, 1,
-                               &dependenceConstraints, &dependenceComponents);
-
-    for (const auto &dep: dependenceComponents)
-        dep.op->dump();
+//    auto isEmpty = dependenceConstraints.isEmpty();
+//    std::cerr << "is empty " << isEmpty;
+//
+//    SmallVector<DependenceComponent, 2> dependenceComponents;
+//    if (!isEmpty)
+//        computeDirectionVector(srcDomain, dstDomain, 1,
+//                               &dependenceConstraints, &dependenceComponents);
+//
+//    for (const auto &dep: dependenceComponents)
+//        dep.op->dump();
 
 //    addOrderingConstraints(srcDomain, dstDomain, 1,
 //                           &dependenceConstraints);

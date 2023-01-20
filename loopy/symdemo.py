@@ -1,5 +1,8 @@
 from symengine import Symbol, Integer, symbols, Eq,  linsolve
 from symengine.lib.symengine_wrapper import solve
+from symengine import (Interval, EmptySet, FiniteSet, I, oo, Eq, Symbol,
+                       linsolve)
+
 """
  range  range  range  range  symbol  symbol               
  %arg3  %arg4   none   none   %arg1   %arg0  const        
@@ -26,4 +29,6 @@ constraints = [
 ]
 
 # make_matrix(constraints)
-print(dir(constraints[0]))
+# print(dir(constraints[0]))
+
+print(solve(constraints[0], arg3))
