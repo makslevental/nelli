@@ -84,4 +84,31 @@ module {
 }
   )mlir";
 
+
+std::string checkMemrefAccessDependenceExampleNoDep = R"mlir(
+module {
+  func.func @checkMemrefAccessDependence(%arg0: index, %arg1: index, %arg2: index) {
+    %alloc = memref.alloc() : memref<4x4xf32>
+    %cst = arith.constant 0.000000e+00 : f32
+    affine.for %arg3 = 0 to 100 {
+      affine.for %arg4 = 0 to 50 {
+        %0 = affine.apply affine_map<(d0, d1)[s0, s1] -> ((d0 * 2 - d1 * 4 + s1) * 2)>(%arg3, %arg4)[%arg0, %arg1]
+        %1 = affine.apply affine_map<(d0, d1)[s0, s1] -> ((d1 * 3 - s0) * 2)>(%arg3, %arg4)[%arg0, %arg1]
+        affine.store %cst, %alloc[%0, %1] : memref<4x4xf32>
+        // affine.store %cst, %alloc[%arg3 * 2 - %arg4 * 4 + %arg1, %arg4 * 3 - %arg0] : memref<4x4xf32>
+      }
+    }
+    affine.for %arg3 = 0 to 100 {
+      affine.for %arg4 = 0 to 50 {
+        %0 = affine.apply affine_map<(d0, d1)[s0, s1] -> (((d0 * 7 + d1 * 9 - s1) * 2) + 1)>(%arg3, %arg4)[%arg2, %arg0]
+        %1 = affine.apply affine_map<(d0, d1)[s0, s1] -> (((d1 * 11 + s0) * 2) + 1)>(%arg3, %arg4)[%arg2, %arg0]
+        %2 = affine.load %alloc[%0, %1] : memref<4x4xf32>
+        // %2 = affine.load %alloc[%arg3 * 7 + %arg4 * 9 - %arg0, %arg4 * 11 + %arg2] : memref<4x4xf32>
+      }
+    }
+    return
+  }
+}
+  )mlir";
+
 #endif //PI_EXAMPLES_H
