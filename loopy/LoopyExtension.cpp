@@ -262,16 +262,15 @@ PYBIND11_MODULE(_loopyMlir, m) {
         mlir::Operation *mlirOp = unwrap(mlirAffineOp);
         if (!mlirOp)
             throw py::value_error("didn't unwrap affineOp");
-        mlir::MemRefAccess *access = nullptr;
         if (llvm::isa<mlir::AffineStoreOp>(mlirOp)) {
             mlirOp = llvm::dyn_cast<mlir::AffineStoreOp>(mlirOp);
-            access = new mlir::MemRefAccess(mlirOp);
         } else if (llvm::isa<mlir::AffineLoadOp>(mlirOp)) {
             mlirOp = llvm::dyn_cast<mlir::AffineLoadOp>(mlirOp);
-            access = new mlir::MemRefAccess(mlirOp);
         } else
             throw py::value_error("has to be either affine load op or affine store op");
 
+        mlir::MemRefAccess *access;
+        access = new mlir::MemRefAccess(mlirOp);
         py::dict indices;
         for (const auto &pos_idx: llvm::enumerate(access->indices)) {
             indices[py::cast<>(pos_idx.index())] = printValueAsOperand(pos_idx.value());

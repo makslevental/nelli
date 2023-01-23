@@ -1,6 +1,16 @@
-from pprint import pprint
+from typing import Union, List, Tuple
 
-from loopy_mlir.ir import (
+from .loopy_mlir._mlir_libs._loopyMlir import (
+    LoopyAffineMapAttr,
+    print_value_as_operand,
+    get_access_relation,
+    get_affine_value_map,
+)
+
+# from symengine import Eq, Symbol, Integer
+from sympy import Eq, Symbol, Integer
+
+from .loopy_mlir.ir import (
     AffineAddExpr,
     AffineExpr,
     AffineBinaryExpr,
@@ -12,23 +22,9 @@ from loopy_mlir.ir import (
     AffineModExpr,
     AffineMulExpr,
     AffineSymbolExpr,
-    Context,
-    Location,
-    Module,
     Value,
 )
-from loopy_mlir.dialects._ods_common import get_op_result_or_value
-
-from loopy_mlir._mlir_libs._loopyMlir import (
-    LoopyAffineMapAttr,
-    get_access_relation,
-    get_affine_value_map,
-    print_value_as_operand,
-)
-
-from symengine import Symbol, Integer, symbols, Eq, linsolve
-from symengine.lib.symengine_wrapper import solve
-from symengine import Interval, EmptySet, FiniteSet, I, oo, Eq, Symbol, linsolve
+from .z3_ import build_z3_access_constraints
 
 
 # def callback(res_idx, expr):
@@ -71,6 +67,10 @@ from symengine import Interval, EmptySet, FiniteSet, I, oo, Eq, Symbol, linsolve
 
 class ApplyOp:
     def __init__(self, apply_op):
+        self.apply_op = apply_op
+
+        self.operands = [Symbol(print_value_as_operand(o)) for o in apply_op.operands]
+
         affine_map = LoopyAffineMapAttr(AffineMapAttr(apply_op.attributes[0].attr)).map
         self.dims = {}
         self.exprs = {}
@@ -79,12 +79,20 @@ class ApplyOp:
         for i in range(affine_map.n_dims):
             name = str(AffineExpr.get_dim(i))
             self.exprs[name] = Symbol(name)
-            self.dims[name] = {"pos": i, "expr": self.exprs[name]}
+            self.dims[name] = {
+                "pos": i,
+                "expr": self.exprs[name],
+                "operand": self.operands[i],
+            }
         self.symbols = {}
         for i in range(affine_map.n_symbols):
             name = str(AffineExpr.get_symbol(i))
             self.exprs[name] = Symbol(name)
-            self.symbols[name] = {"pos": i, "expr": self.exprs[name]}
+            self.symbols[name] = {
+                "pos": i,
+                "expr": self.exprs[name],
+                "operand": self.operands[i + affine_map.n_dims],
+            }
 
         def callback(res_idx, expr):
             if isinstance(expr, AffineDimExpr):
@@ -123,61 +131,70 @@ class ApplyOp:
         affine_map.walkExprs(callback)
         res_name = print_value_as_operand(apply_op.result)
         self.exprs[res_name] = Symbol(res_name)
-        self.map_expr = self.exprs[str(affine_map.results[0])]
-        self.map_equation = Eq(self.map_expr, self.exprs[res_name])
+
+        self.affine_expr = self.exprs[str(affine_map.results[0])]
+        self.affine_map = Eq(self.exprs[res_name], self.affine_expr)
+
+        self.affine_relation = self.affine_map.xreplace(
+            {v["expr"]: v["operand"] for k, v in self.dims.items()}
+        ).xreplace({v["expr"]: v["operand"] for k, v in self.symbols.items()})
 
 
-def demo():
-    with Context() as ctx, Location.unknown(ctx):
-        module = Module.parse(
-            r"""
-      func.func @checkMemrefAccessDependence(%arg0: index, %arg1: index, %arg2: index) {
-        %alloc = memref.alloc() : memref<4x4xf32>
-        %cst = arith.constant 0.000000e+00 : f32
-        affine.for %arg3 = 0 to 100 {
-          affine.for %arg4 = 0 to 50 {
-            %0 = affine.apply affine_map<(d0, d1)[s0, s1] -> (d0 * 2 - d1 * 4 + s1)>(%arg3, %arg4)[%arg0, %arg1]
-            %1 = affine.apply affine_map<(d0, d1)[s0, s1] -> (d1 * 3 - s0)>(%arg3, %arg4)[%arg0, %arg1]
-            affine.store %cst, %alloc[%0, %1] : memref<4x4xf32>
-            // affine.store %cst, %alloc[%arg3 * 2 - %arg4 * 4 + %arg1, %arg4 * 3 - %arg0] : memref<4x4xf32>
-          }
-        }
-        affine.for %arg3 = 0 to 100 {
-          affine.for %arg4 = 0 to 50 {
-            %0 = affine.apply affine_map<(d0, d1)[s0, s1] -> (d0 * 7 + d1 * 9 - s1)>(%arg3, %arg4)[%arg2, %arg0]
-            %1 = affine.apply affine_map<(d0, d1)[s0, s1] -> (d1 * 11 + s0)>(%arg3, %arg4)[%arg2, %arg0]
-            %2 = affine.load %alloc[%0, %1] : memref<4x4xf32>
-            // %2 = affine.load %alloc[%arg3 * 7 + %arg4 * 9 - %arg0, %arg4 * 11 + %arg2] : memref<4x4xf32>
-          }
-        }
-        return
-      }
-        """
+class MemOp:
+    def __init__(self, mlir_op, idx_operands: List[Value]):
+        self.mlir_op = mlir_op
+
+        domain_bounds, positions_to_idxs = get_access_relation(mlir_op)
+        self.domain_bounds = {}
+        for sym, bounds in domain_bounds.items():
+            self.domain_bounds[Symbol(sym)] = {
+                k: Integer(v) if isinstance(v, int) else v for k, v in bounds.items()
+            }
+
+        self.positions_to_idxs = {k: Symbol(v) for k, v in positions_to_idxs.items()}
+        self.operands = {}
+        for i, o in enumerate(idx_operands):
+            assert o.owner.name == "affine.apply"
+            self.operands[Symbol(print_value_as_operand(o))] = ApplyOp(o.owner)
+
+        self.sympy_access_constraints = build_sympy_access_constraints(
+            self, tuple(self.operands.values())
         )
-        func_body = module.body.operations[0].regions[0].blocks[0]
-        first_for_loop_operations = (
-            func_body.operations[2]
-            .regions[0]
-            .blocks[0]
-            .operations[0]
-            .regions[0]
-            .blocks[0]
-            .operations
+        self.z3_access_constraints = build_z3_access_constraints(
+            self.sympy_access_constraints
         )
-        # print(func_body.operations[2].regions[0].blocks[0].operations[0].operation)
-
-        first_affine_apply = first_for_loop_operations[0].operation
-        first_app = ApplyOp(first_affine_apply)
-        second_affine_apply = first_for_loop_operations[1].operation
-        affine_value_map = get_affine_value_map(first_affine_apply)
-        pprint(affine_value_map)
-
-        second_app = ApplyOp(second_affine_apply)
-
-        first_affine_store = first_for_loop_operations[2].operation
-        first_access_relation = get_access_relation(first_affine_store)
-        print(first_access_relation)
 
 
-if __name__ == "__main__":
-    demo()
+class StoreOp(MemOp):
+    def __init__(self, store_op):
+        assert store_op.name == "affine.store"
+        assert store_op.operands[0].owner.name == "arith.constant"
+        assert store_op.operands[1].owner.name == "memref.alloc"
+        super().__init__(store_op, list(store_op.operands[2:]))
+
+
+class LoadOp(MemOp):
+    def __init__(self, load_op):
+        assert load_op.name == "affine.load"
+        assert load_op.operands[0].owner.name == "memref.alloc"
+        super().__init__(load_op, list(load_op.operands[1:]))
+
+
+def build_sympy_access_constraints(
+    affine_mem_op: Union[MemOp], idx_affine_ops: Tuple[ApplyOp, ...]
+):
+    constraints = [app.affine_relation for app in idx_affine_ops]
+    for sym, bounds in affine_mem_op.domain_bounds.items():
+        for bound_type, bound in bounds.items():
+            match bound_type:
+                case "LB":
+                    constraints.append(bound <= sym)
+                case "UB":
+                    constraints.append(sym <= bound)
+                case "EQ":
+                    if bound is not None:
+                        constraints.append(Eq(bound, sym))
+                case _:
+                    raise Exception(f"unknown bound type: {bound_type}")
+
+    return constraints

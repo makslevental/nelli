@@ -7,7 +7,7 @@ set(MLIR_INCLUDE_TESTS 0)
 
 set(LOOPY_MLIR_PYTHON_PACKAGES_DIR "${CMAKE_CURRENT_BINARY_DIR}/python_packages")
 
-add_compile_definitions("MLIR_PYTHON_PACKAGE_PREFIX=loopy_mlir.")
+add_compile_definitions("MLIR_PYTHON_PACKAGE_PREFIX=loopy.loopy_mlir.")
 declare_mlir_python_sources(LoopyPythonSources)
 
 declare_mlir_python_extension(LoopyPythonSources.Extension
