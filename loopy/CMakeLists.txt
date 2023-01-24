@@ -55,3 +55,8 @@ target_link_libraries(demo PRIVATE
         MLIRSupport
         MLIRPresburger
         MLIRAffineAnalysis)
+
+# first_for_loop_operations[1].operation.operands[0].owner
+# Assertion failed: (mlirOperationEqual(self.getParentOperation()->get(), mlirOpResultGetOwner(self.get())) &&
+# "expected the owner of the value in Python to match that in " "the IR"), function operator(), file IRCore.cpp, line 3124.
+set(LLVM_ENABLE_ASSERTIONS OFF)

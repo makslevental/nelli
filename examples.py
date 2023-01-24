@@ -1,13 +1,15 @@
-from pprint import pprint
+# from pprint import pprint
+from sympy import pprint
 
 from loopy.aff import StoreOp, LoadOp
+from loopy.z3_ import compose, solve_system
 from loopy.loopy_mlir.ir import (
     Context,
     Location,
     Module,
 )
 
-with Context() as ctx, Location.unknown(ctx):
+with Context() as ctx, Location.name("example.py", context=ctx):
     module = Module.parse(
         r"""
   func.func @checkMemrefAccessDependence(%arg0: index, %arg1: index, %arg2: index) {
@@ -31,7 +33,7 @@ with Context() as ctx, Location.unknown(ctx):
     }
     return
   }
-    """
+    """, context=ctx
     )
     func_body = module.body.operations[0].regions[0].blocks[0]
     first_for_loop_operations = (
@@ -44,8 +46,10 @@ with Context() as ctx, Location.unknown(ctx):
         .operations
     )
     first_store = StoreOp(first_for_loop_operations[2].operation)
-    print("constraint system for store op:")
-    pprint(first_store.z3_access_constraints)
+    print("\nconstraint system for store op:\n")
+    for z in first_store.sympy_access_constraints:
+        # print(repr(z).replace("\n", ""))
+        pprint(z)
 
     second_for_loop_operations = (
         func_body.operations[3]
@@ -57,5 +61,11 @@ with Context() as ctx, Location.unknown(ctx):
         .operations
     )
     first_load = LoadOp(second_for_loop_operations[2].operation)
-    print("constraint system for load op:")
-    pprint(first_load.z3_access_constraints)
+    print("\nconstraint system for load op:\n")
+    for z in first_load.sympy_access_constraints:
+        # print(repr(z).replace("\n", ""))
+        pprint(z)
+
+    quants, cons = compose(first_store, first_load)
+    print("\nsolve constraint system\n")
+    solve_system(quants, cons)

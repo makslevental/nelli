@@ -1,14 +1,5 @@
-from typing import Union, List, Tuple
-
-from .loopy_mlir._mlir_libs._loopyMlir import (
-    LoopyAffineMapAttr,
-    print_value_as_operand,
-    get_access_relation,
-    get_affine_value_map,
-)
-
-# from symengine import Eq, Symbol, Integer
-from sympy import Eq, Symbol, Integer
+import re
+from typing import Union, List, Tuple, Optional
 
 from .loopy_mlir.ir import (
     AffineAddExpr,
@@ -23,7 +14,18 @@ from .loopy_mlir.ir import (
     AffineMulExpr,
     AffineSymbolExpr,
     Value,
+    Operation,
 )
+from .loopy_mlir._mlir_libs._loopyMlir import (
+    LoopyAffineMapAttr,
+    print_value_as_operand,
+    get_access_relation,
+    get_affine_value_map,
+)
+
+# from symengine import Eq, Symbol, Integer
+from sympy import Eq, Symbol, Integer
+
 from .z3_ import build_z3_access_constraints
 
 
@@ -65,12 +67,21 @@ from .z3_ import build_z3_access_constraints
 #         raise Exception("unknown expr type", expr, type(expr))
 
 
+def make_disambig_name(o: Value):
+    return (
+        print_value_as_operand(o)
+        + "@"
+        + str(o.owner.name).split(".")[0]
+        + re.findall(r'-"(.*)\)', str(o.owner.location))[0]
+    )
+
+
 class ApplyOp:
     def __init__(self, apply_op):
         self.apply_op = apply_op
+        assert apply_op.name == "affine.apply"
 
-        self.operands = [Symbol(print_value_as_operand(o)) for o in apply_op.operands]
-
+        self.operands = [Symbol(make_disambig_name(o)) for o in apply_op.operands]
         affine_map = LoopyAffineMapAttr(AffineMapAttr(apply_op.attributes[0].attr)).map
         self.dims = {}
         self.exprs = {}
@@ -129,7 +140,7 @@ class ApplyOp:
                 raise Exception("unknown expr type", expr, type(expr))
 
         affine_map.walkExprs(callback)
-        res_name = print_value_as_operand(apply_op.result)
+        res_name = make_disambig_name(apply_op.result)
         self.exprs[res_name] = Symbol(res_name)
 
         self.affine_expr = self.exprs[str(affine_map.results[0])]
@@ -141,28 +152,32 @@ class ApplyOp:
 
 
 class MemOp:
+    sympy_access_constraints: list
+
     def __init__(self, mlir_op, idx_operands: List[Value]):
         self.mlir_op = mlir_op
 
         domain_bounds, positions_to_idxs = get_access_relation(mlir_op)
         self.domain_bounds = {}
         for sym, bounds in domain_bounds.items():
-            self.domain_bounds[Symbol(sym)] = {
+            self.domain_bounds[Symbol(make_disambig_name(sym))] = {
                 k: Integer(v) if isinstance(v, int) else v for k, v in bounds.items()
             }
 
         self.positions_to_idxs = {k: Symbol(v) for k, v in positions_to_idxs.items()}
         self.operands = {}
+        self.quantified = set()
         for i, o in enumerate(idx_operands):
             assert o.owner.name == "affine.apply"
-            self.operands[Symbol(print_value_as_operand(o))] = ApplyOp(o.owner)
+            apply_op = ApplyOp(o.owner)
+            for sym in apply_op.symbols.values():
+                self.quantified.add(sym["operand"])
+            self.operands[Symbol(make_disambig_name(o))] = apply_op
 
         self.sympy_access_constraints = build_sympy_access_constraints(
             self, tuple(self.operands.values())
         )
-        self.z3_access_constraints = build_z3_access_constraints(
-            self.sympy_access_constraints
-        )
+
 
 
 class StoreOp(MemOp):
