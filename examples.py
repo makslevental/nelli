@@ -1,8 +1,8 @@
 # from pprint import pprint
 from sympy import pprint
 
-from loopy.aff import StoreOp, LoadOp
-from loopy.z3_ import compose, solve_system
+from loopy.aff import StoreOp, LoadOp, print_sympy_constraints, show_access_relation
+from loopy.z3_ import compose, solve_system, print_z3_constraints, print_z3_constraints_as_tableau
 from loopy.loopy_mlir.ir import (
     Context,
     Location,
@@ -35,6 +35,9 @@ with Context() as ctx, Location.name("example.py", context=ctx):
   }
     """, context=ctx
     )
+    show_access_relation(module)
+
+
     func_body = module.body.operations[0].regions[0].blocks[0]
     first_for_loop_operations = (
         func_body.operations[2]
@@ -46,10 +49,8 @@ with Context() as ctx, Location.name("example.py", context=ctx):
         .operations
     )
     first_store = StoreOp(first_for_loop_operations[2].operation)
-    print("\nconstraint system for store op:\n")
-    for z in first_store.sympy_access_constraints:
-        # print(repr(z).replace("\n", ""))
-        pprint(z)
+    # print("\nconstraint system for store op:\n")
+    # print_sympy_constraints(first_store.sympy_access_constraints)
 
     second_for_loop_operations = (
         func_body.operations[3]
@@ -61,11 +62,9 @@ with Context() as ctx, Location.name("example.py", context=ctx):
         .operations
     )
     first_load = LoadOp(second_for_loop_operations[2].operation)
-    print("\nconstraint system for load op:\n")
-    for z in first_load.sympy_access_constraints:
-        # print(repr(z).replace("\n", ""))
-        pprint(z)
 
     quants, cons = compose(first_store, first_load)
-    print("\nsolve constraint system\n")
-    solve_system(quants, cons)
+    print_z3_constraints(cons)
+    # print_z3_constraints_as_tableau(cons, quants)
+    # print("\nsolve constraint system\n")
+    # solve_system(quants, cons)

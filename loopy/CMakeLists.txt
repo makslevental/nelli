@@ -47,14 +47,14 @@ add_mlir_python_modules(LoopyPythonModules
         LoopyMLIRAggregateCAPI
         )
 
-add_executable(demo main.cpp)
-target_link_libraries(demo PRIVATE
-        LLVMSupport
-        MLIRIR
-        MLIRParser
-        MLIRSupport
-        MLIRPresburger
-        MLIRAffineAnalysis)
+#add_executable(demo main.cpp)
+#target_link_libraries(demo PRIVATE
+#        LLVMSupport
+#        MLIRIR
+#        MLIRParser
+#        MLIRSupport
+#        MLIRPresburger
+#        MLIRAffineAnalysis)
 
 # first_for_loop_operations[1].operation.operands[0].owner
 # Assertion failed: (mlirOperationEqual(self.getParentOperation()->get(), mlirOpResultGetOwner(self.get())) &&

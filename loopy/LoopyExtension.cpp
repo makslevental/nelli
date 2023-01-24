@@ -1,4 +1,5 @@
 #include "IRModule.h"
+#include "affine_analysis.h"
 #include "dylib.hpp"
 #include "mlir-c/AffineExpr.h"
 #include "mlir-c/Bindings/Python/Interop.h"
@@ -19,7 +20,6 @@
 #include "tabulate.hpp"
 #include <iostream>
 #include <pybind11/functional.h>
-#include <regex>
 
 namespace py = pybind11;
 using namespace mlir::python;
@@ -112,82 +112,6 @@ getOpIndexSet(mlir::Operation *op, mlir::FlatAffineValueConstraints *indexSet) {
   return getIndexSet(ops, indexSet);
 }
 
-std::string printValueAsOperand(Value v) {
-  std::string str;
-  llvm::raw_string_ostream os(str);
-  auto parent = v.getParentRegion()->getParentOfType<func::FuncOp>();
-  AsmState state(parent, OpPrintingFlags().printGenericOpForm());
-  v.printAsOperand(os, state);
-  return str;
-//  return std::regex_replace(str, std::regex("%"), "");
-}
-
-void printDependenceConstraints(FlatAffineValueConstraints dep,
-                                const std::string &name = "") {
-  std::cerr << name << "\n";
-  std::string str;
-  llvm::raw_string_ostream os(str);
-  Table table;
-  auto nd = dep.getNumDomainVars();
-  auto nr = dep.getNumRangeVars();
-  auto ns = dep.getNumSymbolVars();
-  auto nl = dep.getNumLocalVars();
-  auto ne = dep.getNumEqualities();
-  using Row_t =
-      std::vector<variant<std::string, const char *, string_view, Table>>;
-  Row_t varTypes;
-  for (int i = 0; i < nd; ++i)
-    varTypes.emplace_back("domain");
-  for (int i = 0; i < nr; ++i)
-    varTypes.emplace_back("range");
-  for (int i = 0; i < ns; ++i)
-    varTypes.emplace_back("symbol");
-  for (int i = 0; i < nl; ++i)
-    varTypes.emplace_back("local");
-  varTypes.emplace_back("");
-  varTypes.emplace_back("");
-  varTypes.emplace_back("");
-  table.add_row(varTypes);
-
-  Row_t value_names;
-  for (unsigned i = 0; i < dep.getNumDimAndSymbolVars(); ++i) {
-    if (dep.hasValue(i))
-      value_names.emplace_back(printValueAsOperand(dep.getValue(i)));
-    else
-      value_names.emplace_back("none");
-  }
-  if (dep.getNumDimAndSymbolVars() < dep.getNumCols())
-    for (unsigned int i = dep.getNumDimAndSymbolVars();
-         i < dep.getNumCols() - 1; ++i) {
-      value_names.emplace_back("none");
-    }
-  value_names.emplace_back("const");
-  value_names.emplace_back("");
-  value_names.emplace_back("");
-  table.add_row(value_names);
-
-  for (unsigned i = 0, e = dep.getNumEqualities(); i < e; ++i) {
-    Row_t row;
-    for (unsigned j = 0, f = dep.getNumCols(); j < f; ++j) {
-      row.emplace_back(std::to_string(dep.atEq(i, j)));
-    }
-    row.emplace_back("=");
-    row.emplace_back("0");
-    table.add_row(row);
-  }
-  for (unsigned i = 0, e = dep.getNumInequalities(); i < e; ++i) {
-    Row_t row;
-    for (unsigned j = 0, f = dep.getNumCols(); j < f; ++j) {
-      row.emplace_back(std::to_string(dep.atIneq(i, j)));
-    }
-    row.emplace_back(">=");
-    row.emplace_back("0");
-    table.add_row(row);
-  }
-  table.format().hide_border();
-  table.format().font_align(FontAlign::right);
-  std::cerr << table << "\n";
-}
 
 PYBIND11_MODULE(_loopyMlir, m) {
   auto mod = py::module_::import(MAKE_MLIR_PYTHON_QUALNAME("ir"));
@@ -297,5 +221,12 @@ PYBIND11_MODULE(_loopyMlir, m) {
       }
     }
     return py::make_tuple(bounds, indices);
+  });
+
+  m.def("show_access_relation", [](const py::handle moduleApiObject) {
+    auto capsule = pybind11::detail::mlirApiObjectToCapsule(moduleApiObject);
+    MlirModule mlirModule = mlirPythonCapsuleToModule(capsule.ptr());
+    auto module = unwrap(mlirModule);
+    showAccessRelations(module.getOperation(), *module->getContext());
   });
 }

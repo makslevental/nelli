@@ -36,6 +36,19 @@ pip install . --no-build-isolation
   18    }
   19    return
   20  }
+  
+ range  range   range   range  symbol  symbol  symbol               
+ %arg3  %arg4  %arg3'  %arg4'   %arg1   %arg0   %arg2  const        
+    -7     -9       2      -4       1       1       0      0   =  0 
+     0    -11       0       3       0      -1      -1      0   =  0 
+     1      0       0       0       0       0       0      0  >=  0 
+    -1      0       0       0       0       0       0     99  >=  0 
+     0      1       0       0       0       0       0      0  >=  0 
+     0     -1       0       0       0       0       0     49  >=  0 
+     0      0       1       0       0       0       0      0  >=  0 
+     0      0      -1       0       0       0       0     99  >=  0 
+     0      0       0       1       0       0       0      0  >=  0 
+     0      0       0      -1       0       0       0     49  >=  0 
 ```
 
 to this

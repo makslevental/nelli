@@ -2,25 +2,40 @@
 // Created by mlevental on 1/20/23.
 //
 
-#include "main.h"
 #include "mlir/Analysis/Presburger/IntegerRelation.h"
+#include "mlir/Analysis/Presburger/Matrix.h"
 #include "mlir/Analysis/SliceAnalysis.h"
 #include "mlir/Dialect/Affine/Analysis/AffineAnalysis.h"
+#include "mlir/Dialect/Affine/Analysis/AffineStructures.h"
 #include "mlir/Dialect/Affine/Analysis/LoopAnalysis.h"
 #include "mlir/Dialect/Affine/Analysis/Utils.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Affine/IR/AffineValueMap.h"
+#include "mlir/Dialect/Affine/Passes.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/IR/AffineExprVisitor.h"
+#include "mlir/IR/AsmState.h"
+#include "mlir/IR/Builders.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/IntegerSet.h"
+#include "mlir/IR/OperationSupport.h"
 #include "mlir/Interfaces/SideEffectInterfaces.h"
 #include "mlir/Interfaces/ViewLikeInterface.h"
+#include "mlir/Parser/Parser.h"
+#include "mlir/Pass/PassManager.h"
+#include "mlir/Support/LogicalResult.h"
+#include "tabulate.hpp"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/TypeSwitch.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
+#include <iomanip>
 #include <iostream>
+#include <llvm/Support/Debug.h>
+#include <regex>
+#include <set>
+#include <string>
 
 #ifndef LOOPY_AFFINE_ANALYSIS_H
 #define LOOPY_AFFINE_ANALYSIS_H
@@ -29,6 +44,8 @@
 
 using namespace llvm;
 using namespace mlir;
+using namespace presburger;
+using namespace tabulate;
 
 /// Returns the closest surrounding block common to `opA` and `opB`. `opA` and
 /// `opB` should be in the same affine scope and thus such a block is guaranteed
@@ -296,6 +313,189 @@ getDirectionVectorStr(bool ret, unsigned numCommonLoops, unsigned loopNestDepth,
     result += "[" + lbStr + ", " + ubStr + "]";
   }
   return result;
+}
+
+std::string printValue(Value v) {
+  std::string Str;
+  llvm::raw_string_ostream OS(Str);
+  auto parent = v.getParentRegion()->getParentOfType<func::FuncOp>();
+  AsmState state(parent, OpPrintingFlags().printGenericOpForm());
+  v.printAsOperand(OS, state);
+  return Str;
+}
+
+std::string printValueAsOperand(Value v) {
+  std::string str;
+  llvm::raw_string_ostream os(str);
+  auto parent = v.getParentRegion()->getParentOfType<func::FuncOp>();
+  AsmState state(parent, OpPrintingFlags().printGenericOpForm());
+  v.printAsOperand(os, state);
+  //  return str;
+  return std::regex_replace(str, std::regex("%"), "_");
+}
+
+std::map<std::string, std::map<void *, std::string>> seen;
+
+std::string makeDisambigName(const Value &v) {
+  auto name = printValueAsOperand(v);
+  if (seen.count(name) && !seen[name].count(v.getAsOpaquePointer())) {
+    seen[name][v.getAsOpaquePointer()] =
+        name + std::string(seen[name].size(), '\'');
+  } else if (seen.count(name) && seen[name].count(v.getAsOpaquePointer())) {
+    // pass
+  } else {
+    seen[name] = {{v.getAsOpaquePointer(), name}};
+  }
+  return seen[name][v.getAsOpaquePointer()];
+}
+
+void printDependenceConstraints(FlatAffineValueConstraints dep,
+                                const std::string &name = "") {
+  std::cerr << name << "\n";
+  //    dep.dump();
+  std::string str;
+  llvm::raw_string_ostream os(str);
+  Table header;
+  auto nd = dep.getNumDomainVars();
+  auto nr = dep.getNumRangeVars();
+  auto ns = dep.getNumSymbolVars();
+  auto nl = dep.getNumLocalVars();
+  auto ne = dep.getNumEqualities();
+  using Row_t =
+      std::vector<variant<std::string, const char *, string_view, Table>>;
+  Row_t varTypes;
+  for (int i = 0; i < nd; ++i)
+    varTypes.emplace_back("domain");
+  for (int i = 0; i < nr; ++i)
+    varTypes.emplace_back("range");
+  for (int i = 0; i < ns; ++i)
+    varTypes.emplace_back("symbol");
+  for (int i = 0; i < nl; ++i)
+    varTypes.emplace_back("local");
+  varTypes.emplace_back("");
+  varTypes.emplace_back("");
+  varTypes.emplace_back("");
+  header.add_row(varTypes);
+
+  Row_t value_names;
+  for (unsigned i = 0; i < dep.getNumDimAndSymbolVars(); ++i) {
+    if (dep.hasValue(i)) {
+      value_names.emplace_back(makeDisambigName(dep.getValue(i)));
+    } else
+      value_names.emplace_back("none");
+  }
+  if (dep.getNumDimAndSymbolVars() < dep.getNumCols())
+    for (int i = dep.getNumDimAndSymbolVars(); i < dep.getNumCols() - 1; ++i) {
+      value_names.emplace_back("none");
+    }
+  value_names.emplace_back("const");
+  value_names.emplace_back("");
+  value_names.emplace_back("");
+  header.add_row(value_names);
+  header.format().hide_border();
+  header.format().font_align(FontAlign::right);
+  std::cerr << header << "\n";
+
+  Table table;
+  for (unsigned i = 0, e = dep.getNumEqualities(); i < e; ++i) {
+    Row_t row;
+    for (unsigned j = 0, f = dep.getNumCols(); j < f; ++j) {
+      auto coeff = dep.atEq(i, j);
+      auto s = std::to_string(coeff);
+      if (dep.hasValue(j) && coeff != 0) {
+        s += "*" + makeDisambigName(dep.getValue(j));
+      }
+      if (j < f - 1)
+        s += " + ";
+      row.emplace_back(s);
+    }
+    row.emplace_back("==");
+    row.emplace_back("0 ,");
+    table.add_row(row);
+  }
+  for (unsigned i = 0, e = dep.getNumInequalities(); i < e; ++i) {
+    Row_t row;
+    for (unsigned j = 0, f = dep.getNumCols(); j < f; ++j) {
+      auto coeff = dep.atIneq(i, j);
+      auto s = std::to_string(coeff);
+      if (dep.hasValue(j) && coeff != 0) {
+        s += "*" + makeDisambigName(dep.getValue(j));
+      }
+      if (j < f - 1)
+        s += " + ";
+      row.emplace_back(s);
+    }
+    row.emplace_back(">=");
+    std::string tail = "0";
+    if (i < e - 1)
+      tail += " ,";
+    row.emplace_back(tail);
+    table.add_row(row);
+  }
+  table.format().hide_border();
+  table.format().font_align(FontAlign::right);
+  std::cerr << "mliraffinemap={\n"
+            << table << "}"
+            << "\n";
+}
+
+// For each access in 'loadsAndStores', runs a dependence check between this
+// "source" access and all subsequent "destination" accesses in
+// 'loadsAndStores'. Emits the result of the dependence check as a note with
+// the source access.
+static void myCheckDependences(ArrayRef<Operation *> loadsAndStores) {
+  for (unsigned i = 0, e = loadsAndStores.size(); i < e; ++i) {
+    auto *srcOpInst = loadsAndStores[i];
+    MemRefAccess srcAccess(srcOpInst);
+    for (unsigned j = i + 1; j < e; ++j) {
+      if (j <= i)
+        continue;
+
+      auto *dstOpInst = loadsAndStores[j];
+      MemRefAccess dstAccess(dstOpInst);
+
+      unsigned numCommonLoops =
+          getNumCommonSurroundingLoops(*srcOpInst, *dstOpInst);
+      std::cerr << "numCommonLoops: " << numCommonLoops << "\n";
+      for (unsigned d = 1; d <= numCommonLoops + 1; ++d) {
+        std::cerr << "checking " << i << " to " << j << " at depth " << d
+                  << "\n";
+        FlatAffineValueConstraints dependenceConstraints;
+        SmallVector<DependenceComponent, 2> dependenceComponents;
+        DependenceResult result = myCheckMemrefAccessDependence(
+            srcAccess, dstAccess, d, &dependenceConstraints,
+            &dependenceComponents, true);
+        if (result.value == DependenceResult::Failure) {
+          srcOpInst->emitError("dependence check failed");
+        } else {
+          bool ret = hasDependence(result);
+          // TODO: Print dependence type (i.e. RAW, etc) and print
+          // distance vectors as: ([2, 3], [0, 10]). Also, shorten distance
+          // vectors from ([1, 1], [3, 3]) to (1, 3).
+          srcOpInst->emitRemark("dependence from ")
+              << i << " to " << j << " at depth " << d << " = "
+              << getDirectionVectorStr(ret, numCommonLoops, d,
+                                       dependenceComponents);
+          if (ret)
+            printDependenceConstraints(dependenceConstraints);
+        }
+      }
+    }
+  }
+}
+
+void showAccessRelations(Operation *operation, MLIRContext &ctx) {
+  AffineStoreOp storeOp;
+  AffineLoadOp loadOp;
+  operation->walk([&](Operation *op) {
+    if (isa<AffineStoreOp>(op)) {
+      storeOp = dyn_cast<AffineStoreOp>(op);
+    }
+    if (isa<AffineLoadOp>(op)) {
+      loadOp = dyn_cast<AffineLoadOp>(op);
+    }
+  });
+  myCheckDependences({storeOp, loadOp});
 }
 
 #endif // LOOPY_AFFINE_ANALYSIS_H

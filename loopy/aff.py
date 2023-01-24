@@ -1,5 +1,8 @@
 import re
+from collections import defaultdict
 from typing import Union, List, Tuple, Optional
+
+from sympy.core.relational import Relational
 
 from .loopy_mlir.ir import (
     AffineAddExpr,
@@ -21,13 +24,11 @@ from .loopy_mlir._mlir_libs._loopyMlir import (
     print_value_as_operand,
     get_access_relation,
     get_affine_value_map,
+    show_access_relation,
 )
 
 # from symengine import Eq, Symbol, Integer
-from sympy import Eq, Symbol, Integer
-
-from .z3_ import build_z3_access_constraints
-
+from sympy import Eq, Symbol, Integer, pprint
 
 # def callback(res_idx, expr):
 #     if isinstance(expr, AffineDimExpr):
@@ -67,13 +68,26 @@ from .z3_ import build_z3_access_constraints
 #         raise Exception("unknown expr type", expr, type(expr))
 
 
+seen = {}
+
+
 def make_disambig_name(o: Value):
-    return (
-        print_value_as_operand(o)
-        + "@"
-        + str(o.owner.name).split(".")[0]
-        + re.findall(r'-"(.*)\)', str(o.owner.location))[0]
-    )
+    name = print_value_as_operand(o)
+    if name in seen and o not in seen[name]:
+        seen[name][o] = name + "'" * len(seen[name])
+    elif name in seen and o in seen[name]:
+        # name = seen[name][o]
+        pass
+    else:
+        seen[name] = {o: name}
+    return seen[name][o]
+
+    # return (
+    #     + "@"
+    #     + str(o.owner.name).split(".")[0]
+    #     + re.findall(r'-"(.*)\)', str(o.owner.location))[0]
+    #     + "_" + re.findall(r'-"(.*)\)', str(o.owner.location))[0].split(":")[-2]
+    # )
 
 
 class ApplyOp:
@@ -179,7 +193,6 @@ class MemOp:
         )
 
 
-
 class StoreOp(MemOp):
     def __init__(self, store_op):
         assert store_op.name == "affine.store"
@@ -213,3 +226,8 @@ def build_sympy_access_constraints(
                     raise Exception(f"unknown bound type: {bound_type}")
 
     return constraints
+
+
+def print_sympy_constraints(cons: list[Relational]):
+    for c in cons:
+        pprint(c)

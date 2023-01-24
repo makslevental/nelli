@@ -1,6 +1,6 @@
 import io
 from functools import reduce
-from typing import List, Set, Union
+from typing import List, Set, Union, Optional
 
 from sympy.core import (
     Mul,
@@ -15,7 +15,7 @@ from sympy.core import (
     GreaterThan,
     StrictGreaterThan,
 )
-from sympy import Symbol as SySymbol
+from sympy import Symbol as SySymbol, Matrix, zeros, pprint
 from sympy.core.relational import Relational
 from z3 import (
     Sqrt,
@@ -35,9 +35,19 @@ from z3 import (
     substitute,
     Not,
     unknown,
-    SolverFor
+    SolverFor,
+    simplify,
+    Contains,
+    is_eq,
+    is_bool,
+    is_const,
+    is_lt,
+    is_le,
+    is_gt,
+    is_ge,
 )
 from z3.z3util import get_vars
+
 
 def _sympy_to_z3_rec(var_map, e):
     rv = None
@@ -120,6 +130,7 @@ def build_z3_access_constraints(sympy_constraints: List[Relational]):
     constraints = []
     for constraint in sympy_constraints:
         z3_vars_, z3_rel = sympy_to_z3(list(constraint.free_symbols), constraint)
+        z3_rel = simplify(z3_rel, arith_lhs=False, sort_sums=True)
         constraints.append(z3_rel)
         z3_vars.update(z3_vars_)
 
@@ -148,15 +159,34 @@ def compose(*mem_ops: tuple["MemOp", "MemOp"]):
 
     assert len(mem_ops[0].operands) == len(mem_ops[1].operands)
     # TODO(max): check idx positions
+    canon = {}
     for idx_m1, idx_m2 in zip(mem_ops[0].operands, mem_ops[1].operands):
-        constraints.append(Int(idx_m1.name) == Int(idx_m2.name))
+        for i, c in enumerate(constraints):
+            canonoical_idx = Int(idx_m1.name)
+            canon[canonoical_idx] = []
+            constraints[i] = substitute(c, (Int(idx_m2.name), canonoical_idx))
+
+    new_constraints = []
+    for i, c in enumerate(constraints):
+        for ca in canon:
+            if ca in get_vars(c):
+                assert c.arg(0) == ca, f"canon sym {ca} in the wrong place: {c}"
+                assert is_eq(c), f"unexpected canon expression type {c}"
+                canon[ca].append(c)
+                break
+        else:
+            new_constraints.append(c)
+
+    for ca, cons in canon.items():
+        assert len(cons) == 2, f"unexpected number of canon constraints {cons=}"
+        new_constraints.insert(0, substitute(cons[0], (ca, cons[1].arg(1))))
+
+    for i, n in enumerate(new_constraints):
+        new_constraints[i] = simplify(n, arith_lhs=True, sort_sums=True)
 
     if len(quantified):
         quantified = [Int(s.name) for s in quantified]
-    return quantified, constraints
-    #     return ForAll(quantified, And(*constraints))
-    # else:
-    #     return constraints
+    return quantified, new_constraints
 
 
 def pp_z3(a):
@@ -165,7 +195,102 @@ def pp_z3(a):
     pp.max_width = 100
     pp.bounded = True
     pp(out, Formatter()(a))
-    print(out.getvalue())
+    return out.getvalue()
+
+
+def print_z3_constraints(cons: list):
+    cons[0], cons[1] = cons[1], cons[0]
+    print("z3affinemap={")
+    for i, c in enumerate(cons):
+        print(
+            pp_z3(simplify(c, arith_lhs=True, arith_ineq_lhs=True, sort_sums=True)),
+            end=", \n" if i < len(cons) - 1 else "\n",
+        )
+    print("}")
+
+
+def print_z3_constraints_as_tableau(cons: list, quants: Optional[list] = None):
+    if quants is None:
+        quants = []
+    all_vars = set()
+    for con in cons:
+        for v in get_vars(con):
+            all_vars.add(v)
+
+    def trailing_tick(s):
+        s = str(s)
+        if s.endswith("'"):
+            return 1, s[:-1]
+        else:
+            return 0, s
+
+    all_vars = {
+        v: i for i, v in enumerate(sorted(all_vars, key=trailing_tick, reverse=False))
+    }
+    tab = Matrix.zeros(rows=len(cons) + 1, cols=len(all_vars) + 2)
+    for v in all_vars:
+        tab[0, all_vars[v]] = Symbol(str(v))
+    tab[0, -1] = Symbol("const")
+    tab[0, -2] = Symbol("")
+    for i, con in enumerate(cons, start=1):
+        assert is_bool(con), f"unexpected expr type {con=}"
+        lhs, rhs = con.arg(0), con.arg(1)
+        assert is_const(rhs)
+        if is_eq(con):
+            rel = "=="
+        elif is_lt(con):
+            # rel = "<"
+            rel = ">"
+        elif is_le(con):
+            # rel = "<="
+            rel = ">="
+        elif is_gt(con):
+            rel = ">"
+        elif is_ge(con):
+            rel = ">="
+        else:
+            raise RuntimeError(f"unexpected constraint type {con=}")
+
+        tab[i, -2] = Symbol(rel)
+        swap = 1
+        if is_lt(con) or is_le(con):
+            swap = -1
+
+        tab[i, -1] = int(str(rhs)) * swap
+
+        if lhs.num_args() == 0:
+            tab[i, all_vars[lhs]] = 1 * swap * Symbol(str(lhs))
+        else:
+            for j in range(lhs.num_args()):
+                term = lhs.arg(j)
+                syms = get_vars(term)
+                sym = syms[0]
+                assert len(syms) == 1, f"unexpected number of syms: {syms=}"
+                if term.num_args() == 0:
+                    # tab[i, all_vars[sym]] = Symbol(str(term))
+                    tab[i, all_vars[sym]] = 1 * swap * Symbol(str(sym))
+                elif term.num_args() == 1:
+                    # negative (-1)
+                    # tab[i, all_vars[sym]] = Symbol(str(term))
+                    tab[i, all_vars[sym]] = -1 * swap * Symbol(str(sym))
+                elif term.num_args() == 2:
+                    # coefficient (term.arg(0))
+                    # tab[i, all_vars[sym]] = Symbol(str(term))
+                    tab[i, all_vars[sym]] = int(str(term.arg(0))) * Symbol(str(sym))
+
+    quant_cols = {all_vars[q]: tab[:, all_vars[q]] for q in quants}
+    for idx, col in sorted(quant_cols.items(), reverse=True):
+        tab.col_del(idx)
+        tab = tab.col_insert(-2, col)
+    pprint(tab)
+    print(flush=True)
+    for r in range(1, tab.rows):
+        print(
+            " + ".join(map(str, list(tab[r, :])[:-2]))
+            + str(list(tab[r, :])[-2])
+            + str(list(tab[r, :])[-1]),
+            end=", \n",
+        )
 
 
 # https://github.com/pysmt/pysmt/blob/97088bf3b0d64137c3099ef79a4e153b10ccfda7/examples/efsmt.py
@@ -198,8 +323,6 @@ def efsmt(ys, phi, maxloops=None):
 
 
 def solve_system(quants, cons):
-    pp_z3(cons)
-    print()
     print(efsmt(list(quants), And(*cons)))
     #
     # if isinstance(constraints, list):
