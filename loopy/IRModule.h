@@ -6,13 +6,14 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef MLIR_BINDINGS_PYTHON_IRMODULES_H
-#define MLIR_BINDINGS_PYTHON_IRMODULES_H
+#ifndef LOOPY_MLIR_BINDINGS_PYTHON_IRMODULES_H
+#define LOOPY_MLIR_BINDINGS_PYTHON_IRMODULES_H
 
 #include <iostream>
 #include <utility>
 #include <vector>
 
+#include "mlir/Bindings/Python/PybindAdaptors.h"
 #include <mlir-c/Bindings/Python/Interop.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
@@ -26,6 +27,8 @@
 #include "mlir/CAPI/AffineExpr.h"
 #include "mlir/CAPI/AffineMap.h"
 #include "mlir/CAPI/Wrap.h"
+#include "mlir/CAPI/IR.h"
+
 
 namespace py = pybind11;
 
@@ -157,4 +160,81 @@ public:
 
 } // namespace mlir::python
 
-#endif // MLIR_BINDINGS_PYTHON_IRMODULES_H
+namespace pybind11::detail {
+/// Casts object <-> MlirAffineExpr.
+template <> struct type_caster<MlirAffineExpr> {
+  PYBIND11_TYPE_CASTER(MlirAffineExpr, _("MlirAffineExpr"));
+
+  bool load(handle src, bool) {
+    py::object capsule = mlirApiObjectToCapsule(src);
+    value = mlirPythonCapsuleToAffineExpr(capsule.ptr());
+    if (mlirAffineExprIsNull(value)) {
+      return false;
+    }
+    return !mlirAffineExprIsNull(value);
+  }
+
+#define FOR_ALL_EXPR_TYPES(_)                                                  \
+  _(Dim)                                                                       \
+  _(Symbol)                                                                    \
+  _(Constant)                                                                  \
+  _(Add)                                                                       \
+  _(Mul)                                                                       \
+  _(Mod)                                                                       \
+  _(FloorDiv)                                                                  \
+  _(CeilDiv)                                                                   \
+  _(Binary)
+
+  static handle cast(MlirAffineExpr v, return_value_policy, handle) {
+    auto capsule =
+        py::reinterpret_steal<py::object>(mlirPythonAffineExprToCapsule(v));
+    auto mlir_ir = py::module::import(MAKE_MLIR_PYTHON_QUALNAME("ir"));
+    auto expr = mlir_ir.attr("AffineExpr")
+                    .attr(MLIR_PYTHON_CAPI_FACTORY_ATTR)(capsule)
+                    .release();
+
+#define DEFINE_SUB_EXPR(TTT)                                                   \
+  if (mlirAffineExprIsA##TTT(v)) {                                             \
+    return py::module::import(MAKE_MLIR_PYTHON_QUALNAME("ir"))                 \
+        .attr("Affine" #TTT "Expr")(expr.cast<py::object>())                   \
+        .release();                                                            \
+  }
+    FOR_ALL_EXPR_TYPES(DEFINE_SUB_EXPR)
+#undef DEFINE_SUB_EXPR
+
+    throw py::cast_error("Invalid AffineExpr type when attempting to "
+                         "create an AffineExpr");
+  }
+};
+
+/// Casts object <-> MlirAffineMap.
+template <> struct type_caster<MlirValue> {
+  PYBIND11_TYPE_CASTER(MlirValue, _("MlirValue"));
+
+  bool load(handle src, bool) {
+    py::object capsule = mlirApiObjectToCapsule(src);
+    value = mlirPythonCapsuleToValue(capsule.ptr());
+    if (mlirValueIsNull(value)) {
+      return false;
+    }
+    return !mlirValueIsNull(value);
+  }
+
+  static handle cast(MlirValue v, return_value_policy, handle) {
+    auto capsule =
+        py::reinterpret_steal<py::object>(mlirPythonValueToCapsule(v));
+    return py::module::import(MAKE_MLIR_PYTHON_QUALNAME("ir"))
+        .attr("Value")
+        .attr(MLIR_PYTHON_CAPI_FACTORY_ATTR)(capsule)
+        .release();
+  }
+};
+
+} // namespace pybind11::detail
+
+template <typename T> T* unwrapApiObject(const py::handle apiObject) {
+  return unwrap(mlirPythonCapsuleToOperation(
+      py::detail::mlirApiObjectToCapsule(apiObject).ptr()));
+}
+
+#endif // LOOPY_MLIR_BINDINGS_PYTHON_IRMODULES_H

@@ -25,6 +25,14 @@ set(CMAKE_CXX_STANDARD 17 CACHE STRING "C++ standard to conform to")
 
 find_package(MLIR REQUIRED CONFIG)
 
+# TODO(max): this doesn't seem to have any effect; other assertions percolate up (but this own has disappeared?)
+# even in release builds
+# first_for_loop_operations[1].operation.operands[0].owner
+# Assertion failed: (mlirOperationEqual(self.getParentOperation()->get(), mlirOpResultGetOwner(self.get())) &&
+# "expected the owner of the value in Python to match that in " "the IR"), function operator(), file IRCore.cpp, line 3124.
+#set(LLVM_ENABLE_ASSERTIONS OFF)
+#set(LLVM_ENABLE_ABI_BREAKING_CHECKS OFF)
+
 message(STATUS "Using MLIRConfig.cmake in: ${MLIR_DIR}")
 message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
 
@@ -45,5 +53,6 @@ link_directories(${LLVM_BUILD_LIBRARY_DIR})
 add_definitions(${LLVM_DEFINITIONS})
 
 include(MLIRDetectPythonEnv)
+set(MLIR_INCLUDE_TESTS 0)
 
 add_subdirectory(loopy)

@@ -1,7 +1,5 @@
 numpy
 sympy
 z3-solver
-cvxpy
 symengine
-picos
 pybind11==2.8.0

@@ -59,21 +59,13 @@ class CMakeBuild(build_ext):
         debug = int(os.environ.get("DEBUG", 0)) if self.debug is None else self.debug
         cfg = "Debug" if debug else "Release"
 
-        # CMake lets you override the generator - we need to check this.
-        # Can be set with Conda-Build, for example.
         cmake_generator = os.environ.get("CMAKE_GENERATOR", "")
 
         llvm_install_dir = os.environ.get("LLVM_INSTALL_DIR", None)
         if llvm_install_dir is None:
             llvm_install_dir = get_llvm_package()
-        # Set Python_EXECUTABLE instead if you use PYBIND11_FINDPYTHON
-        # EXAMPLE_VERSION_INFO shows you how to pass a value into the C++ code
-        # from Python.
         cmake_args = [
-            # f"-DCMAKE_BUILD_TYPE=Debug",
-            # f"-DCMAKE_C_COMPILER=clang",
-            # f"-DCMAKE_CXX_COMPILER=clang++",
-            f"-DCMAKE_LIBRARY_OUTPUT_DIRECTORY={ext_build_lib_dir}/{PACKAGE_NAME}",
+            f"-DCMAKE_INSTALL_PREFIX={ext_build_lib_dir}/{PACKAGE_NAME}",
             f"-DCMAKE_PREFIX_PATH={llvm_install_dir}",
             f"-DCMAKE_MODULE_LINKER_FLAGS=-L{llvm_install_dir}/lib",
             f"-DCMAKE_SHARED_LINKER_FLAGS=-L{llvm_install_dir}/lib",
@@ -87,12 +79,6 @@ class CMakeBuild(build_ext):
         if "CMAKE_ARGS" in os.environ:
             cmake_args += [item for item in os.environ["CMAKE_ARGS"].split(" ") if item]
 
-        # In this example, we pass in the version to C++. You might not need to.
-        # Using Ninja-build since it a) is available as a wheel and b)
-        # multithreads automatically. MSVC would require all variables be
-        # exported for Ninja to pick it up, which is a little tricky to do.
-        # Users can override the generator with CMAKE_GENERATOR in CMake
-        # 3.15+.
         if not cmake_generator or cmake_generator == "Ninja":
             try:
                 import ninja  # noqa: F401
@@ -128,7 +114,9 @@ class CMakeBuild(build_ext):
             ["cmake", ext.sourcedir] + cmake_args, cwd=build_temp, check=True
         )
         subprocess.run(
-            ["cmake", "--build", "."] + build_args, cwd=build_temp, check=True
+            ["cmake", "--build", ".", "--target", "install"] + build_args,
+            cwd=build_temp,
+            check=True,
         )
 
 
@@ -150,6 +138,7 @@ else:
     setup(
         name=PACKAGE_NAME,
         version=VERSION,
+        description="Loop analysis for the polyhedrally challenged.",
         author="Maksim Levental",
         author_email="maksim.levental@gmail.com",
         ext_modules=[CMakeExtension("_mlir")],

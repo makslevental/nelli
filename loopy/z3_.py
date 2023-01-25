@@ -1,7 +1,8 @@
 import io
-from functools import reduce
-from typing import List, Set, Union, Optional
+from pathlib import Path
+from typing import List, Optional
 
+from sympy import Matrix, pprint
 from sympy.core import (
     Mul,
     Expr,
@@ -15,20 +16,14 @@ from sympy.core import (
     GreaterThan,
     StrictGreaterThan,
 )
-from sympy import Symbol as SySymbol, Matrix, zeros, pprint
 from sympy.core.relational import Relational
+import z3
 from z3 import (
     Sqrt,
     Int,
-    Real,
     ForAll,
     And,
-    Solver,
-    sat,
-    Or,
-    QuantifierRef,
     Then,
-    pp,
     PP,
     Formatter,
     BoolVal,
@@ -37,7 +32,6 @@ from z3 import (
     unknown,
     SolverFor,
     simplify,
-    Contains,
     is_eq,
     is_bool,
     is_const,
@@ -45,7 +39,14 @@ from z3 import (
     is_le,
     is_gt,
     is_ge,
+    Tactic,
+    solve_using,
+    Ints,
+    set_param,
+    OnClause,
 )
+
+set_param(proof=True)
 from z3.z3util import get_vars
 
 
@@ -81,7 +82,7 @@ def _sympy_to_z3_rec(var_map, e):
             # sqrt
             rv = Sqrt(term)
         else:
-            rv = term**exponent
+            rv = term ** exponent
     elif isinstance(
         e,
         (Equality, LessThan, StrictLessThan, GreaterThan, StrictGreaterThan),
@@ -137,58 +138,6 @@ def build_z3_access_constraints(sympy_constraints: List[Relational]):
     return constraints
 
 
-def compose(*mem_ops: tuple["MemOp", "MemOp"]):
-    alloc1 = (
-        mem_ops[0].mlir_op.operands[1]
-        if mem_ops[0].mlir_op.name == "affine.store"
-        else mem_ops[0].mlir_op.operands[1]
-    )
-    alloc2 = (
-        mem_ops[1].mlir_op.operands[0]
-        if mem_ops[1].mlir_op.name == "affine.load"
-        else mem_ops[1].mlir_op.operands[1]
-    )
-    assert alloc1 == alloc2
-
-    quantified = set()
-    constraints = []
-    for m in mem_ops:
-        z3_access_constraints = build_z3_access_constraints(m.sympy_access_constraints)
-        quantified.update(m.quantified)
-        constraints.extend(z3_access_constraints)
-
-    assert len(mem_ops[0].operands) == len(mem_ops[1].operands)
-    # TODO(max): check idx positions
-    canon = {}
-    for idx_m1, idx_m2 in zip(mem_ops[0].operands, mem_ops[1].operands):
-        for i, c in enumerate(constraints):
-            canonoical_idx = Int(idx_m1.name)
-            canon[canonoical_idx] = []
-            constraints[i] = substitute(c, (Int(idx_m2.name), canonoical_idx))
-
-    new_constraints = []
-    for i, c in enumerate(constraints):
-        for ca in canon:
-            if ca in get_vars(c):
-                assert c.arg(0) == ca, f"canon sym {ca} in the wrong place: {c}"
-                assert is_eq(c), f"unexpected canon expression type {c}"
-                canon[ca].append(c)
-                break
-        else:
-            new_constraints.append(c)
-
-    for ca, cons in canon.items():
-        assert len(cons) == 2, f"unexpected number of canon constraints {cons=}"
-        new_constraints.insert(0, substitute(cons[0], (ca, cons[1].arg(1))))
-
-    for i, n in enumerate(new_constraints):
-        new_constraints[i] = simplify(n, arith_lhs=True, sort_sums=True)
-
-    if len(quantified):
-        quantified = [Int(s.name) for s in quantified]
-    return quantified, new_constraints
-
-
 def pp_z3(a):
     out = io.StringIO()
     pp = PP()
@@ -200,9 +149,10 @@ def pp_z3(a):
 
 def print_z3_constraints(cons: list):
     cons[0], cons[1] = cons[1], cons[0]
-    print("z3affinemap={")
+    print("{")
     for i, c in enumerate(cons):
         print(
+            "  ",
             pp_z3(simplify(c, arith_lhs=True, arith_ineq_lhs=True, sort_sums=True)),
             end=", \n" if i < len(cons) - 1 else "\n",
         )
@@ -233,9 +183,10 @@ def print_z3_constraints_as_tableau(cons: list, quants: Optional[list] = None):
     tab[0, -1] = Symbol("const")
     tab[0, -2] = Symbol("")
     for i, con in enumerate(cons, start=1):
+        con = simplify(con, arith_lhs=True, sort_sums=True)
         assert is_bool(con), f"unexpected expr type {con=}"
         lhs, rhs = con.arg(0), con.arg(1)
-        assert is_const(rhs)
+        assert is_const(rhs), f"not const rhs {rhs}"
         if is_eq(con):
             rel = "=="
         elif is_lt(con):
@@ -294,9 +245,18 @@ def print_z3_constraints_as_tableau(cons: list, quants: Optional[list] = None):
 
 
 # https://github.com/pysmt/pysmt/blob/97088bf3b0d64137c3099ef79a4e153b10ccfda7/examples/efsmt.py
-def efsmt(ys, phi, maxloops=None):
+def efsmt(constraints, quantified_vars, maxloops=None):
     """Solving exists xs. forall ys. phi(x, y)"""
-    xs = [x for x in get_vars(phi) if x not in ys]
+
+    assert isinstance(constraints, list), f"unexpected constraints {constraints}"
+    assert isinstance(
+        quantified_vars, list
+    ), f"unexpected quantified variables {quantified_vars}"
+
+    if isinstance(constraints, list):
+        constraints = And(*constraints)
+
+    xs = [x for x in get_vars(constraints) if x not in quantified_vars]
     E = SolverFor("LIA")
     F = SolverFor("LIA")
     E.add(BoolVal(True))
@@ -304,15 +264,17 @@ def efsmt(ys, phi, maxloops=None):
     while maxloops is None or loops <= maxloops:
         loops += 1
         eres = E.check()
-        if eres == sat:
+        if eres == z3.sat:
             emodel = E.model()
-            sub_phi = substitute(phi, [(x, emodel.eval(x, True)) for x in xs])
+            sub_phi = substitute(constraints, [(x, emodel.eval(x, True)) for x in xs])
             F.push()
             F.add(Not(sub_phi))
             fres = F.check()
-            if fres == sat:
+            if fres == z3.sat:
                 fmodel = F.model()
-                sub_phi = substitute(phi, [(y, fmodel.eval(y, True)) for y in ys])
+                sub_phi = substitute(
+                    constraints, [(y, fmodel.eval(y, True)) for y in quantified_vars]
+                )
                 E.add(sub_phi)
             else:
                 return fres, [(x, emodel.eval(x, True)) for x in xs]
@@ -322,14 +284,30 @@ def efsmt(ys, phi, maxloops=None):
     return unknown
 
 
-def solve_system(quants, cons):
-    print(efsmt(list(quants), And(*cons)))
-    #
-    # if isinstance(constraints, list):
-    #     s = Solver()
-    #     for c in constraints:
-    #         s.add(c)
-    # else:
-    #     s = Then("qe", "smt").solver()
-    #     s.add(constraints)
-    # print(s.check())
+def log_instance(pr, clause):
+    if pr.decl().name() == "inst":
+        q = pr.arg(0)
+        for ch in pr.children():
+            if ch.decl().name() == "bind":
+                print("Binding")
+                print(q)
+                print(ch.children())
+                break
+
+
+def solve_system(cons: list, quants: Optional[list] = None):
+    assert isinstance(cons, list), f"unexpected constraints {cons=}"
+    assert isinstance(quants, list), f"unexpected quants {quants=}"
+    con = And(*cons)
+    # con = Exists(quants, con)
+    # TODO(max): not necessary?
+    solver = Then("qe2", "smt").solver(logFile=str(Path(__file__).parent / "log.txt"))
+    OnClause(solver, log_instance)
+    solver.add(con)
+    if solver.check() == z3.sat:
+        return solver.model()
+    else:
+        return None
+
+
+# describe_tactics()

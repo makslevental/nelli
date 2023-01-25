@@ -3,6 +3,8 @@ from collections import defaultdict
 from typing import Union, List, Tuple, Optional
 
 from sympy.core.relational import Relational
+from z3 import Int, substitute, is_eq, simplify
+from z3.z3util import get_vars
 
 from .loopy_mlir.ir import (
     AffineAddExpr,
@@ -29,6 +31,8 @@ from .loopy_mlir._mlir_libs._loopyMlir import (
 
 # from symengine import Eq, Symbol, Integer
 from sympy import Eq, Symbol, Integer, pprint
+
+from .z3_ import build_z3_access_constraints, print_z3_constraints, solve_system
 
 # def callback(res_idx, expr):
 #     if isinstance(expr, AffineDimExpr):
@@ -153,7 +157,7 @@ class ApplyOp:
             else:
                 raise Exception("unknown expr type", expr, type(expr))
 
-        affine_map.walkExprs(callback)
+        affine_map.walk_exprs(callback)
         res_name = make_disambig_name(apply_op.result)
         self.exprs[res_name] = Symbol(res_name)
 
@@ -197,14 +201,14 @@ class StoreOp(MemOp):
     def __init__(self, store_op):
         assert store_op.name == "affine.store"
         assert store_op.operands[0].owner.name == "arith.constant"
-        assert store_op.operands[1].owner.name == "memref.alloc"
+        # assert store_op.operands[1].owner.name == "memref.alloc"
         super().__init__(store_op, list(store_op.operands[2:]))
 
 
 class LoadOp(MemOp):
     def __init__(self, load_op):
         assert load_op.name == "affine.load"
-        assert load_op.operands[0].owner.name == "memref.alloc"
+        # assert load_op.operands[0].owner.name == "memref.alloc"
         super().__init__(load_op, list(load_op.operands[1:]))
 
 
@@ -230,4 +234,78 @@ def build_sympy_access_constraints(
 
 def print_sympy_constraints(cons: list[Relational]):
     for c in cons:
-        pprint(c)
+        pprint(c, use_unicode=False)
+
+
+def compose(*mem_ops: tuple["MemOp", "MemOp"]):
+    alloc1 = (
+        mem_ops[0].mlir_op.operands[1]
+        if mem_ops[0].mlir_op.name == "affine.store"
+        else mem_ops[0].mlir_op.operands[1]
+    )
+    alloc2 = (
+        mem_ops[1].mlir_op.operands[0]
+        if mem_ops[1].mlir_op.name == "affine.load"
+        else mem_ops[1].mlir_op.operands[1]
+    )
+    assert alloc1 == alloc2
+
+    quantified = set()
+    constraints = []
+    for m in mem_ops:
+        z3_access_constraints = build_z3_access_constraints(m.sympy_access_constraints)
+        quantified.update(m.quantified)
+        constraints.extend(z3_access_constraints)
+
+    assert len(mem_ops[0].operands) == len(mem_ops[1].operands)
+    # TODO(max): check idx positions
+    canon = {}
+    for idx_m1, idx_m2 in zip(mem_ops[0].operands, mem_ops[1].operands):
+        for i, c in enumerate(constraints):
+            canonoical_idx = Int(idx_m1.name)
+            canon[canonoical_idx] = []
+            constraints[i] = substitute(c, (Int(idx_m2.name), canonoical_idx))
+
+    new_constraints = []
+    for i, c in enumerate(constraints):
+        for ca in canon:
+            if ca in get_vars(c):
+                assert c.arg(0) == ca, f"canon sym {ca} in the wrong place: {c}"
+                assert is_eq(c), f"unexpected canon expression type {c}"
+                canon[ca].append(c)
+                break
+        else:
+            new_constraints.append(c)
+
+    for ca, cons in canon.items():
+        assert len(cons) == 2, f"unexpected number of canon constraints {cons=}"
+        new_constraints.insert(0, substitute(cons[0], (ca, cons[1].arg(1))))
+
+    for i, n in enumerate(new_constraints):
+        new_constraints[i] = simplify(n, arith_lhs=True, sort_sums=True)
+
+    if len(quantified):
+        quantified = [Int(s.name) for s in quantified]
+    else:
+        quantified = []
+    return quantified, new_constraints
+
+
+def check_mem_dep(src_op, dst_op):
+    quants, cons = compose(src_op, dst_op)
+    print("\ncomposed constraint system: ", end="")
+    print_z3_constraints(cons)
+    maybe_model = solve_system(cons, quants)
+    if maybe_model is not None:
+        print("\ndependence found @ {")
+        for i, v in enumerate(maybe_model):
+            print(
+                "  ",
+                v,
+                "->",
+                maybe_model[v],
+                end=", \n" if i < len(maybe_model) - 1 else "\n",
+            )
+        print("}")
+    else:
+        print("\nno dependency\n")

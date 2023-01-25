@@ -216,11 +216,6 @@ DependenceResult myCheckMemrefAccessDependence(
     const MemRefAccess &srcAccess, const MemRefAccess &dstAccess,
     unsigned loopDepth, FlatAffineValueConstraints *dependenceConstraints,
     SmallVector<DependenceComponent, 2> *dependenceComponents, bool allowRAR) {
-  LLVM_DEBUG(llvm::dbgs() << "Checking for dependence at depth: "
-                          << Twine(loopDepth) << " between:\n";);
-  LLVM_DEBUG(srcAccess.opInst->dump(););
-  LLVM_DEBUG(dstAccess.opInst->dump(););
-
   // Return 'NoDependence' if these accesses do not access the same memref.
   if (srcAccess.memref != dstAccess.memref)
     return DependenceResult::NoDependence;
@@ -284,8 +279,6 @@ DependenceResult myCheckMemrefAccessDependence(
     computeDirectionVector(srcDomain, dstDomain, loopDepth,
                            dependenceConstraints, dependenceComponents);
 
-  LLVM_DEBUG(llvm::dbgs() << "Dependence polyhedron:\n");
-  LLVM_DEBUG(dependenceConstraints->dump());
   return DependenceResult::HasDependence;
 }
 
@@ -315,29 +308,30 @@ getDirectionVectorStr(bool ret, unsigned numCommonLoops, unsigned loopNestDepth,
   return result;
 }
 
-std::string printValue(Value v) {
-  std::string Str;
-  llvm::raw_string_ostream OS(Str);
-  auto parent = v.getParentRegion()->getParentOfType<func::FuncOp>();
-  AsmState state(parent, OpPrintingFlags().printGenericOpForm());
-  v.printAsOperand(OS, state);
-  return Str;
-}
-
-std::string printValueAsOperand(Value v) {
+std::string showValueAsOperand(Value v) {
   std::string str;
   llvm::raw_string_ostream os(str);
   auto parent = v.getParentRegion()->getParentOfType<func::FuncOp>();
   AsmState state(parent, OpPrintingFlags().printGenericOpForm());
   v.printAsOperand(os, state);
   //  return str;
-  return std::regex_replace(str, std::regex("%"), "_");
+  return std::regex_replace(str, std::regex("%"), "");
+}
+
+std::string showOp(Operation *o) {
+  std::string str;
+  llvm::raw_string_ostream os(str);
+  auto parent = o->getParentOfType<func::FuncOp>();
+  AsmState state(parent, OpPrintingFlags().printGenericOpForm());
+  o->print(os, state);
+  //    return str;
+  return std::regex_replace(str, std::regex("%"), "");
 }
 
 std::map<std::string, std::map<void *, std::string>> seen;
 
-std::string makeDisambigName(const Value &v) {
-  auto name = printValueAsOperand(v);
+std::string makeDisambigName(Value v) {
+  auto name = showValueAsOperand(v);
   if (seen.count(name) && !seen[name].count(v.getAsOpaquePointer())) {
     seen[name][v.getAsOpaquePointer()] =
         name + std::string(seen[name].size(), '\'');
@@ -352,25 +346,29 @@ std::string makeDisambigName(const Value &v) {
 void printDependenceConstraints(FlatAffineValueConstraints dep,
                                 const std::string &name = "") {
   std::cerr << name << "\n";
-  //    dep.dump();
   std::string str;
   llvm::raw_string_ostream os(str);
   Table header;
+
   auto nd = dep.getNumDomainVars();
+  auto nds = dep.getNumDimAndSymbolVars();
   auto nr = dep.getNumRangeVars();
   auto ns = dep.getNumSymbolVars();
   auto nl = dep.getNumLocalVars();
   auto ne = dep.getNumEqualities();
+  auto nie = dep.getNumInequalities();
+  auto nc = dep.getNumCols();
+
   using Row_t =
       std::vector<variant<std::string, const char *, string_view, Table>>;
   Row_t varTypes;
-  for (int i = 0; i < nd; ++i)
+  for (unsigned int i = 0; i < nd; ++i)
     varTypes.emplace_back("domain");
-  for (int i = 0; i < nr; ++i)
+  for (unsigned int i = 0; i < nr; ++i)
     varTypes.emplace_back("range");
-  for (int i = 0; i < ns; ++i)
+  for (unsigned int i = 0; i < ns; ++i)
     varTypes.emplace_back("symbol");
-  for (int i = 0; i < nl; ++i)
+  for (unsigned int i = 0; i < nl; ++i)
     varTypes.emplace_back("local");
   varTypes.emplace_back("");
   varTypes.emplace_back("");
@@ -384,8 +382,8 @@ void printDependenceConstraints(FlatAffineValueConstraints dep,
     } else
       value_names.emplace_back("none");
   }
-  if (dep.getNumDimAndSymbolVars() < dep.getNumCols())
-    for (int i = dep.getNumDimAndSymbolVars(); i < dep.getNumCols() - 1; ++i) {
+  if (nds < nc)
+    for (unsigned int i = nds; i < nc - 1; ++i) {
       value_names.emplace_back("none");
     }
   value_names.emplace_back("const");
@@ -397,12 +395,12 @@ void printDependenceConstraints(FlatAffineValueConstraints dep,
   std::cerr << header << "\n";
 
   Table table;
-  for (unsigned i = 0, e = dep.getNumEqualities(); i < e; ++i) {
+  for (unsigned i = 0, e = ne; i < e; ++i) {
     Row_t row;
-    for (unsigned j = 0, f = dep.getNumCols(); j < f; ++j) {
+    for (unsigned j = 0, f = nc; j < f; ++j) {
       auto coeff = dep.atEq(i, j);
       auto s = std::to_string(coeff);
-      if (dep.hasValue(j) && coeff != 0) {
+      if (j < nds && dep.hasValue(j) && coeff != 0) {
         s += "*" + makeDisambigName(dep.getValue(j));
       }
       if (j < f - 1)
@@ -413,12 +411,12 @@ void printDependenceConstraints(FlatAffineValueConstraints dep,
     row.emplace_back("0 ,");
     table.add_row(row);
   }
-  for (unsigned i = 0, e = dep.getNumInequalities(); i < e; ++i) {
+  for (unsigned i = 0, e = nie; i < e; ++i) {
     Row_t row;
-    for (unsigned j = 0, f = dep.getNumCols(); j < f; ++j) {
+    for (unsigned j = 0, f = nc; j < f; ++j) {
       auto coeff = dep.atIneq(i, j);
       auto s = std::to_string(coeff);
-      if (dep.hasValue(j) && coeff != 0) {
+      if (j < nds && dep.hasValue(j) && coeff != 0) {
         s += "*" + makeDisambigName(dep.getValue(j));
       }
       if (j < f - 1)
@@ -434,68 +432,62 @@ void printDependenceConstraints(FlatAffineValueConstraints dep,
   }
   table.format().hide_border();
   table.format().font_align(FontAlign::right);
-  std::cerr << "mliraffinemap={\n"
+  std::cerr << "mlirconstraints={\n"
             << table << "}"
             << "\n";
 }
 
-// For each access in 'loadsAndStores', runs a dependence check between this
-// "source" access and all subsequent "destination" accesses in
-// 'loadsAndStores'. Emits the result of the dependence check as a note with
-// the source access.
-static void myCheckDependences(ArrayRef<Operation *> loadsAndStores) {
-  for (unsigned i = 0, e = loadsAndStores.size(); i < e; ++i) {
-    auto *srcOpInst = loadsAndStores[i];
-    MemRefAccess srcAccess(srcOpInst);
-    for (unsigned j = i + 1; j < e; ++j) {
-      if (j <= i)
-        continue;
+static void myCheckDependenceSrcDst(Operation *srcOpInst,
+                                    Operation *dstOpInst) {
+  MemRefAccess srcAccess(srcOpInst);
+  MemRefAccess dstAccess(dstOpInst);
 
-      auto *dstOpInst = loadsAndStores[j];
-      MemRefAccess dstAccess(dstOpInst);
-
-      unsigned numCommonLoops =
-          getNumCommonSurroundingLoops(*srcOpInst, *dstOpInst);
-      std::cerr << "numCommonLoops: " << numCommonLoops << "\n";
-      for (unsigned d = 1; d <= numCommonLoops + 1; ++d) {
-        std::cerr << "checking " << i << " to " << j << " at depth " << d
-                  << "\n";
-        FlatAffineValueConstraints dependenceConstraints;
-        SmallVector<DependenceComponent, 2> dependenceComponents;
-        DependenceResult result = myCheckMemrefAccessDependence(
-            srcAccess, dstAccess, d, &dependenceConstraints,
-            &dependenceComponents, true);
-        if (result.value == DependenceResult::Failure) {
-          srcOpInst->emitError("dependence check failed");
-        } else {
-          bool ret = hasDependence(result);
-          // TODO: Print dependence type (i.e. RAW, etc) and print
-          // distance vectors as: ([2, 3], [0, 10]). Also, shorten distance
-          // vectors from ([1, 1], [3, 3]) to (1, 3).
-          srcOpInst->emitRemark("dependence from ")
-              << i << " to " << j << " at depth " << d << " = "
-              << getDirectionVectorStr(ret, numCommonLoops, d,
-                                       dependenceComponents);
-          if (ret)
-            printDependenceConstraints(dependenceConstraints);
+  unsigned numCommonLoops =
+      getNumCommonSurroundingLoops(*srcOpInst, *dstOpInst);
+  std::cerr << "numCommonLoops: " << numCommonLoops << "\n";
+  for (unsigned d = 1; d <= numCommonLoops + 1; ++d) {
+    std::cerr << "checking for dependence from\n\t" << showOp(srcOpInst) << "\nto\n\t" << showOp(dstOpInst) << "\nat depth "
+              << d << "\n";
+    FlatAffineValueConstraints dependenceConstraints;
+    SmallVector<DependenceComponent, 2> dependenceComponents;
+    DependenceResult result = myCheckMemrefAccessDependence(
+        srcAccess, dstAccess, d, &dependenceConstraints, &dependenceComponents,
+        true);
+    if (result.value == DependenceResult::Failure) {
+      srcOpInst->emitError("dependence check failed");
+    } else {
+      bool ret = hasDependence(result);
+      // TODO: Print dependence type (i.e. RAW, etc) and print
+      // distance vectors as: ([2, 3], [0, 10]). Also, shorten distance
+      // vectors from ([1, 1], [3, 3]) to (1, 3).
+      if (ret) {
+        srcOpInst->emitRemark("dependence from\n\t")
+            << showOp(srcOpInst) << "\nto\n\t" << showOp(dstOpInst) << "\nat depth "
+            << d << " = "
+            << getDirectionVectorStr(ret, numCommonLoops, d,
+                                     dependenceComponents);
+        printDependenceConstraints(dependenceConstraints);
+        auto d = dependenceConstraints.getNumDimAndSymbolVars();
+        std::cerr << "integer sample:\n";
+        std::cerr << "{";
+        auto integerSample =
+            dependenceConstraints.findIntegerSample().getValue();
+        for (unsigned i = 0; i < d; ++i) {
+          if (dependenceConstraints.hasValue(i)) {
+            std::cerr << makeDisambigName(dependenceConstraints.getValue(i))
+                      << "->" << integerSample[i];
+            if (i < d - 1)
+              std::cerr << ", ";
+          }
         }
+        std::cerr << "}";
+        std::cerr << "\n\n";
+      } else {
+        std::cerr << "no dependence";
+
       }
     }
   }
-}
-
-void showAccessRelations(Operation *operation, MLIRContext &ctx) {
-  AffineStoreOp storeOp;
-  AffineLoadOp loadOp;
-  operation->walk([&](Operation *op) {
-    if (isa<AffineStoreOp>(op)) {
-      storeOp = dyn_cast<AffineStoreOp>(op);
-    }
-    if (isa<AffineLoadOp>(op)) {
-      loadOp = dyn_cast<AffineLoadOp>(op);
-    }
-  });
-  myCheckDependences({storeOp, loadOp});
 }
 
 #endif // LOOPY_AFFINE_ANALYSIS_H

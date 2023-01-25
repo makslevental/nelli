@@ -28,82 +28,10 @@ using namespace presburger;
 using namespace tabulate;
 
 // no clue why but without this i get a missing symbol error
-namespace llvm {
-int DisableABIBreakingChecks = 1;
-int EnableABIBreakingChecks = 0;
-} // namespace llvm
-
-namespace pybind11::detail {
-/// Casts object <-> MlirAffineExpr.
-template <> struct type_caster<MlirAffineExpr> {
-  PYBIND11_TYPE_CASTER(MlirAffineExpr, _("MlirAffineExpr"));
-
-  bool load(handle src, bool) {
-    py::object capsule = mlirApiObjectToCapsule(src);
-    value = mlirPythonCapsuleToAffineExpr(capsule.ptr());
-    if (mlirAffineExprIsNull(value)) {
-      return false;
-    }
-    return !mlirAffineExprIsNull(value);
-  }
-
-#define FOR_ALL_EXPR_TYPES(_)                                                  \
-  _(Dim)                                                                       \
-  _(Symbol)                                                                    \
-  _(Constant)                                                                  \
-  _(Add)                                                                       \
-  _(Mul)                                                                       \
-  _(Mod)                                                                       \
-  _(FloorDiv)                                                                  \
-  _(CeilDiv)                                                                   \
-  _(Binary)
-
-  static handle cast(MlirAffineExpr v, return_value_policy, handle) {
-    auto capsule =
-        py::reinterpret_steal<py::object>(mlirPythonAffineExprToCapsule(v));
-    auto mlir_ir = py::module::import(MAKE_MLIR_PYTHON_QUALNAME("ir"));
-    auto expr = mlir_ir.attr("AffineExpr")
-                    .attr(MLIR_PYTHON_CAPI_FACTORY_ATTR)(capsule)
-                    .release();
-
-#define DEFINE_SUB_EXPR(TTT)                                                   \
-  if (mlirAffineExprIsA##TTT(v)) {                                             \
-    return py::module::import(MAKE_MLIR_PYTHON_QUALNAME("ir"))                 \
-        .attr("Affine" #TTT "Expr")(expr.cast<py::object>())                   \
-        .release();                                                            \
-  }
-    FOR_ALL_EXPR_TYPES(DEFINE_SUB_EXPR)
-#undef DEFINE_SUB_EXPR
-
-    throw py::cast_error("Invalid AffineExpr type when attempting to "
-                         "create an AffineExpr");
-  }
-};
-
-/// Casts object <-> MlirAffineMap.
-template <> struct type_caster<MlirValue> {
-  PYBIND11_TYPE_CASTER(MlirValue, _("MlirValue"));
-
-  bool load(handle src, bool) {
-    py::object capsule = mlirApiObjectToCapsule(src);
-    value = mlirPythonCapsuleToValue(capsule.ptr());
-    if (mlirValueIsNull(value)) {
-      return false;
-    }
-    return !mlirValueIsNull(value);
-  }
-
-  static handle cast(MlirValue v, return_value_policy, handle) {
-    auto capsule =
-        py::reinterpret_steal<py::object>(mlirPythonValueToCapsule(v));
-    return py::module::import(MAKE_MLIR_PYTHON_QUALNAME("ir"))
-        .attr("Value")
-        .attr(MLIR_PYTHON_CAPI_FACTORY_ATTR)(capsule)
-        .release();
-  }
-};
-
-} // namespace pybind11::detail
+// namespace llvm {
+// int DisableABIBreakingChecks = 1;
+// int EnableABIBreakingChecks = 0;
+//} // namespace llvm
 
 static mlir::LogicalResult
 getOpIndexSet(mlir::Operation *op, mlir::FlatAffineValueConstraints *indexSet) {
@@ -111,7 +39,6 @@ getOpIndexSet(mlir::Operation *op, mlir::FlatAffineValueConstraints *indexSet) {
   mlir::getEnclosingAffineForAndIfOps(*op, &ops);
   return getIndexSet(ops, indexSet);
 }
-
 
 PYBIND11_MODULE(_loopyMlir, m) {
   auto mod = py::module_::import(MAKE_MLIR_PYTHON_QUALNAME("ir"));
@@ -124,7 +51,7 @@ PYBIND11_MODULE(_loopyMlir, m) {
         return PyAffineMap::createFromCapsule(capsule);
       }))
       .def(
-          "walkExprs",
+          "walk_exprs",
           [](PyAffineMap &self,
              std::function<void(size_t resIdx, MlirAffineExpr expr)> callback) {
             for (const auto &idx_expr :
@@ -151,7 +78,7 @@ PYBIND11_MODULE(_loopyMlir, m) {
   m.def("print_value_as_operand", [](const py::handle valueApiObject) {
     auto capsule = pybind11::detail::mlirApiObjectToCapsule(valueApiObject);
     MlirValue mlirValue = mlirPythonCapsuleToValue(capsule.ptr());
-    return printValueAsOperand(unwrap(mlirValue));
+    return showValueAsOperand(unwrap(mlirValue));
   });
   m.def("get_affine_value_map", [](const py::handle affineOpApiObject) {
     auto capsule = pybind11::detail::mlirApiObjectToCapsule(affineOpApiObject);
@@ -170,12 +97,12 @@ PYBIND11_MODULE(_loopyMlir, m) {
     py::list syms;
     for (unsigned int i = 0; i < valueMap.getNumDims(); ++i) {
       auto v = valueMap.getOperand(i);
-      dims.append(printValueAsOperand(v));
+      dims.append(showValueAsOperand(v));
     }
     for (unsigned int i = valueMap.getNumDims();
          i < valueMap.getNumDims() + valueMap.getNumSymbols(); ++i) {
       auto v = valueMap.getOperand(i);
-      syms.append(printValueAsOperand(v));
+      syms.append(showValueAsOperand(v));
     }
     return py::make_tuple(dims, syms);
   });
@@ -200,7 +127,7 @@ PYBIND11_MODULE(_loopyMlir, m) {
     py::dict indices;
     for (const auto &pos_idx : llvm::enumerate(access->indices)) {
       indices[py::cast<>(pos_idx.index())] =
-          printValueAsOperand(pos_idx.value());
+          showValueAsOperand(pos_idx.value());
     }
 
     mlir::FlatAffineValueConstraints domain;
@@ -223,10 +150,10 @@ PYBIND11_MODULE(_loopyMlir, m) {
     return py::make_tuple(bounds, indices);
   });
 
-  m.def("show_access_relation", [](const py::handle moduleApiObject) {
-    auto capsule = pybind11::detail::mlirApiObjectToCapsule(moduleApiObject);
-    MlirModule mlirModule = mlirPythonCapsuleToModule(capsule.ptr());
-    auto module = unwrap(mlirModule);
-    showAccessRelations(module.getOperation(), *module->getContext());
-  });
+  m.def("show_access_relation",
+        [](const py::handle srcOpApiObject, const py::handle dstOpApiObject) {
+          auto *srcOp = unwrapApiObject<mlir::Operation>(srcOpApiObject);
+          auto *dstOp = unwrapApiObject<mlir::Operation>(dstOpApiObject);
+          myCheckDependenceSrcDst(srcOp, dstOp);
+        });
 }
