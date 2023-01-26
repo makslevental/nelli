@@ -3,16 +3,13 @@ from textwrap import dedent
 
 from loopy.z3_ import build_z3_access_constraints, print_z3_constraints_as_tableau
 
-from loopy.aff import StoreOp, LoadOp, print_sympy_constraints, check_mem_dep
-from loopy.loopy_mlir.ir import (
-    Context,
-    Location,
-    Module,
-)
+from loopy.aff import StoreOp, LoadOp, print_sympy_constraints, check_mem_dep, find_ops
+from loopy.loopy_mlir.ir import Context, Location, Module, SymbolTable
 
 # noinspection PyUnresolvedReferences
 from loopy.loopy_mlir._mlir_libs._loopyMlir import (
     show_access_relation,
+    walk_operation,
 )
 
 
@@ -40,38 +37,22 @@ def has_dep():
       }
     """
     )
-
-    with Context() as ctx, Location.name("has_dep.py", context=ctx):
+    with Context() as ctx, Location.unknown():
         module = Module.parse(
             src,
             context=ctx,
         )
-        # show_access_relation(module)
 
-        func_body = module.body.operations[0].regions[0].blocks[0]
-        first_for_loop_operations = (
-            func_body.operations[2]
-            .regions[0]
-            .blocks[0]
-            .operations[0]
-            .regions[0]
-            .blocks[0]
-            .operations
+        stores_loads = find_ops(
+            module, lambda op: op.name in {"affine.store", "affine.load"}
         )
-        store = StoreOp(first_for_loop_operations[2].operation)
+        print(stores_loads)
+        assert stores_loads[0].name == "affine.store"
+        assert stores_loads[1].name == "affine.load"
+        store = StoreOp(stores_loads[0])
         print("\nconstraint system for store op:\n")
         print_sympy_constraints(store.sympy_access_constraints)
-
-        second_for_loop_operations = (
-            func_body.operations[3]
-            .regions[0]
-            .blocks[0]
-            .operations[0]
-            .regions[0]
-            .blocks[0]
-            .operations
-        )
-        load = LoadOp(second_for_loop_operations[2].operation)
+        load = LoadOp(stores_loads[1])
         print("\nconstraint system for store op:\n")
         print_sympy_constraints(load.sympy_access_constraints)
 
@@ -104,42 +85,25 @@ def hasnt_dep():
     """
     )
 
-    with Context() as ctx, Location.name("has_dep.py", context=ctx):
+    with Context() as ctx, Location.unknown():
         module = Module.parse(
             src,
             context=ctx,
         )
-
-        func_body = module.body.operations[0].regions[0].blocks[0]
-        first_for_loop_operations = (
-            func_body.operations[2]
-            .regions[0]
-            .blocks[0]
-            .operations[0]
-            .regions[0]
-            .blocks[0]
-            .operations
+        stores_loads = find_ops(
+            module, lambda op: op.name in {"affine.store", "affine.load"}
         )
-        store = StoreOp(first_for_loop_operations[2].operation)
+        print(stores_loads)
+        assert stores_loads[0].name == "affine.store"
+        assert stores_loads[1].name == "affine.load"
+        store = StoreOp(stores_loads[0])
         print("\nconstraint system for store op:\n")
         print_sympy_constraints(store.sympy_access_constraints)
-        # z3_access_constraints = build_z3_access_constraints(store.sympy_access_constraints)
-        # print_z3_constraints_as_tableau(z3_access_constraints)
-
-        second_for_loop_operations = (
-            func_body.operations[3]
-            .regions[0]
-            .blocks[0]
-            .operations[0]
-            .regions[0]
-            .blocks[0]
-            .operations
-        )
-        load = LoadOp(second_for_loop_operations[2].operation)
+        load = LoadOp(stores_loads[1])
         print("\nconstraint system for store op:\n")
         print_sympy_constraints(load.sympy_access_constraints)
 
-        # show_access_relation(store.mlir_op, load.mlir_op)
+        show_access_relation(store.mlir_op, load.mlir_op)
         check_mem_dep(store, load)
 
 
