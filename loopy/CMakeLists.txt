@@ -8,6 +8,9 @@ add_compile_definitions("MLIR_PYTHON_PACKAGE_PREFIX=loopy.loopy_mlir.")
 declare_mlir_python_sources(LoopyPythonSources)
 
 # TODO(max): figure out how to prevent cpps from being "installed"
+get_property(MLIR_D_LIBS GLOBAL PROPERTY MLIR_DIALECT_LIBS)
+get_property(MLIR_C_LIBS GLOBAL PROPERTY MLIR_CONVERSION_LIBS)
+get_property(MLIR_T_LIBS GLOBAL PROPERTY MLIR_TRANSLATION_LIBS)
 declare_mlir_python_extension(LoopyPythonSources.Extension
         MODULE_NAME _loopyMlir
         ADD_TO_PARENT LoopyPythonSources
@@ -20,12 +23,45 @@ declare_mlir_python_extension(LoopyPythonSources.Extension
         MLIRIR
         MLIRPresburger
         MLIRAffineAnalysis
+#        ${MLIR_D_LIBS}
+#        ${MLIR_C_LIBS}
+#        ${MLIR_T_LIBS}
+#        MLIRCAPIRegisterEverything
+#        MLIRIR
+#        LLVMSupport
+#        MLIRPresburger
+#        MLIRAffineAnalysis
+        MLIRPythonExtension.Core
+#
+#        MLIRCAPIConversion
+#        MLIRCAPIDebug
+#        MLIRCAPIIR
+#        MLIRCAPIInterfaces
+#        MLIRCAPIRegisterEverything
+#        MLIRCAPITransforms
+#
+#        MLIRCAPIAsync
+#        MLIRCAPIControlFlow
+#        MLIRCAPIFunc
+#        MLIRCAPIGPU
+#        MLIRCAPILLVM
+#        MLIRCAPILinalg
+#        MLIRCAPIMLProgram
+#        MLIRCAPIPDL
+#        MLIRCAPIQuant
+#        MLIRCAPISCF
+#        MLIRCAPIShape
+#        MLIRCAPISparseTensor
+#        MLIRCAPITensor
+#        MLIRCAPITransformDialect
         )
 #add_dependencies(LoopyPythonSources.Extension MLIRPythonExtension.Core)
 #target_include_directories(LoopyPythonSources.Extension INTERFACE $<TARGET_PROPERTY:MLIRPythonExtension.Core,INCLUDE_DIRECTORIES>)
 
 set(_source_components
         LoopyPythonSources
+#        MLIRPythonSources.Core
+#        MLIRPythonSources.Dialects.func
         MLIRPythonSources
         MLIRPythonExtension.Core
         MLIRPythonExtension.RegisterEverything
@@ -54,10 +90,8 @@ list(GET mlir_python_sources 0 HEADER)
 get_filename_component(header_dir ${HEADER} DIRECTORY)
 target_include_directories(LoopyPythonSources.Extension INTERFACE ${header_dir})
 
-
-# template \<typename T\>\nstruct type_caster\<llvm\:\:Optional\<T\>\> \: optional_caster\<llvm\:\:Optional\<T\>\> \{\}\;
-#message(FATAL_ERROR)
-
 file(READ ${header_dir}/PybindUtils.h filedata)
-string(REGEX REPLACE "^template \\<typename T\\>\nstruct type_caster\\<llvm\\:\\:Optional\\<T\\>\\> \\: optional_caster\\<llvm\\:\\:Optional\\<T\\>\\> \\{\\}\;" "// template <typename T> struct type_caster<llvm::Optional<T>> : optional_caster<llvm::Optional<T>> {};" filedata "${filedata}")
-file(WRITE ${header_dir}/PybindUtils.h "${filedata}")
+file(WRITE ${header_dir}/PybindUtils.bkup.h "${filedata}")
+string(REPLACE "template <typename T>
+struct type_caster<llvm::Optional<T>> : optional_caster<llvm::Optional<T>> {}" "// typecaster" output "${filedata}")
+file(WRITE ${header_dir}/PybindUtils.h "${output}")

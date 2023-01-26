@@ -28,6 +28,7 @@ from .loopy_mlir._mlir_libs._loopyMlir import (
     get_affine_value_map,
     show_access_relation,
     walk_affine_exprs,
+    walk_operation,
 )
 
 # from symengine import Eq, Symbol, Integer
@@ -310,3 +311,14 @@ def check_mem_dep(src_op, dst_op):
         print("}")
     else:
         print("\nno dependency\n")
+
+
+def find_ops(module, pred):
+    matching = []
+
+    def find(op):
+        if pred(op):
+            matching.append(op)
+
+    walk_operation(module.operation, find)
+    return matching

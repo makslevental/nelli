@@ -1,3 +1,4 @@
+#include "IRModule.h"
 #include "mlir-c/AffineExpr.h"
 #include "mlir-c/Bindings/Python/Interop.h"
 #include "mlir-c/BuiltinAttributes.h"
@@ -15,10 +16,8 @@
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/AffineExprVisitor.h"
 #include "mlir/IR/Operation.h"
-#include <iostream>
 #include <pybind11/functional.h>
 #include <pybind11/pybind11.h>
-#include "IRModule.h"
 
 #include "affine_analysis.h"
 
@@ -105,61 +104,10 @@ getOpIndexSet(mlir::Operation *op, mlir::FlatAffineValueConstraints *indexSet) {
   return getIndexSet(ops, indexSet);
 }
 
-void mlirSymbolTableWalkSymbolTables(MlirOperation from, bool allSymUsesVisible,
-                                     void (*callback)(MlirOperation, bool,
-                                                      void *userData),
-                                     void *userData) {
-  SymbolTable::walkSymbolTables(unwrap(from), allSymUsesVisible,
-                                [&](Operation *foundOpCpp, bool isVisible) {
-                                  callback(wrap(foundOpCpp), isVisible,
-                                           userData);
-                                });
-}
-
 class PyAffineMapAttribute : public PyConcreteAttribute<PyAffineMapAttribute> {
 public:
   using PyConcreteAttribute::PyConcreteAttribute;
 };
-
-// void walkOperation(MlirOperation op, py::object callback) {
-//   struct UserData {
-//     PyMlirContextRef context;
-//     py::object callback;
-//     bool gotException;
-//     std::string exceptionWhat;
-//     py::object exceptionType;
-//   };
-//
-//   auto ctx = mlirOperationGetContext(op);
-//   auto ctxRef = fromMlirContext(ctx);
-//   UserData userData{ctxRef, std::move(callback), false, {}, {}};
-//   unwrap(op)->walk([](Operation *foundOpCpp) {
-////    PyOperation::forOperation(calleeUserData->context, wrap(foundOpCpp));
-//  });
-//  //  mlirSymbolTableWalkSymbolTables(
-//  //      fromOperation.get(), allSymUsesVisible,
-//  //      [](MlirOperation foundOp, bool isVisible, void *calleeUserDataVoid)
-//  {
-//  //        UserData *calleeUserData = static_cast<UserData
-//  //        *>(calleeUserDataVoid); auto pyFoundOp =
-//  //            PyOperation::forOperation(calleeUserData->context, foundOp);
-//  //        if (calleeUserData->gotException)
-//  //          return;
-//  //        try {
-//  //          calleeUserData->callback(pyFoundOp.getObject(), isVisible);
-//  //        } catch (py::error_already_set &e) {
-//  //          calleeUserData->gotException = true;
-//  //          calleeUserData->exceptionWhat = e.what();
-//  //          calleeUserData->exceptionType = e.type();
-//  //        }
-//  //      },
-//  //      static_cast<void *>(&userData));
-//  if (userData.gotException) {
-//    std::string message("Exception raised in callback: ");
-//    message.append(userData.exceptionWhat);
-//    throw std::runtime_error(message);
-//  }
-//}
 
 template <typename T> T *unwrapApiObject(const py::handle apiObject) {
   return unwrap(mlirPythonCapsuleToOperation(
@@ -179,6 +127,13 @@ PYBIND11_MODULE(_loopyMlir, m) {
               callback(idx, wrap(expr));
             });
           }
+        });
+
+  m.def("walk_operation",
+        [](PyOperation &self, std::function<void(MlirOperation)> callback) {
+          unwrap(self.get())->walk([&callback](Operation *op) {
+            callback(wrap(op));
+          });
         });
 
   m.def("get_affine_map_from_attr", [](PyAttribute &self) {
