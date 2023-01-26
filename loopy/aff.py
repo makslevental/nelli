@@ -22,11 +22,12 @@ from .loopy_mlir.ir import (
     Operation,
 )
 from .loopy_mlir._mlir_libs._loopyMlir import (
-    LoopyAffineMapAttr,
+    get_affine_map_from_attr,
     print_value_as_operand,
     get_access_relation,
     get_affine_value_map,
     show_access_relation,
+    walk_affine_exprs,
 )
 
 # from symengine import Eq, Symbol, Integer
@@ -100,7 +101,7 @@ class ApplyOp:
         assert apply_op.name == "affine.apply"
 
         self.operands = [Symbol(make_disambig_name(o)) for o in apply_op.operands]
-        affine_map = LoopyAffineMapAttr(AffineMapAttr(apply_op.attributes[0].attr)).map
+        affine_map = get_affine_map_from_attr(apply_op.attributes[0].attr)
         self.dims = {}
         self.exprs = {}
         self.symbols = {}
@@ -157,7 +158,7 @@ class ApplyOp:
             else:
                 raise Exception("unknown expr type", expr, type(expr))
 
-        affine_map.walk_exprs(callback)
+        walk_affine_exprs(affine_map, callback)
         res_name = make_disambig_name(apply_op.result)
         self.exprs[res_name] = Symbol(res_name)
 

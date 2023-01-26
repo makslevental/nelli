@@ -8,6 +8,7 @@ from loopy.loopy_mlir.ir import (
     Context,
     Location,
     Module,
+    SymbolTable
 )
 
 # noinspection PyUnresolvedReferences
@@ -40,13 +41,15 @@ def has_dep():
       }
     """
     )
-
-    with Context() as ctx, Location.name("has_dep.py", context=ctx):
+    with Context() as ctx, Location.unknown():
         module = Module.parse(
             src,
             context=ctx,
         )
-        # show_access_relation(module)
+
+        # def callback(symbol_table_op, uses_visible):
+        #     print(f"SYMBOL TABLE: {uses_visible}: {symbol_table_op}")
+        # SymbolTable.walk_symbol_tables(module.operation, True, callback)
 
         func_body = module.body.operations[0].regions[0].blocks[0]
         first_for_loop_operations = (
@@ -144,4 +147,4 @@ def hasnt_dep():
 
 
 has_dep()
-hasnt_dep()
+# hasnt_dep()
