@@ -34,45 +34,12 @@ from .loopy_mlir._mlir_libs._loopyMlir import (
 # from symengine import Eq, Symbol, Integer
 from sympy import Eq, Symbol, Integer, pprint
 
-from .z3_ import build_z3_access_constraints, print_z3_constraints, solve_system
-
-# def callback(res_idx, expr):
-#     if isinstance(expr, AffineDimExpr):
-#         name = str(expr)
-#         assert self_dims[name]['pos'] == expr.position
-#         self_exprs[name] = self_dims[name]["symbol"] = Symbol(name)
-#     elif isinstance(expr, AffineSymbolExpr):
-#         name = str(expr)
-#         assert self_symbols[name]['pos'] == expr.position
-#         self_exprs[name] = self_symbols[name]["symbol"] = Symbol(name)
-#     elif isinstance(expr, AffineConstantExpr):
-#         value = str(expr)
-#         self_exprs[value] = self_constants[value] = Integer(int(value))
-#     elif isinstance(expr, AffineAddExpr):
-#         lhs = str(expr.lhs)
-#         rhs = str(expr.rhs)
-#         self_exprs[str(expr)] = self_exprs[lhs] + self_exprs[rhs]
-#     elif isinstance(expr, AffineMulExpr):
-#         lhs = str(expr.lhs)
-#         rhs = str(expr.rhs)
-#         self_exprs[str(expr)] = self_exprs[lhs] * self_exprs[rhs]
-#     elif isinstance(expr, AffineModExpr):
-#         lhs = str(expr.lhs)
-#         rhs = str(expr.rhs)
-#         self_exprs[str(expr)] = self_exprs[lhs] % self_exprs[rhs]
-#     elif isinstance(expr, AffineFloorDivExpr):
-#         lhs = str(expr.lhs)
-#         rhs = str(expr.rhs)
-#         self_exprs[str(expr)] = self_exprs[lhs] // self_exprs[rhs]
-#     elif isinstance(expr, AffineCeilDivExpr):
-#         lhs = str(expr.lhs)
-#         rhs = str(expr.rhs)
-#         self_exprs[str(expr)] = (self_exprs[lhs] // self_exprs[rhs]) + 1
-#     elif isinstance(expr, AffineBinaryExpr):
-#         print("BinaryExpr", expr)
-#     else:
-#         raise Exception("unknown expr type", expr, type(expr))
-
+from .z3_ import (
+    build_z3_access_constraints,
+    print_z3_constraints,
+    solve_system,
+    opt_system,
+)
 
 seen = {}
 
@@ -297,7 +264,7 @@ def check_mem_dep(src_op, dst_op):
     quants, cons = compose(src_op, dst_op)
     print("\ncomposed constraint system: ", end="")
     print_z3_constraints(cons)
-    maybe_model = solve_system(cons, quants)
+    maybe_model = opt_system(cons, quants)
     if maybe_model is not None:
         print("\ndependence found @ {")
         for i, v in enumerate(maybe_model):
@@ -313,12 +280,12 @@ def check_mem_dep(src_op, dst_op):
         print("\nno dependency\n")
 
 
-def find_ops(module, pred):
+def find_ops(op, pred):
     matching = []
 
     def find(op):
         if pred(op):
             matching.append(op)
 
-    walk_operation(module.operation, find)
+    walk_operation(op.operation, find)
     return matching

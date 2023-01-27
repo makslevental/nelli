@@ -21,7 +21,6 @@ import z3
 from z3 import (
     Sqrt,
     Int,
-    ForAll,
     And,
     Then,
     PP,
@@ -39,11 +38,9 @@ from z3 import (
     is_le,
     is_gt,
     is_ge,
-    Tactic,
-    solve_using,
-    Ints,
     set_param,
     OnClause,
+    Optimize,
 )
 
 set_param(proof=True)
@@ -82,7 +79,7 @@ def _sympy_to_z3_rec(var_map, e):
             # sqrt
             rv = Sqrt(term)
         else:
-            rv = term ** exponent
+            rv = term**exponent
     elif isinstance(
         e,
         (Equality, LessThan, StrictLessThan, GreaterThan, StrictGreaterThan),
@@ -299,7 +296,6 @@ def solve_system(cons: list, quants: Optional[list] = None):
     assert isinstance(cons, list), f"unexpected constraints {cons=}"
     assert isinstance(quants, list), f"unexpected quants {quants=}"
     con = And(*cons)
-    # con = Exists(quants, con)
     # TODO(max): not necessary?
     solver = Then("qe2", "smt").solver(logFile=str(Path(__file__).parent / "log.txt"))
     OnClause(solver, log_instance)
@@ -310,4 +306,47 @@ def solve_system(cons: list, quants: Optional[list] = None):
         return None
 
 
-# describe_tactics()
+# https://stackoverflow.com/a/70656700
+def all_smt(s, initial_terms):
+    def block_term(s, m, t):
+        s.add(t != m.eval(t, model_completion=True))
+
+    def fix_term(s, m, t):
+        s.add(t == m.eval(t, model_completion=True))
+
+    def all_smt_rec(terms):
+        if z3.sat == s.check():
+            m = s.model()
+            yield m
+            for i in range(len(terms)):
+                s.push()
+                block_term(s, m, terms[i])
+                # term[i] should not be the same as that in m
+                for j in range(i):
+                    fix_term(s, m, terms[j])
+                yield from all_smt_rec(terms[i:])
+                # we are yet to discover all the assignments for term[i]. Using term[i+1:] means we are skipping
+                # past the first satisfying assignment of term[i]
+                # Note that term[i] might be multivalued and not binary
+                s.pop()
+
+    yield from all_smt_rec(list(initial_terms))
+
+
+# http://www.hakank.org/z3/
+def opt_system(cons: list, quants: Optional[list] = None):
+    assert isinstance(cons, list), f"unexpected constraints {cons=}"
+    assert isinstance(quants, list), f"unexpected quants {quants=}"
+    con = And(*cons)
+    nonquants = list(set(get_vars(con)) - set(quants))
+    opt = Optimize()
+    opt.set("opt.priority", "lex")
+    opt.add(con)
+    for n in nonquants:
+        opt.minimize(n)
+    for q in quants:
+        opt.minimize(q)
+
+    for maybe_model in all_smt(opt, quants + nonquants):
+        return maybe_model
+    return None

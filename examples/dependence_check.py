@@ -46,7 +46,6 @@ def has_dep():
         stores_loads = find_ops(
             module, lambda op: op.name in {"affine.store", "affine.load"}
         )
-        print(stores_loads)
         assert stores_loads[0].name == "affine.store"
         assert stores_loads[1].name == "affine.load"
         store = StoreOp(stores_loads[0])
@@ -93,7 +92,6 @@ def hasnt_dep():
         stores_loads = find_ops(
             module, lambda op: op.name in {"affine.store", "affine.load"}
         )
-        print(stores_loads)
         assert stores_loads[0].name == "affine.store"
         assert stores_loads[1].name == "affine.load"
         store = StoreOp(stores_loads[0])
