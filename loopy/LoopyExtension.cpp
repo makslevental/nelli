@@ -114,7 +114,7 @@ template <typename T> T *unwrapApiObject(const py::handle apiObject) {
       py::detail::mlirApiObjectToCapsule(apiObject).ptr()));
 }
 
-PYBIND11_MODULE(_loopyMlir, m) {
+PYBIND11_MODULE(_loopy_mlir, m) {
   auto mod = py::module_::import(MAKE_MLIR_PYTHON_QUALNAME("ir"));
   m.def("walk_affine_exprs",
         [](PyAffineMap &self,

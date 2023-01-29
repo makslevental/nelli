@@ -1,7 +1,16 @@
-# noinspection PyUnresolvedReferences
-from .loopy_mlir._mlir_libs._loopyMlir import (
-    get_access_relation,
-    get_affine_value_map,
-)
+import contextlib
+import ctypes
+import sys
 
-__all__ = ["get_affine_value_map", "get_access_relation"]
+
+@contextlib.contextmanager
+def dl_open_guard():
+    old_flags = sys.getdlopenflags()
+    sys.setdlopenflags(old_flags | ctypes.RTLD_GLOBAL)
+    yield
+    sys.setdlopenflags(old_flags)
+
+
+with dl_open_guard():
+    # noinspection PyUnresolvedReferences
+    from loopy.loopy_mlir._mlir_libs import _mlir

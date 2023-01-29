@@ -7,7 +7,7 @@ from loopy.aff import StoreOp, LoadOp, print_sympy_constraints, check_mem_dep, f
 from loopy.loopy_mlir.ir import Context, Location, Module, SymbolTable
 
 # noinspection PyUnresolvedReferences
-from loopy.loopy_mlir._mlir_libs._loopyMlir import (
+from loopy.loopy_mlir._mlir_libs._loopy_mlir import (
     show_access_relation,
     walk_operation,
 )
@@ -106,4 +106,4 @@ def hasnt_dep():
 
 
 has_dep()
-hasnt_dep()
+# hasnt_dep()

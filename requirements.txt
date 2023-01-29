@@ -3,3 +3,6 @@ sympy
 z3-solver
 symengine
 pybind11==2.8.0
+pycapi
+PyYAML
+wheel

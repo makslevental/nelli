@@ -28,10 +28,11 @@ def get_llvm_package():
     LIB_ARCH = os.environ.get("LIB_ARCH", platform.machine())
     assert LIB_ARCH is not None
     print(f"ARCH {LIB_ARCH}")
-    name = f"llvm+mlir+python-{sys.version_info.major}.{sys.version_info.minor}-15.0.6-{LIB_ARCH}-{system_suffix}-release"
+    name = f"llvm+mlir+python-{sys.version_info.major}.{sys.version_info.minor}-15.0.7-{LIB_ARCH}-{system_suffix}-release"
     here = Path(__file__).parent
     if not (here / "llvm_install").exists():
-        url = f"https://github.com/makslevental/llvm-releases/releases/latest/download/{name}.tar.xz"
+        url = f"https://github.com/makslevental/llvm-releases/releases/download/llvm-15.0.7-8dfdcc7b7bf66834a761bd8de445840ef68e4d1a/{name}.tar.xz"
+        # url = f"https://github.com/makslevental/llvm-releases/releases/tag/llvm-15.0.7-8dfdcc7b7bf66834a761bd8de445840ef68e4d1a/{name}.tar.xz"
         print(f"downloading and extracting {url} ...")
         ftpstream = urllib.request.urlopen(url)
         file = tarfile.open(fileobj=ftpstream, mode="r|*")
