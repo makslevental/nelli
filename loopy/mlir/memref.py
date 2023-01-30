@@ -7,6 +7,7 @@ from ..loopy_mlir.dialects._ods_common import (
 )
 from ..loopy_mlir.ir import Type, Value, F64Type, Operation, OpView, MemRefType
 from ..loopy_mlir.dialects import memref
+from .affine import LoadOp as AffineLoadOp
 
 
 class LoadOp(memref.LoadOp):
@@ -30,19 +31,6 @@ class StoreOp:
         loc=None,
         ip=None,
     ):
-        """Creates a memref load operation.
-
-        Args:
-          memref: the buffer to store to.
-          value: the value to store
-          indices: the list of subscripts, may be empty for zero-dimensional
-            buffers.
-          loc: user-visible location of the operation.
-          ip: insertion point.
-        """
-
-        # memref.StoreOp(store_value, dst_memref, indices).memref
-
         memref_resolved = get_op_result_or_value(memref)
         value_resolved = get_op_result_or_value(value)
         indices_resolved = [] if indices is None else get_op_results_or_values(indices)
@@ -52,8 +40,6 @@ class StoreOp:
 
 
 class AllocaOp(memref.AllocaOp):
-    """Specialization for the MemRef alloca operation."""
-
     def __init__(
         self,
         dim_sizes: Union[List[int], Tuple[int]],
@@ -62,13 +48,6 @@ class AllocaOp(memref.AllocaOp):
         loc=None,
         ip=None,
     ):
-        """Creates a memref alloca operation.
-
-        Args:
-          loc: user-visible location of the operation.
-          ip: insertion point.
-        """
-
         if el_type is None:
             el_type = F64Type.get()
         assert dim_sizes
@@ -81,11 +60,13 @@ class AllocaOp(memref.AllocaOp):
         res_type = MemRefType.get(dim_sizes, el_type)
         super().__init__(res_type, [], [], loc=loc, ip=ip)
 
-    def __getitem__(self, item):
-        from ..loopy_mlir.dialects.memref import LoadOp
 
-        load_op = LoadOp(self, item)
-        return load_op
+class MemRefValue:
+    def __init__(self, v):
+        self.mlir_value = v
+
+    def __getitem__(self, item):
+        return ArithValue(AffineLoadOp(self.mlir_value, item).result)
 
     def __setitem__(self, indices, value):
         from ..loopy_mlir.dialects.memref import StoreOp
@@ -94,9 +75,9 @@ class AllocaOp(memref.AllocaOp):
         return store_op
 
 
-def alloc(dim_sizes: Union[list[int], tuple[int]], el_type: Type) -> Value:
-    return AllocaOp(dim_sizes, el_type).memref
+def alloc(dim_sizes: Union[list[int], tuple[int]], el_type: Type) -> MemRefValue:
+    return MemRefValue(AllocaOp(dim_sizes, el_type).memref)
 
 
-def load(memref_, indices) -> Value:
-    return ArithValue(LoadOp(memref_, indices).result)
+def load(memref_, indices) -> ArithValue:
+    return ArithValue(AffineLoadOp(memref_, indices).result)

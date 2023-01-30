@@ -13,4 +13,28 @@ def dl_open_guard():
 
 with dl_open_guard():
     # noinspection PyUnresolvedReferences
-    from loopy.loopy_mlir._mlir_libs import _mlir
+    from .loopy_mlir._mlir_libs import _mlir
+    from .loopy_mlir import ir
+
+import atexit
+
+# Push a default context onto the context stack at import time.
+DefaultContext = ir.Context()
+DefaultContext.__enter__()
+# circt.register_dialects(DefaultContext)
+DefaultContext.allow_unregistered_dialects = True
+
+
+
+@atexit.register
+def __exit_ctxt():
+    DefaultContext.__exit__(None, None, None)
+
+
+DefaultLocation = ir.Location.unknown()
+DefaultLocation.__enter__()
+
+
+@atexit.register
+def __exit_loc():
+    DefaultLocation.__exit__(None, None, None)

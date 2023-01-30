@@ -100,10 +100,10 @@ class AffineLoadOp(_ods_ir.OpView):
 
     _ODS_REGIONS = (0, True)
 
-    def __init__(self, result, memref, indices, *, loc=None, ip=None):
+    def __init__(self, result, memref, indices, map, *, loc=None, ip=None):
         operands = []
         results = []
-        attributes = {}
+        attributes = {"map": map}
         regions = None
         operands.append(get_op_result_or_value(memref))
         operands.extend(get_op_results_or_values(indices))

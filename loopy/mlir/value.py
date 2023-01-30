@@ -62,23 +62,6 @@ def cast_to_floating_point(
     )
 
 
-# def type_cast_signed(self, type_var_name: str, operand: OpView)-> OpView:
-#     return self.cast(type_var_name, operand, False)
-#
-# def type_cast_unsigned(self, type_var_name: str, operand: OpView)-> OpView:
-#     return self.cast(type_var_name, operand, True)
-
-# def unary_exp(self, x: OpView)-> OpView:
-#     if _is_floating_point_type(x.type):
-#         return math.ExpOp(x)
-#     raise NotImplementedError("Unsupported 'exp' operand: {x}")
-#
-# def unary_log(self, x: OpView)-> OpView:
-#     if _is_floating_point_type(x.type):
-#         return math.LogOp(x)
-#     raise NotImplementedError("Unsupported 'log' operand: {x}")
-
-
 def abs(x) -> OpView:
     x = get_op_result_or_value(x)
     if _is_floating_point_type(x.type):

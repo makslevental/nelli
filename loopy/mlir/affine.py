@@ -8,18 +8,17 @@ from ..loopy_mlir.dialects._ods_common import (
     get_op_results_or_values,
 )
 from ..loopy_mlir.ir import (
-    Type,
-    Value,
-    IntegerType,
-    IndexType,
-    F64Type,
-    Operation,
-    OpView,
-    MemRefType,
-    AffineMapAttr,
     AffineMap,
-    IntegerAttr,
+    AffineMapAttr,
+    Context,
+    IndexType,
     InsertionPoint,
+    IntegerAttr,
+    IntegerType,
+    MemRefType,
+    OpView,
+    Operation,
+    Value,
 )
 
 
@@ -73,7 +72,7 @@ class ForOp(affine.AffineForOp):
         return self.body.arguments[1:]
 
 
-class LoadOp:
+class LoadOp(affine.AffineLoadOp):
     """Specialization for the MemRef load operation."""
 
     def __init__(
@@ -84,19 +83,11 @@ class LoadOp:
         loc=None,
         ip=None,
     ):
-        """Creates a memref load operation.
-
-        Args:
-          memref: the buffer to load from.
-          indices: the list of subscripts, may be empty for zero-dimensional
-            buffers.
-          loc: user-visible location of the operation.
-          ip: insertion point.
-        """
         memref_resolved = get_op_result_or_value(memref)
         indices_resolved = [] if indices is None else get_op_results_or_values(indices)
         return_type = MemRefType(memref_resolved.type).element_type
-        super().__init__(return_type, memref, indices_resolved, loc=loc, ip=ip)
+        map = AffineMapAttr.get(AffineMap.get_identity(n_dims=len(indices)))
+        super().__init__(return_type, memref, indices_resolved, map=map, loc=loc, ip=ip)
 
 
 def affine_store(
@@ -112,8 +103,8 @@ def affine_load(
     src_memref: Value,
     indices: Union[tuple[Value], list[Value]],
 ) -> Value:
-    # result_type, memref, indices
-    return ArithValue(LoadOp(src_memref, indices).result)
+    l = LoadOp(src_memref, indices)
+    return ArithValue(l.result)
 
 
 _current_for_op = ContextVar("_current_affine_for_op")
@@ -133,3 +124,9 @@ def endfor():
     affine.AffineYieldOp([])
     global ip
     ip.__exit__(None, None, None)
+
+
+class Apply(affine.AffineApplyOp):
+    def __init__(self, map, operands):
+        result = IndexType.get()
+        super().__init__(result, map, operands)
