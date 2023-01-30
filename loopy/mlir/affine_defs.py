@@ -235,15 +235,28 @@ class SymbolDef(AffineExprDef):
         return ExpandoSymbols()
 
 
-# Global accessor for on-demand dims and symbols.
-D = DimDef.create_expando()
-S = SymbolDef.create_expando()
+from sympy import Symbol as SySymbol, srepr, Expr
 
 
-d0 = D.d0
-d1 = D.d1
-d2 = D.d2
+def __matmul__(self, other):
+    raise NotImplementedError
 
-s0 = S.s0
-s1 = S.s1
-s2 = S.s2
+
+Expr.__matmul__ = __matmul__
+
+
+class Dim(SySymbol):
+    pass
+
+
+class Symbol(SySymbol):
+    pass
+
+
+d0 = Dim("d0")
+d1 = Dim("d1")
+d2 = Dim("d2")
+
+s0 = Symbol("s0")
+s1 = Symbol("s1")
+s2 = Symbol("s2")
