@@ -1,5 +1,6 @@
 from ..loopy_mlir import ir
 
 
-f64 = ir.F64Type.get()
-i64 = ir.IntegerType.get_signless(64)
+f64_t = ir.F64Type.get()
+i64_t = ir.IntegerType.get_signless(64)
+index_t = ir.IndexType.get()

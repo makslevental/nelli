@@ -7,7 +7,7 @@ from ..loopy_mlir.dialects._ods_common import (
 )
 from ..loopy_mlir.ir import Type, Value, F64Type, Operation, OpView, MemRefType
 from ..loopy_mlir.dialects import memref
-from .affine import LoadOp as AffineLoadOp
+from .affine import LoadOp as AffineLoadOp, StoreOp as AffineStoreOp
 
 
 class LoadOp(memref.LoadOp):
@@ -61,7 +61,7 @@ class AllocaOp(memref.AllocaOp):
         super().__init__(res_type, [], [], loc=loc, ip=ip)
 
 
-class MemRefValue:
+class AffineMemRefValue:
     def __init__(self, v):
         self.mlir_value = v
 
@@ -69,14 +69,14 @@ class MemRefValue:
         return ArithValue(AffineLoadOp(self.mlir_value, item).result)
 
     def __setitem__(self, indices, value):
-        from ..loopy_mlir.dialects.memref import StoreOp
+        if isinstance(value, ArithValue):
+            # TODO(max): this is why we need true subclasses
+            value = value.mlir_value
+        return AffineStoreOp(self.mlir_value, value, indices)
 
-        store_op = StoreOp(self, value, indices)
-        return store_op
 
-
-def alloc(dim_sizes: Union[list[int], tuple[int]], el_type: Type) -> MemRefValue:
-    return MemRefValue(AllocaOp(dim_sizes, el_type).memref)
+def aff_alloc(dim_sizes: Union[list[int], tuple[int]], el_type: Type) -> AffineMemRefValue:
+    return AffineMemRefValue(AllocaOp(dim_sizes, el_type).memref)
 
 
 def load(memref_, indices) -> ArithValue:

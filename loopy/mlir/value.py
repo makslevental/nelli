@@ -213,11 +213,20 @@ class ArithValue:
     def __add__(self, other):
         return add(self.mlir_value, other.mlir_value)
 
+    def __radd__(self, lhs):
+        return self + lhs
+
     def __sub__(self, other):
         return sub(self.mlir_value, other.mlir_value)
 
+    def __rsub__(self, lhs):
+        return self - lhs
+
     def __mul__(self, other):
         return mul(self.mlir_value, other.mlir_value)
+
+    def __rmul__(self, lhs):
+        return self + lhs
 
     def __gt__(self, other):
         return gt(self.mlir_value, other.mlir_value)

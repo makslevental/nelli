@@ -73,8 +73,6 @@ class ForOp(affine.AffineForOp):
 
 
 class LoadOp(affine.AffineLoadOp):
-    """Specialization for the MemRef load operation."""
-
     def __init__(
         self,
         memref: Union[Operation, OpView, Value],
@@ -87,7 +85,42 @@ class LoadOp(affine.AffineLoadOp):
         indices_resolved = [] if indices is None else get_op_results_or_values(indices)
         return_type = MemRefType(memref_resolved.type).element_type
         map = AffineMapAttr.get(AffineMap.get_identity(n_dims=len(indices)))
-        super().__init__(return_type, memref, indices_resolved, map=map, loc=loc, ip=ip)
+        super().__init__(
+            return_type, memref_resolved, indices_resolved, map=map, loc=loc, ip=ip
+        )
+
+
+class StoreOp(affine.AffineStoreOp):
+    def __init__(
+        self,
+        memref: Union[Operation, OpView, Value],
+        value: Value,
+        indices: Optional[Union[Operation, OpView, Sequence[Value]]] = None,
+        *,
+        loc=None,
+        ip=None,
+    ):
+        value_resolved = get_op_result_or_value(value)
+        map = AffineMapAttr.get(AffineMap.get_identity(n_dims=len(indices)))
+
+        operands = [value_resolved]
+        results = []
+        attributes = {"map": map}
+        regions = None
+        operands.append(get_op_result_or_value(memref))
+        operands.extend(get_op_results_or_values(indices))
+        _ods_successors = None
+        super().__init__(
+            self.build_generic(
+                attributes=attributes,
+                results=results,
+                operands=operands,
+                successors=_ods_successors,
+                regions=regions,
+                loc=loc,
+                ip=ip,
+            )
+        )
 
 
 def affine_store(
@@ -95,8 +128,7 @@ def affine_store(
     dst_memref: Value,
     indices: Union[tuple[Value], list[Value]],
 ) -> Value:
-    # value, memref, indices
-    return affine.AffineStoreOp(store_value, dst_memref, indices).memref
+    return StoreOp(store_value, dst_memref, indices)
 
 
 def affine_load(
@@ -112,7 +144,7 @@ _current_for_op = ContextVar("_current_affine_for_op")
 ip = None
 
 
-def affinefor(start, stop, step):
+def affinefor(start, stop, step=1):
     global ip
     for_op = ForOp(start, stop, step)
     ip = InsertionPoint(for_op.body)

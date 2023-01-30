@@ -113,9 +113,20 @@ class AffineExprDef:
         rhs = AffineExprDef.coerce_from(rhs)
         return AffineBinaryExprDef(ir.AffineAddExpr, lhs, rhs)
 
+    def __radd__(self, lhs):
+        return self + lhs
+
+    def __sub__(lhs, rhs):
+        rhs = rhs * -1
+        rhs = AffineExprDef.coerce_from(rhs)
+        return AffineBinaryExprDef(ir.AffineExpr, lhs, rhs)
+
     def __mul__(lhs, rhs):
         rhs = AffineExprDef.coerce_from(rhs)
         return AffineBinaryExprDef(ir.AffineMulExpr, lhs, rhs)
+
+    def __rmul__(self, lhs):
+        return self * lhs
 
     def __mod__(lhs, rhs):
         rhs = AffineExprDef.coerce_from(rhs)
@@ -131,6 +142,8 @@ class AffineExprDef:
         return AffineBinaryExprDef(ir.AffineCeilDivExpr, lhs, rhs)
 
     def __matmul__(self, other):
+        if not isinstance(other, (tuple, list)):
+            other = [other]
         return apply(self, other)
 
 
