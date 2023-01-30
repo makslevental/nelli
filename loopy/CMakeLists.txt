@@ -8,11 +8,11 @@ add_compile_definitions("MLIR_PYTHON_PACKAGE_PREFIX=loopy.loopy_mlir.")
 declare_mlir_python_sources(LoopyPythonSources)
 
 # TODO(max): figure out how to prevent cpps from being "installed"
-get_property(MLIR_D_LIBS GLOBAL PROPERTY MLIR_DIALECT_LIBS)
-get_property(MLIR_C_LIBS GLOBAL PROPERTY MLIR_CONVERSION_LIBS)
-get_property(MLIR_T_LIBS GLOBAL PROPERTY MLIR_TRANSLATION_LIBS)
+#get_property(MLIR_D_LIBS GLOBAL PROPERTY MLIR_DIALECT_LIBS)
+#get_property(MLIR_C_LIBS GLOBAL PROPERTY MLIR_CONVERSION_LIBS)
+#get_property(MLIR_T_LIBS GLOBAL PROPERTY MLIR_TRANSLATION_LIBS)
 declare_mlir_python_extension(LoopyPythonSources.Extension
-        MODULE_NAME _loopyMlir
+        MODULE_NAME _loopy_mlir
         ADD_TO_PARENT LoopyPythonSources
         SOURCES
         LoopyExtension.cpp
@@ -23,48 +23,23 @@ declare_mlir_python_extension(LoopyPythonSources.Extension
         MLIRIR
         MLIRPresburger
         MLIRAffineAnalysis
-#        ${MLIR_D_LIBS}
-#        ${MLIR_C_LIBS}
-#        ${MLIR_T_LIBS}
-#        MLIRCAPIRegisterEverything
-#        MLIRIR
-#        LLVMSupport
-#        MLIRPresburger
-#        MLIRAffineAnalysis
-        MLIRPythonExtension.Core
-#
-#        MLIRCAPIConversion
-#        MLIRCAPIDebug
-#        MLIRCAPIIR
-#        MLIRCAPIInterfaces
-#        MLIRCAPIRegisterEverything
-#        MLIRCAPITransforms
-#
-#        MLIRCAPIAsync
-#        MLIRCAPIControlFlow
-#        MLIRCAPIFunc
-#        MLIRCAPIGPU
-#        MLIRCAPILLVM
-#        MLIRCAPILinalg
-#        MLIRCAPIMLProgram
-#        MLIRCAPIPDL
-#        MLIRCAPIQuant
-#        MLIRCAPISCF
-#        MLIRCAPIShape
-#        MLIRCAPISparseTensor
-#        MLIRCAPITensor
-#        MLIRCAPITransformDialect
         )
-#add_dependencies(LoopyPythonSources.Extension MLIRPythonExtension.Core)
-#target_include_directories(LoopyPythonSources.Extension INTERFACE $<TARGET_PROPERTY:MLIRPythonExtension.Core,INCLUDE_DIRECTORIES>)
+
+get_target_property(mlir_python_sources MLIRPythonExtension.Core INTERFACE_SOURCES)
+list(GET mlir_python_sources 0 HEADER)
+get_filename_component(header_dir ${HEADER} DIRECTORY)
+#list(FILTER mlir_python_sources INCLUDE REGEX "(IRAffine|IRAttributes|IRCore|IRInterfaces|IRModule|IRTypes|Pass|PybindUtils)\\.cpp")
+list(FILTER mlir_python_sources INCLUDE REGEX "(PybindUtils)\\.cpp")
+target_sources(LoopyPythonSources.Extension INTERFACE ${mlir_python_sources})
+target_include_directories(LoopyPythonSources.Extension INTERFACE ${header_dir})
+
+execute_process(COMMAND python ${CMAKE_CURRENT_SOURCE_DIR}/regex_irmodule.py ${header_dir}/IRModule.h)
 
 set(_source_components
-        LoopyPythonSources
-#        MLIRPythonSources.Core
-#        MLIRPythonSources.Dialects.func
         MLIRPythonSources
         MLIRPythonExtension.Core
         MLIRPythonExtension.RegisterEverything
+        LoopyPythonSources
         )
 
 add_mlir_python_common_capi_library(LoopyMLIRAggregateCAPI
@@ -83,15 +58,9 @@ add_mlir_python_modules(LoopyPythonModules
         LoopyMLIRAggregateCAPI
         )
 
-get_target_property(mlir_python_sources MLIRPythonExtension.Core INTERFACE_SOURCES)
-list(LENGTH mlir_python_sources len)
-list(FILTER mlir_python_sources INCLUDE REGEX "[a-z]+\\.h")
-list(GET mlir_python_sources 0 HEADER)
-get_filename_component(header_dir ${HEADER} DIRECTORY)
-target_include_directories(LoopyPythonSources.Extension INTERFACE ${header_dir})
 
-file(READ ${header_dir}/PybindUtils.h filedata)
-file(WRITE ${header_dir}/PybindUtils.bkup.h "${filedata}")
+file(READ "${MLIR_INCLUDE_DIRS}/mlir/Bindings/Python/PybindAdaptors.h" filedata)
+file(WRITE "${MLIR_INCLUDE_DIRS}/mlir/Bindings/Python/PybindAdaptors.h.bkup" "${filedata}")
 string(REPLACE "template <typename T>
 struct type_caster<llvm::Optional<T>> : optional_caster<llvm::Optional<T>> {}" "// typecaster" output "${filedata}")
-file(WRITE ${header_dir}/PybindUtils.h "${output}")
+file(WRITE "${MLIR_INCLUDE_DIRS}/mlir/Bindings/Python/PybindAdaptors.h" "${output}")

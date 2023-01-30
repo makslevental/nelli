@@ -8,7 +8,7 @@ Just
 
 ```shell
 pip install -r requirements.txt 
-CMAKE_GENERATOR=Ninja pip install . --no-build-isolation
+PATH=$PWD/llvm_install/bin:$PATH CMAKE_GENERATOR=Ninja pip install . --no-build-isolation -vvvv
 ```
 
 # Example

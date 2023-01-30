@@ -1,8 +1,10 @@
 import io
+from collections import Counter
 from pathlib import Path
+from pprint import pprint
 from typing import List, Optional
 
-from sympy import Matrix, pprint
+from sympy import Matrix, pprint as sym_pp
 from sympy.core import (
     Mul,
     Expr,
@@ -230,7 +232,7 @@ def print_z3_constraints_as_tableau(cons: list, quants: Optional[list] = None):
     for idx, col in sorted(quant_cols.items(), reverse=True):
         tab.col_del(idx)
         tab = tab.col_insert(-2, col)
-    pprint(tab)
+    sym_pp(tab)
     print(flush=True)
     for r in range(1, tab.rows):
         print(
@@ -334,7 +336,7 @@ def all_smt(s, initial_terms):
 
 
 # http://www.hakank.org/z3/
-def opt_system(cons: list, quants: Optional[list] = None):
+def opt_system(cons: list, quants: Optional[list] = None, limit=1):
     assert isinstance(cons, list), f"unexpected constraints {cons=}"
     assert isinstance(quants, list), f"unexpected quants {quants=}"
     con = And(*cons)
@@ -347,6 +349,27 @@ def opt_system(cons: list, quants: Optional[list] = None):
     for q in quants:
         opt.minimize(q)
 
+    i = 0
+    models = []
     for maybe_model in all_smt(opt, quants + nonquants):
-        return maybe_model
-    return None
+        if limit == 1:
+            return maybe_model
+        else:
+            models.append(maybe_model)
+        i += 1
+        if i > limit:
+            break
+
+    return sorted(models, key=lambda k: str(k)) if models is not [] else None
+
+
+if __name__ == "__main__":
+    x = Int("x")
+    y = Int("y")
+    cons = [0 <= x, x <= 10, -8 <= y, y <= 5]
+    seen = set()
+    for mod in opt_system(cons, quants=[], limit=100):
+        x_v = mod[x]
+        y_v = mod[y]
+        print(x, x_v, y, y_v)
+        seen.add((x_v, y_v))

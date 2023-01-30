@@ -21,7 +21,7 @@ from .loopy_mlir.ir import (
     Value,
     Operation,
 )
-from .loopy_mlir._mlir_libs._loopyMlir import (
+from .loopy_mlir._mlir_libs._loopy_mlir import (
     get_affine_map_from_attr,
     print_value_as_operand,
     get_access_relation,
