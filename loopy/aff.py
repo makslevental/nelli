@@ -55,13 +55,6 @@ def make_disambig_name(o: Value):
         seen[name] = {o: name}
     return seen[name][o]
 
-    # return (
-    #     + "@"
-    #     + str(o.owner.name).split(".")[0]
-    #     + re.findall(r'-"(.*)\)', str(o.owner.location))[0]
-    #     + "_" + re.findall(r'-"(.*)\)', str(o.owner.location))[0].split(":")[-2]
-    # )
-
 
 class ApplyOp:
     def __init__(self, apply_op):

@@ -19,27 +19,20 @@ PLAT_TO_CMAKE = {
 }
 
 
-def get_llvm_package():
-    # download if nothing is installed
+def get_llvm_url():
     system = platform.system()
     system_suffix = {"Linux": "linux-gnu-ubuntu-20.04", "Darwin": "apple-darwin"}[
         system
     ]
     LIB_ARCH = os.environ.get("LIB_ARCH", platform.machine())
-    assert LIB_ARCH is not None
-    print(f"ARCH {LIB_ARCH}")
-    name = f"llvm+mlir+python-{sys.version_info.major}.{sys.version_info.minor}-15.0.7-{LIB_ARCH}-{system_suffix}-release"
-    here = Path(__file__).parent
-    if not (here / "llvm_install").exists():
-        url = f"https://github.com/makslevental/llvm-releases/releases/download/llvm-15.0.7-8dfdcc7b7bf66834a761bd8de445840ef68e4d1a/{name}.tar.xz"
-        # url = f"https://github.com/makslevental/llvm-releases/releases/tag/llvm-15.0.7-8dfdcc7b7bf66834a761bd8de445840ef68e4d1a/{name}.tar.xz"
-        print(f"downloading and extracting {url} ...")
-        ftpstream = urllib.request.urlopen(url)
-        file = tarfile.open(fileobj=ftpstream, mode="r|*")
-        file.extractall(path=str(here))
-
-    print("done downloading")
-    return str((here / "llvm_install").absolute())
+    assert LIB_ARCH, "empty LIB_ARCH"
+    # print(f"ARCH {LIB_ARCH}")
+    LLVM_RELEASE_VERSION = os.environ.get("LLVM_RELEASE_VERSION", "15.0.7")
+    assert LLVM_RELEASE_VERSION, "empty LLVM_RELEASE_VERSION"
+    # print(f"ARCH {LIB_ARCH}")
+    name = f"llvm+mlir+python-{sys.version_info.major}.{sys.version_info.minor}-{LLVM_RELEASE_VERSION}-{LIB_ARCH}-{system_suffix}-release"
+    url = f"https://github.com/makslevental/llvm-releases/releases/download/llvm-{LLVM_RELEASE_VERSION}/{name}.tar.xz"
+    return url
 
 
 # A CMakeExtension needs a sourcedir instead of a file list.
@@ -61,22 +54,15 @@ class CMakeBuild(build_ext):
         cfg = "Debug" if debug else "Release"
 
         cmake_generator = os.environ.get("CMAKE_GENERATOR", "")
-
-        llvm_install_dir = os.environ.get("LLVM_INSTALL_DIR", None)
-        if llvm_install_dir is None:
-            llvm_install_dir = get_llvm_package()
         cmake_args = [
             f"-DCMAKE_INSTALL_PREFIX={ext_build_lib_dir}/{PACKAGE_NAME}",
-            f"-DCMAKE_PREFIX_PATH={llvm_install_dir}",
-            f"-DCMAKE_MODULE_LINKER_FLAGS=-L{llvm_install_dir}/lib",
-            f"-DCMAKE_SHARED_LINKER_FLAGS=-L{llvm_install_dir}/lib",
-            f"-DCMAKE_EXE_LINKER_FLAGS=-L{llvm_install_dir}/lib",
             f"-DPython3_EXECUTABLE={sys.executable}",
             f"-DCMAKE_BUILD_TYPE={cfg}",  # not used on MSVC, but no harm
         ]
+        llvm_install_dir = os.environ.get("LLVM_INSTALL_DIR", None)
+        if llvm_install_dir is not None:
+            cmake_args.append(f"-DLLVM_INSTALL_DIR={llvm_install_dir}")
         build_args = []
-        # Adding CMake arguments set as environment variable
-        # (needed e.g. to build for ARM OSx on conda-forge)
         if "CMAKE_ARGS" in os.environ:
             cmake_args += [item for item in os.environ["CMAKE_ARGS"].split(" ") if item]
 
@@ -98,8 +84,6 @@ class CMakeBuild(build_ext):
             if archs:
                 cmake_args += ["-DCMAKE_OSX_ARCHITECTURES={}".format(";".join(archs))]
 
-        # Set CMAKE_BUILD_PARALLEL_LEVEL to control the parallel build level
-        # across all generators.
         if "CMAKE_BUILD_PARALLEL_LEVEL" not in os.environ:
             # self.parallel is a Python 3 only way to set parallel jobs by hand
             # using -j in the build_ext call, not supported by pip or PyPA-build.
@@ -134,6 +118,8 @@ VERSION = "0.0.0"
 
 if len(sys.argv) > 1 and sys.argv[1] == "--version":
     print(VERSION)
+elif len(sys.argv) > 1 and sys.argv[1] == "--llvm-url":
+    print(get_llvm_url())
 else:
     install_reqs = parse_requirements("requirements.txt", session="hack")
     setup(

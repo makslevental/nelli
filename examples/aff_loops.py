@@ -4,21 +4,18 @@ from loopy.mlir.affine import (
     affinefor as range,
     endfor,
 )
-from loopy.mlir.affine_defs import d0, d1, s0, s1
+from loopy.sympy_ import d0, d1, s0, s1
 from loopy.mlir.arith import constant
 from loopy.mlir.func import func
 from loopy.mlir.memref import aff_alloc
 
-M = 32
-N = 32
-K = 32
 
 module = ir.Module.create()
 
 with ir.InsertionPoint(module.body):
 
     @func(index_t, index_t)
-    def matmul(M, N):
+    def double_loop(M, N):
         two = constant(1.0)
         mem = aff_alloc([10, 10], f64_t)
         for i in range(1, 10, 1):

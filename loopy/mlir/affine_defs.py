@@ -2,6 +2,7 @@ from typing import Dict, Optional
 
 from .affine import Apply
 from ..loopy_mlir import ir
+from ..sympy_ import SymPyVisitor
 
 
 class AffineBuildState:
@@ -235,15 +236,20 @@ class SymbolDef(AffineExprDef):
         return ExpandoSymbols()
 
 
-# Global accessor for on-demand dims and symbols.
-D = DimDef.create_expando()
-S = SymbolDef.create_expando()
+from sympy import Expr
 
 
-d0 = D.d0
-d1 = D.d1
-d2 = D.d2
+def __matmul__(self, other):
+    def symbol_factory(e):
+        if e.startswith("s"):
+            return SymbolDef(e)
+        elif e.startswith("d"):
+            return DimDef(e)
+        else:
+            raise NotImplementedError(f"unexpected {e}")
 
-s0 = S.s0
-s1 = S.s1
-s2 = S.s2
+    aff_map = SymPyVisitor(symbol_factory=symbol_factory).visit(self)
+    return aff_map @ other
+
+
+Expr.__matmul__ = __matmul__
