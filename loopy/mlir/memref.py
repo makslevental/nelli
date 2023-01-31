@@ -1,6 +1,6 @@
 from typing import List, Union, Optional, Sequence, Tuple
 
-from .value import ArithValue
+from .arith import ArithValue
 from ..loopy_mlir.dialects._ods_common import (
     get_op_result_or_value,
     get_op_results_or_values,
@@ -75,7 +75,9 @@ class AffineMemRefValue:
         return AffineStoreOp(self.mlir_value, value, indices)
 
 
-def aff_alloc(dim_sizes: Union[list[int], tuple[int]], el_type: Type) -> AffineMemRefValue:
+def aff_alloc(
+    dim_sizes: Union[list[int], tuple[int]], el_type: Type
+) -> AffineMemRefValue:
     return AffineMemRefValue(AllocaOp(dim_sizes, el_type).memref)
 
 

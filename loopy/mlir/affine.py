@@ -1,8 +1,8 @@
-from contextvars import ContextVar
+from contextvars import ContextVar, Token
 from typing import Optional, Union, Sequence
 
 from . import _affine_ops_gen as affine
-from .value import ArithValue
+from .arith import ArithValue
 from ..loopy_mlir.dialects._ods_common import (
     get_op_result_or_value,
     get_op_results_or_values,
@@ -10,7 +10,6 @@ from ..loopy_mlir.dialects._ods_common import (
 from ..loopy_mlir.ir import (
     AffineMap,
     AffineMapAttr,
-    Context,
     IndexType,
     InsertionPoint,
     IntegerAttr,
@@ -123,6 +122,26 @@ class StoreOp(affine.AffineStoreOp):
         )
 
 
+_current_for_op = ContextVar("_current_affine_for_op")
+
+_for_ip = None
+
+
+def affine_for(start, stop, step=1):
+    global _for_ip
+    for_op = ForOp(start, stop, step)
+    _current_for_op.set(for_op)
+    _for_ip = InsertionPoint(for_op.body)
+    _for_ip.__enter__()
+    return [for_op.induction_variable]
+
+
+def affine_endfor():
+    affine.AffineYieldOp([])
+    global _for_ip
+    _for_ip.__exit__(None, None, None)
+
+
 def affine_store(
     store_value: Value,
     dst_memref: Value,
@@ -139,26 +158,8 @@ def affine_load(
     return ArithValue(l.result)
 
 
-_current_for_op = ContextVar("_current_affine_for_op")
-
-ip = None
-
-
-def affinefor(start, stop, step=1):
-    global ip
-    for_op = ForOp(start, stop, step)
-    ip = InsertionPoint(for_op.body)
-    ip.__enter__()
-    return [for_op.induction_variable]
-
-
-def endfor():
-    affine.AffineYieldOp([])
-    global ip
-    ip.__exit__(None, None, None)
-
-
 class Apply(affine.AffineApplyOp):
     def __init__(self, map, operands):
         result = IndexType.get()
+        print(result, map, operands)
         super().__init__(result, map, operands)
