@@ -20,15 +20,15 @@ with ir.InsertionPoint(module.body):
         mem = aff_alloc([10, 10], f64_t)
         for i in range(1, 10, 1):
             for j in range(1, 10, 1):
-                a = (2 * d0 + 3 * d1 + 5 + s0 + 3 * s1) @ [i, j, M.mlir_value, N.mlir_value]
+                a = (2 * d0 + 3 * d1 + 5 + s0 + 3 * s1) @ [i, j, M, N]
                 v = mem[a, a]
                 w = v * two
                 mem[a, a] = w
             affine_endfor()
         affine_endfor()
-        return mem.mlir_value
+        return mem
 
     m = constant(10, index_type=True)
     n = constant(20, index_type=True)
-    r = double_loop(m.mlir_value, n.mlir_value)
+    r = double_loop(m, n)
 print(module)

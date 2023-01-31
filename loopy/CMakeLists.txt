@@ -33,7 +33,9 @@ list(FILTER mlir_python_sources INCLUDE REGEX "(PybindUtils)\\.cpp")
 target_sources(LoopyPythonSources.Extension INTERFACE ${mlir_python_sources})
 target_include_directories(LoopyPythonSources.Extension INTERFACE ${header_dir})
 
-execute_process(COMMAND python ${CMAKE_SOURCE_DIR}/scripts/regex_irmodule.py ${header_dir}/IRModule.h)
+execute_process(COMMAND python ${CMAKE_SOURCE_DIR}/scripts/regex_mlir_bindings.py ${header_dir}/IRModule.h)
+execute_process(COMMAND python ${CMAKE_SOURCE_DIR}/scripts/regex_mlir_bindings.py ${header_dir}/IRCore.cpp)
+execute_process(COMMAND python ${CMAKE_SOURCE_DIR}/scripts/regex_mlir_bindings.py ${header_dir}/IRAffine.cpp)
 
 set(_source_components
         MLIRPythonSources

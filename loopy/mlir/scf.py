@@ -24,7 +24,7 @@ _if_ip: InsertionPoint = None
 def scf_if(cond: ArithValue):
     assert isinstance(cond, ArithValue)
     global _if_ip, _current_if_op_token
-    if_op = IfOp(cond.mlir_value)
+    if_op = IfOp(cond)
     _current_if_op_token = _if_op_ctx.set(if_op)
     _if_ip = InsertionPoint(if_op.then_block)
     _if_ip.__enter__()

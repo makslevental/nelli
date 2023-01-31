@@ -114,8 +114,63 @@ template <typename T> T *unwrapApiObject(const py::handle apiObject) {
       py::detail::mlirApiObjectToCapsule(apiObject).ptr()));
 }
 
+template <typename DerivedTy> class PyConcreteValue : public PyValue {
+public:
+  // Derived classes must define statics for:
+  //   IsAFunctionTy isaFunction
+  //   const char *pyClassName
+  // and redefine bindDerived.
+  using ClassTy = py::class_<DerivedTy, PyValue>;
+  using IsAFunctionTy = bool (*)(MlirValue);
+
+  PyConcreteValue() = default;
+  PyConcreteValue(PyOperationRef operationRef, MlirValue value)
+      : PyValue(operationRef, value) {}
+  PyConcreteValue(PyValue &orig)
+      : PyConcreteValue(orig.getParentOperation(), castFrom(orig)) {}
+
+  /// Attempts to cast the original value to the derived type and throws on
+  /// type mismatches.
+  static MlirValue castFrom(PyValue &orig) {
+    if (!DerivedTy::isaFunction(orig.get())) {
+      auto origRepr = py::repr(py::cast(orig)).cast<std::string>();
+      throw SetPyError(PyExc_ValueError, Twine("Cannot cast value to ") +
+                                             DerivedTy::pyClassName +
+                                             " (from " + origRepr + ")");
+    }
+    return orig.get();
+  }
+
+  /// Binds the Python module objects to functions of this class.
+  static void bind(py::module &m) {
+    auto cls = ClassTy(m, DerivedTy::pyClassName);
+    cls.def(py::init<PyValue &>(), py::keep_alive<0, 1>(), py::arg("value"));
+    cls.def_static(
+        "isinstance",
+        [](PyValue &otherValue) -> bool {
+          return DerivedTy::isaFunction(otherValue);
+        },
+        py::arg("other_value"));
+    DerivedTy::bindDerived(cls);
+  }
+
+  /// Implemented by derived classes to add methods to the Python subclass.
+  static void bindDerived(ClassTy &m) {}
+};
+
+bool isArithValue(MlirValue value) { return true; }
+
+/// Python wrapper for MlirBlockArgument.
+class PyArithValue : public PyConcreteValue<PyArithValue> {
+public:
+  static constexpr IsAFunctionTy isaFunction = isArithValue;
+  static constexpr const char *pyClassName = "ArithValue";
+  using PyConcreteValue::PyConcreteValue;
+};
+
 PYBIND11_MODULE(_loopy_mlir, m) {
   auto mod = py::module_::import(MAKE_MLIR_PYTHON_QUALNAME("ir"));
+  PyArithValue::bind(m);
   m.def("walk_affine_exprs",
         [](PyAffineMap &self,
            std::function<void(size_t resIdx, MlirAffineExpr expr)> callback) {

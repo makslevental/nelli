@@ -28,10 +28,7 @@ from ..loopy_mlir.ir import (
     OpView,
     StringAttr,
 )
-from ..loopy_mlir.ir import (
-    Type as MLIRType,
-    Value as MLIRValue,
-)
+from ..loopy_mlir._mlir_libs._loopy_mlir import ArithValue
 
 
 def _isa(obj: Any, cls: type):
@@ -122,10 +119,8 @@ class CmpIOp(arith_dialect.CmpIOp):
         super().__init__(result_type, predicate, lhs, rhs, loc=loc, ip=ip)
 
 
-def cast_to_integer(
-    to_type: MLIRType, operand: OpView, is_unsigned_cast: bool
-) -> OpView:
-    operand: MLIRValue = get_op_result_or_value(operand)
+def cast_to_integer(to_type: Type, operand: OpView, is_unsigned_cast: bool) -> OpView:
+    operand: Value = get_op_result_or_value(operand)
     to_width = IntegerType(to_type).width
     operand_type = operand.type
     if _is_floating_point_type(operand_type):
@@ -148,10 +143,10 @@ def cast_to_integer(
 
 
 def cast_to_floating_point(
-    to_type: MLIRType, operand: OpView, is_unsigned_cast: bool
+    to_type: Type, operand: OpView, is_unsigned_cast: bool
 ) -> OpView:
-    operand: MLIRValue = get_op_result_or_value(operand)
-    operand_type: MLIRType = operand.type
+    operand: Value = get_op_result_or_value(operand)
+    operand_type: Type = operand.type
     if _is_integer_type(operand_type):
         if is_unsigned_cast:
             return arith.UIToFPOp(to_type, operand)
@@ -300,54 +295,51 @@ def le(lhs, rhs) -> OpView:
     raise NotImplementedError("Unsupported 'mul' operands: {lhs}, {rhs}")
 
 
-class ArithValue:
-    def __init__(self, v: MLIRValue):
-        self.mlir_value = v
-
+class ArithValue(ArithValue):
     def __abs__(self):
-        return ArithValue(abs(self.mlir_value).result)
+        return ArithValue(abs(self).result)
 
     def __ceil__(self):
-        return ArithValue(ceil(self.mlir_value).result)
+        return ArithValue(ceil(self).result)
 
     def __floor__(self):
-        return ArithValue(floor(self.mlir_value).result)
+        return ArithValue(floor(self).result)
 
     def __neg__(self):
-        return ArithValue(neg(self.mlir_value).result)
+        return ArithValue(neg(self).result)
 
     def __add__(self, other):
-        return ArithValue(add(self.mlir_value, other.mlir_value).result)
+        return ArithValue(add(self, other).result)
 
     def __radd__(self, lhs):
         return self + lhs
 
     def __sub__(self, other):
-        return ArithValue(sub(self.mlir_value, other.mlir_value).result)
+        return ArithValue(sub(self, other).result)
 
     def __rsub__(self, lhs):
         return self - lhs
 
     def __mul__(self, other):
-        return ArithValue(mul(self.mlir_value, other.mlir_value).result)
+        return ArithValue(mul(self, other).result)
 
     def __rmul__(self, lhs):
         return self + lhs
 
     def __gt__(self, other):
-        return ArithValue(gt(self.mlir_value, other.mlir_value).result)
+        return ArithValue(gt(self, other).result)
 
     def __lt__(self, other):
-        return ArithValue(lt(self.mlir_value, other.mlir_value).result)
+        return ArithValue(lt(self, other).result)
 
     def __ge__(self, other):
-        return ArithValue(ge(self.mlir_value, other.mlir_value).result)
+        return ArithValue(ge(self, other).result)
 
     def __le__(self, other):
-        return ArithValue(le(self.mlir_value, other.mlir_value).result)
+        return ArithValue(le(self, other).result)
 
 
-def infer_mlir_type(py_val) -> MLIRType:
+def infer_mlir_type(py_val) -> Type:
     if isinstance(py_val, int):
         return IntegerType.get_signed(64)
     elif isinstance(py_val, float):

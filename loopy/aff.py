@@ -1,11 +1,18 @@
-import re
-from collections import defaultdict
-from typing import Union, List, Tuple, Optional
+from typing import Union, List, Tuple
 
+# from symengine import Eq, Symbol, Integer
+from sympy import Eq, Symbol, Integer, pprint
 from sympy.core.relational import Relational
 from z3 import Int, substitute, is_eq, simplify
 from z3.z3util import get_vars
 
+from .loopy_mlir._mlir_libs._loopy_mlir import (
+    get_affine_map_from_attr,
+    print_value_as_operand,
+    get_access_relation,
+    walk_affine_exprs,
+    walk_operation,
+)
 from .loopy_mlir.ir import (
     AffineAddExpr,
     AffineExpr,
@@ -14,30 +21,14 @@ from .loopy_mlir.ir import (
     AffineConstantExpr,
     AffineDimExpr,
     AffineFloorDivExpr,
-    AffineMapAttr,
     AffineModExpr,
     AffineMulExpr,
     AffineSymbolExpr,
     Value,
-    Operation,
 )
-from .loopy_mlir._mlir_libs._loopy_mlir import (
-    get_affine_map_from_attr,
-    print_value_as_operand,
-    get_access_relation,
-    get_affine_value_map,
-    show_access_relation,
-    walk_affine_exprs,
-    walk_operation,
-)
-
-# from symengine import Eq, Symbol, Integer
-from sympy import Eq, Symbol, Integer, pprint
-
 from .z3_ import (
     build_z3_access_constraints,
     print_z3_constraints,
-    solve_system,
     opt_system,
 )
 

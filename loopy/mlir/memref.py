@@ -61,18 +61,12 @@ class AllocaOp(memref.AllocaOp):
         super().__init__(res_type, [], [], loc=loc, ip=ip)
 
 
-class AffineMemRefValue:
-    def __init__(self, v):
-        self.mlir_value = v
-
+class AffineMemRefValue(ArithValue):
     def __getitem__(self, item):
-        return ArithValue(AffineLoadOp(self.mlir_value, item).result)
+        return ArithValue(AffineLoadOp(self, item).result)
 
     def __setitem__(self, indices, value):
-        if isinstance(value, ArithValue):
-            # TODO(max): this is why we need true subclasses
-            value = value.mlir_value
-        return AffineStoreOp(self.mlir_value, value, indices)
+        return AffineStoreOp(self, value, indices)
 
 
 def aff_alloc(

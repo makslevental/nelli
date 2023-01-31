@@ -161,5 +161,4 @@ def affine_load(
 class Apply(affine.AffineApplyOp):
     def __init__(self, map, operands):
         result = IndexType.get()
-        print(result, map, operands)
         super().__init__(result, map, operands)
