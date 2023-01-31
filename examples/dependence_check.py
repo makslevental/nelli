@@ -1,6 +1,3 @@
-# from pprint import pprint
-from textwrap import dedent
-
 # noinspection PyUnresolvedReferences
 from loopy.loopy_mlir._mlir_libs._loopy_mlir import (
     show_access_relation,
@@ -8,14 +5,13 @@ from loopy.loopy_mlir._mlir_libs._loopy_mlir import (
 )
 
 from loopy.aff import StoreOp, LoadOp, print_sympy_constraints, check_mem_dep, find_ops
-from loopy.loopy_mlir import ir
 from loopy.loopy_mlir.ir import Module, InsertionPoint
 from loopy.mlir import f64_t, index_t
 from loopy.mlir.affine import (
     affinefor as range,
     endfor,
 )
-from loopy.mlir.affine_defs import d0, d1
+from loopy.sympy_ import d0, d1, s0, s1
 from loopy.mlir.arith import constant
 from loopy.mlir.func import func
 from loopy.mlir.memref import aff_alloc
@@ -32,20 +28,21 @@ def has_dep():
             zero = constant(0.0)
             for i in range(0, 100):
                 for j in range(0, 50):
-                    ii = (d0 * 2 + d1 * (-4)) @ (i, j)
-                    jj = (d1 * 3) @ j
+                    ii = (d0 * 2 - d1 * 4 + s1) @ (i, j, N)
+                    jj = (d1 * 3 - s0) @ (j, M)
                     mem[ii, jj] = zero
                 endfor()
             endfor()
             for i in range(0, 100):
                 for j in range(0, 50):
-                    ii = (d0 * 7 + d1 * 9) @ (i, j)
-                    jj = (d0 * 11) @ i
+                    ii = (d0 * 7 + d1 * 9 - s1) @ (i, j, M)
+                    jj = (d1 * 11 + s0) @ (j, K)
                     v = mem[ii, jj]
                 endfor()
             endfor()
 
     # print(module)
+
     stores_loads = find_ops(
         module, lambda op: op.name in {"affine.store", "affine.load"}
     )
@@ -73,20 +70,21 @@ def hasnt_dep():
             zero = constant(0.0)
             for i in range(0, 100):
                 for j in range(0, 50):
-                    ii = (d0 * 4 + d1 * (-8)) @ (i, j)
-                    jj = (d1 * 6) @ j
+                    ii = 2 * (d0 * 2 - d1 * 4 + s1) @ (i, j, N)
+                    jj = 2 * (d1 * 3 - s0) @ (j, M)
                     mem[ii, jj] = zero
                 endfor()
             endfor()
             for i in range(0, 100):
                 for j in range(0, 50):
-                    ii = (d0 * 14 + d1 * 18 + 1) @ (i, j)
-                    jj = (d0 * 22 + 1) @ i
+                    ii = (2 * (d0 * 7 + d1 * 9 - s1) + 1) @ (i, j, M)
+                    jj = (2 * (d1 * 11 + s0) + 1) @ (j, K)
                     v = mem[ii, jj]
                 endfor()
             endfor()
 
     # print(module)
+
     stores_loads = find_ops(
         module, lambda op: op.name in {"affine.store", "affine.load"}
     )
@@ -104,4 +102,4 @@ def hasnt_dep():
 
 
 has_dep()
-# hasnt_dep()
+hasnt_dep()
