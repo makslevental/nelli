@@ -278,5 +278,11 @@ PYBIND11_MODULE(_loopy_mlir, m) {
           auto *dstOp = unwrapApiObject<mlir::Operation>(dstOpApiObject);
           myCheckDependenceSrcDst(srcOp, dstOp);
         });
+  m.def("show_sanity_check_access_relation",
+        [](const py::handle srcOpApiObject, const py::handle dstOpApiObject) {
+          auto *srcOp = unwrapApiObject<mlir::Operation>(srcOpApiObject);
+          auto *dstOp = unwrapApiObject<mlir::Operation>(dstOpApiObject);
+          myCheckDependenceSrcDst(srcOp, dstOp);
+        });
   m.def("reset_disambig_names", []() { seen.clear(); });
 }

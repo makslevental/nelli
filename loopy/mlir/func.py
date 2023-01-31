@@ -2,8 +2,8 @@ import inspect
 from types import FunctionType
 
 from bytecode import ConcreteBytecode
-from .arith import ArithValue
 
+from .arith import ArithValue
 from ..loopy_mlir.dialects import func as func_dialect
 
 func = func_dialect.FuncOp.from_py_func

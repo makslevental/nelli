@@ -57,7 +57,6 @@ func.func @should_not_fuse_defining_node_has_dependence_from_source_loop(%a : me
 }
   )mlir";
 
-
 std::string checkMemrefAccessDependenceExample = R"mlir(
 module {
   func.func @checkMemrefAccessDependence(%arg0: index, %arg1: index, %arg2: index) {
@@ -83,7 +82,6 @@ module {
   }
 }
   )mlir";
-
 
 std::string checkMemrefAccessDependenceExampleNoDep = R"mlir(
 module {
@@ -111,4 +109,4 @@ module {
 }
   )mlir";
 
-#endif //PI_EXAMPLES_H
+#endif // PI_EXAMPLES_H

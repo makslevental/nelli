@@ -1,19 +1,22 @@
 import gc
+import logging
 
-# noinspection PyUnresolvedReferences
+FORMAT = "[%(filename)s:%(funcName)s:%(lineno)d] %(message)s"
+logging.basicConfig(level=logging.DEBUG, format=FORMAT)
+logger = logging.getLogger(__name__)
 
 from loopy.aff import (
     StoreOp,
     LoadOp,
-    print_sympy_constraints,
+    show_sympy_constraints,
     check_mem_dep,
 )
-from loopy.loopy_mlir.ir import Module, InsertionPoint
 from loopy.mlir import f64_t, index_t
 from loopy.mlir.affine import (
     affine_for as range,
     affine_endfor as endfor,
 )
+from loopy.mlir.utils import mlir_mod_ctx
 from loopy.sympy_ import d0, d1, s0, s1
 from loopy.mlir.arith import constant
 from loopy.mlir.func import mlir_func
@@ -22,9 +25,7 @@ from loopy.utils import reset_disambig_names, find_ops
 
 
 def has_dep():
-    module = Module.create()
-
-    with InsertionPoint(module.body):
+    with mlir_mod_ctx() as module:
 
         @mlir_func
         def has_dep(M: index_t, N: index_t, K: index_t):
@@ -53,20 +54,22 @@ def has_dep():
     assert stores_loads[0].name == "affine.store"
     assert stores_loads[1].name == "affine.load"
     store = StoreOp(stores_loads[0])
-    print("\nconstraint system for store op:\n")
-    print_sympy_constraints(store.sympy_access_constraints)
+    logger.debug("constraint system for store op:")
+    logger.debug(show_sympy_constraints(store.sympy_access_constraints))
     load = LoadOp(stores_loads[1])
-    print("\nconstraint system for load op:\n")
-    print_sympy_constraints(load.sympy_access_constraints)
+    logger.debug("constraint system for load op:")
+    logger.debug(show_sympy_constraints(load.sympy_access_constraints))
 
     # show_access_relation(store.mlir_op, load.mlir_op)
-    check_mem_dep(store, load)
+    dep = check_mem_dep(store, load)
+    if dep is not None:
+        logger.debug(f"dependence found @ {dep}".replace(":", "->"))
+    else:
+        logger.debug("no dependency")
 
 
 def hasnt_dep():
-    module = Module.create()
-
-    with InsertionPoint(module.body):
+    with mlir_mod_ctx() as module:
 
         @mlir_func
         def hasnt_dep(M: index_t, N: index_t, K: index_t):
@@ -95,14 +98,18 @@ def hasnt_dep():
     assert stores_loads[0].name == "affine.store"
     assert stores_loads[1].name == "affine.load"
     store = StoreOp(stores_loads[0])
-    print("\nconstraint system for store op:\n")
-    print_sympy_constraints(store.sympy_access_constraints)
+    logger.debug("constraint system for store op:")
+    logger.debug(show_sympy_constraints(store.sympy_access_constraints))
     load = LoadOp(stores_loads[1])
-    print("\nconstraint system for load op:\n")
-    print_sympy_constraints(load.sympy_access_constraints)
+    logger.debug("constraint system for load op:")
+    logger.debug(show_sympy_constraints(load.sympy_access_constraints))
 
     # show_access_relation(store.mlir_op, load.mlir_op)
-    check_mem_dep(store, load)
+    dep = check_mem_dep(store, load)
+    if dep is not None:
+        logger.debug(f"dependence found @ {dep}".replace(":", "->"))
+    else:
+        logger.debug("no dependency")
 
 
 if __name__ == "__main__":

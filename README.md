@@ -13,7 +13,7 @@ CMAKE_GENERATOR=Ninja pip install . --no-build-isolation -vvvv
 
 # Example
 
-[dependence_check.py](examples/dependence_check.py) demos this example: from this
+[dependence_check_1.py](examples/dependence_check_1.py) demos this example: from this
 
 
 ```python

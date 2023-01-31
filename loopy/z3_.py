@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import List, Optional
 
 import z3
-from sympy import Matrix, pprint as sym_pp
+from sympy import Matrix, pretty
 from sympy.core import (
     Symbol,
 )
@@ -67,19 +67,22 @@ def pp_z3(a):
     return out.getvalue()
 
 
-def print_z3_constraints(cons: list):
+def show_z3_constraints(cons: list) -> str:
     cons[0], cons[1] = cons[1], cons[0]
-    print("{")
+    s = "\n{\n"
     for i, c in enumerate(cons):
-        print(
-            "  ",
-            pp_z3(simplify(c, arith_lhs=True, arith_ineq_lhs=True, sort_sums=True)),
-            end=", \n" if i < len(cons) - 1 else "\n",
+        s += "  " + pp_z3(
+            simplify(c, arith_lhs=True, arith_ineq_lhs=True, sort_sums=True)
         )
-    print("}")
+        if i < len(cons) - 1:
+            s += ", \n"
+        else:
+            s += "\n"
+    s += "}"
+    return s
 
 
-def print_z3_constraints_as_tableau(cons: list, quants: Optional[list] = None):
+def show_z3_constraints_as_tableau(cons: list, quants: Optional[list] = None) -> str:
     if quants is None:
         quants = []
     all_vars = set()
@@ -153,15 +156,16 @@ def print_z3_constraints_as_tableau(cons: list, quants: Optional[list] = None):
     for idx, col in sorted(quant_cols.items(), reverse=True):
         tab.col_del(idx)
         tab = tab.col_insert(-2, col)
-    sym_pp(tab)
-    print(flush=True)
+    s = pretty(tab)
     for r in range(1, tab.rows):
-        print(
-            " + ".join(map(str, list(tab[r, :])[:-2]))
-            + str(list(tab[r, :])[-2])
-            + str(list(tab[r, :])[-1]),
-            end=", \n",
+        s += (
+                " + ".join(map(str, list(tab[r, :])[:-2]))
+                + str(list(tab[r, :])[-2])
+                + str(list(tab[r, :])[-1])
         )
+        s += ", \n"
+
+    return s
 
 
 # https://github.com/pysmt/pysmt/blob/97088bf3b0d64137c3099ef79a4e153b10ccfda7/examples/efsmt.py

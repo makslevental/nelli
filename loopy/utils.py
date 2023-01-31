@@ -1,10 +1,9 @@
-from .loopy_mlir.ir import Value
-
 from .loopy_mlir._mlir_libs._loopy_mlir import (
     print_value_as_operand,
     reset_disambig_names as _reset_disambig_names,
-    walk_operation,
+    walk_operation
 )
+from .loopy_mlir.ir import Value
 
 seen = {}
 

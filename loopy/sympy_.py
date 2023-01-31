@@ -63,8 +63,8 @@ class SymPyVisitor:
         elif hasattr(self, f"visit_{e.__class__.__name__}"):
             return getattr(self, f"visit_{e.__class__.__name__}")(e)
         elif isinstance(
-            e,
-            (Equality, LessThan, StrictLessThan, GreaterThan, StrictGreaterThan),
+                e,
+                (Equality, LessThan, StrictLessThan, GreaterThan, StrictGreaterThan),
         ):
             return self.visit_Relational(e)
         else:

@@ -1,6 +1,7 @@
 from typing import Any, List
 from typing import Union
 
+from ..loopy_mlir._mlir_libs._loopy_mlir import ArithValue
 from ..loopy_mlir.dialects import arith as arith_dialect
 from ..loopy_mlir.dialects import math, arith
 from ..loopy_mlir.dialects._ods_common import (
@@ -28,7 +29,6 @@ from ..loopy_mlir.ir import (
     OpView,
     StringAttr,
 )
-from ..loopy_mlir._mlir_libs._loopy_mlir import ArithValue
 
 
 def _isa(obj: Any, cls: type):
@@ -348,13 +348,12 @@ def infer_mlir_type(py_val) -> Type:
         raise Exception(f"unsupported val type {type(py_val)} {py_val}")
 
 
-def constant(
-    py_cst: Union[int, float, bool],
-    index_type: bool = False,
-):
-    if index_type:
+def constant(py_cst: Union[int, float, bool], type: Type = None, index: bool = False):
+    if index:
         constant = arith.ConstantOp.create_index(py_cst).result
     else:
-        constant = arith.ConstantOp(infer_mlir_type(py_cst), py_cst).result
+        if type is None:
+            type = infer_mlir_type(py_cst)
+        constant = arith.ConstantOp(type, py_cst).result
 
     return ArithValue(constant)

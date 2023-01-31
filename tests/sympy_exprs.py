@@ -34,9 +34,9 @@ class TestSympyConversion:
 
         module = ir.Module.create()
         with ir.InsertionPoint(module.body):
-            i = arith.constant(1, index_type=True).mlir_value
-            j = arith.constant(2, index_type=True).mlir_value
-            k = arith.constant(3, index_type=True).mlir_value
-            l = arith.constant(4, index_type=True).mlir_value
+            i = arith.constant(1, index=True).mlir_value
+            j = arith.constant(2, index=True).mlir_value
+            k = arith.constant(3, index=True).mlir_value
+            l = arith.constant(4, index=True).mlir_value
             res = expr @ (i, j, k, l)
         print(module)
