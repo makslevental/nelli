@@ -1,12 +1,12 @@
 from loopy.loopy_mlir import ir
-from loopy.mlir import f64_t, index_t
+from loopy.mlir import f64_t
 from loopy.mlir.scf import (
     scf_if,
     scf_else,
     scf_endif as endif,
 )
 from loopy.mlir.arith import constant
-from loopy.mlir.func import func, mlir_func
+from loopy.mlir.func import mlir_func
 from loopy.mlir.memref import aff_alloc
 
 

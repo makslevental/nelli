@@ -328,7 +328,7 @@ std::string showOp(Operation *o) {
   return std::regex_replace(str, std::regex("%"), "");
 }
 
-std::map<std::string, std::map<void *, std::string>> seen;
+static std::map<std::string, std::map<void *, std::string>> seen;
 
 std::string makeDisambigName(Value v) {
   auto name = showValueAsOperand(v);

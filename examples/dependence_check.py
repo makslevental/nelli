@@ -2,7 +2,12 @@ import gc
 
 # noinspection PyUnresolvedReferences
 
-from loopy.aff import StoreOp, LoadOp, print_sympy_constraints, check_mem_dep, find_ops
+from loopy.aff import (
+    StoreOp,
+    LoadOp,
+    print_sympy_constraints,
+    check_mem_dep,
+)
 from loopy.loopy_mlir.ir import Module, InsertionPoint
 from loopy.mlir import f64_t, index_t
 from loopy.mlir.affine import (
@@ -13,10 +18,7 @@ from loopy.sympy_ import d0, d1, s0, s1
 from loopy.mlir.arith import constant
 from loopy.mlir.func import mlir_func
 from loopy.mlir.memref import aff_alloc
-from loopy.loopy_mlir._mlir_libs._loopy_mlir import (
-    show_access_relation,
-    walk_operation,
-)
+from loopy.utils import reset_disambig_names, find_ops
 
 
 def has_dep():
@@ -57,7 +59,7 @@ def has_dep():
     print("\nconstraint system for load op:\n")
     print_sympy_constraints(load.sympy_access_constraints)
 
-    show_access_relation(store.mlir_op, load.mlir_op)
+    # show_access_relation(store.mlir_op, load.mlir_op)
     check_mem_dep(store, load)
 
 
@@ -99,11 +101,12 @@ def hasnt_dep():
     print("\nconstraint system for load op:\n")
     print_sympy_constraints(load.sympy_access_constraints)
 
-    show_access_relation(store.mlir_op, load.mlir_op)
+    # show_access_relation(store.mlir_op, load.mlir_op)
     check_mem_dep(store, load)
 
 
 if __name__ == "__main__":
     has_dep()
+    reset_disambig_names()
     gc.collect()
     hasnt_dep()

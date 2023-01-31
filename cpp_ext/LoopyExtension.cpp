@@ -278,4 +278,5 @@ PYBIND11_MODULE(_loopy_mlir, m) {
           auto *dstOp = unwrapApiObject<mlir::Operation>(dstOpApiObject);
           myCheckDependenceSrcDst(srcOp, dstOp);
         });
+  m.def("reset_disambig_names", []() { seen.clear(); });
 }

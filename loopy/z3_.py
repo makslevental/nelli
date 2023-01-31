@@ -281,4 +281,4 @@ def opt_system(cons: list, quants: Optional[list] = None, limit=1):
         if i > limit:
             break
 
-    return sorted(models, key=lambda k: str(k)) if models is not [] else None
+    return sorted(models, key=lambda k: str(k)) if models != [] else None

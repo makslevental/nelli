@@ -78,4 +78,4 @@ add_definitions(${LLVM_DEFINITIONS})
 include(MLIRDetectPythonEnv)
 set(MLIR_INCLUDE_TESTS 0)
 
-add_subdirectory(loopy)
+add_subdirectory(cpp_ext)
