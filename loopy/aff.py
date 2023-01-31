@@ -1,17 +1,16 @@
+import logging
 from typing import Union, List, Tuple
 
 # from symengine import Eq, Symbol, Integer
-from sympy import Eq, Symbol, Integer, pprint
+from sympy import Eq, Symbol, Integer, pretty
 from sympy.core.relational import Relational
 from z3 import Int, substitute, is_eq, simplify
 from z3.z3util import get_vars
 
 from .loopy_mlir._mlir_libs._loopy_mlir import (
     get_affine_map_from_attr,
-    print_value_as_operand,
     get_access_relation,
     walk_affine_exprs,
-    walk_operation,
 )
 from .loopy_mlir.ir import (
     AffineAddExpr,
@@ -29,9 +28,11 @@ from .loopy_mlir.ir import (
 from .utils import make_disambig_name
 from .z3_ import (
     build_z3_access_constraints,
-    print_z3_constraints,
+    show_z3_constraints,
     opt_system,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class ApplyOp:
@@ -172,9 +173,17 @@ def build_sympy_access_constraints(
     return constraints
 
 
-def print_sympy_constraints(cons: list[Relational]):
-    for c in cons:
-        pprint(c, use_unicode=False)
+def show_sympy_constraints(cons: list[Relational]) -> str:
+    s = "\n{\n"
+    for i, c in enumerate(cons):
+        s += (
+            "  "
+            + pretty(c, use_unicode=False)
+            + (", \n" if i < len(cons) - 1 else "\n")
+        )
+
+    s += "}"
+    return s
 
 
 def compose(*mem_ops: tuple["MemOp", "MemOp"]):
@@ -233,20 +242,11 @@ def compose(*mem_ops: tuple["MemOp", "MemOp"]):
 
 def check_mem_dep(src_op, dst_op):
     quants, cons = compose(src_op, dst_op)
-    print("\ncomposed constraint system: ", end="")
-    print_z3_constraints(cons)
+    logger.debug("composed constraint system: ")
+    logger.debug(show_z3_constraints(cons))
     maybe_model = opt_system(cons, quants)
     if maybe_model is not None:
-        print("\ndependence found @ {")
-        for i, v in enumerate(maybe_model):
-            print(
-                "  ",
-                v,
-                "->",
-                maybe_model[v],
-                end=", \n" if i < len(maybe_model) - 1 else "\n",
-            )
-        print("}")
+        dep = {v: maybe_model[v] for v in maybe_model}
+        return dep
     else:
-        print("\nno dependency\n")
-
+        return None

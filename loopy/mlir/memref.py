@@ -1,13 +1,13 @@
 from typing import List, Union, Optional, Sequence, Tuple
 
+from .affine import LoadOp as AffineLoadOp, StoreOp as AffineStoreOp
 from .arith import ArithValue
+from ..loopy_mlir.dialects import memref
 from ..loopy_mlir.dialects._ods_common import (
     get_op_result_or_value,
     get_op_results_or_values,
 )
 from ..loopy_mlir.ir import Type, Value, F64Type, Operation, OpView, MemRefType
-from ..loopy_mlir.dialects import memref
-from .affine import LoadOp as AffineLoadOp, StoreOp as AffineStoreOp
 
 
 class LoadOp(memref.LoadOp):
@@ -63,9 +63,13 @@ class AllocaOp(memref.AllocaOp):
 
 class AffineMemRefValue(ArithValue):
     def __getitem__(self, item):
+        if not isinstance(item, tuple):
+            item = tuple([item])
         return ArithValue(AffineLoadOp(self, item).result)
 
     def __setitem__(self, indices, value):
+        if not isinstance(indices, tuple):
+            indices = tuple([indices])
         return AffineStoreOp(self, value, indices)
 
 

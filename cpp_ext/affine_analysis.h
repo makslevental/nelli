@@ -2,6 +2,7 @@
 // Created by mlevental on 1/20/23.
 //
 
+#include "macros.h"
 #include "mlir/Analysis/Presburger/IntegerRelation.h"
 #include "mlir/Analysis/Presburger/Matrix.h"
 #include "mlir/Analysis/SliceAnalysis.h"
@@ -39,8 +40,6 @@
 
 #ifndef LOOPY_AFFINE_ANALYSIS_H
 #define LOOPY_AFFINE_ANALYSIS_H
-
-#define LLVM_DEBUG(x)
 
 using namespace llvm;
 using namespace mlir;
@@ -358,6 +357,7 @@ void printDependenceConstraints(FlatAffineValueConstraints dep,
   auto ne = dep.getNumEqualities();
   auto nie = dep.getNumInequalities();
   auto nc = dep.getNumCols();
+  //  debug(nd, nds, nr, ns, nl, ne, nie, nc);
 
   using Row_t =
       std::vector<variant<std::string, const char *, string_view, Table>>;
@@ -437,8 +437,12 @@ void printDependenceConstraints(FlatAffineValueConstraints dep,
             << "\n";
 }
 
-static void myCheckDependenceSrcDst(Operation *srcOpInst,
-                                    Operation *dstOpInst) {
+static void checkDependenceSrcDst(
+    Operation *srcOpInst, Operation *dstOpInst,
+    std::function<DependenceResult(const MemRefAccess &, const MemRefAccess &,
+                                   unsigned, FlatAffineValueConstraints *,
+                                   SmallVector<DependenceComponent, 2> *, bool)>
+        checker) {
   MemRefAccess srcAccess(srcOpInst);
   MemRefAccess dstAccess(dstOpInst);
 
@@ -446,48 +450,62 @@ static void myCheckDependenceSrcDst(Operation *srcOpInst,
       getNumCommonSurroundingLoops(*srcOpInst, *dstOpInst);
   std::cerr << "numCommonLoops: " << numCommonLoops << "\n";
   for (unsigned d = 1; d <= numCommonLoops + 1; ++d) {
-    std::cerr << "checking for dependence from\n\t" << showOp(srcOpInst) << "\nto\n\t" << showOp(dstOpInst) << "\nat depth "
-              << d << "\n";
+    std::cerr << "checking for dependence from\n\t" << showOp(srcOpInst)
+              << "\nto\n\t" << showOp(dstOpInst) << "\nat depth " << d << "\n";
     FlatAffineValueConstraints dependenceConstraints;
     SmallVector<DependenceComponent, 2> dependenceComponents;
-    DependenceResult result = myCheckMemrefAccessDependence(
-        srcAccess, dstAccess, d, &dependenceConstraints, &dependenceComponents,
-        true);
+    DependenceResult result =
+        checker(srcAccess, dstAccess, d, &dependenceConstraints,
+                &dependenceComponents, true);
     if (result.value == DependenceResult::Failure) {
       srcOpInst->emitError("dependence check failed");
     } else {
       bool ret = hasDependence(result);
-      // TODO: Print dependence type (i.e. RAW, etc) and print
-      // distance vectors as: ([2, 3], [0, 10]). Also, shorten distance
-      // vectors from ([1, 1], [3, 3]) to (1, 3).
       if (ret) {
         srcOpInst->emitRemark("dependence from\n\t")
-            << showOp(srcOpInst) << "\nto\n\t" << showOp(dstOpInst) << "\nat depth "
-            << d << " = "
+            << showOp(srcOpInst) << "\nto\n\t" << showOp(dstOpInst)
+            << "\nat depth " << d << " = "
             << getDirectionVectorStr(ret, numCommonLoops, d,
                                      dependenceComponents);
         printDependenceConstraints(dependenceConstraints);
         auto d = dependenceConstraints.getNumDimAndSymbolVars();
-        std::cerr << "integer sample:\n";
+        std::cerr << "integer lex min:\n";
         std::cerr << "{";
-        auto integerSample =
-            dependenceConstraints.findIntegerSample().getValue();
-        for (unsigned i = 0; i < d; ++i) {
-          if (dependenceConstraints.hasValue(i)) {
-            std::cerr << makeDisambigName(dependenceConstraints.getValue(i))
-                      << "->" << integerSample[i];
-            if (i < d - 1)
-              std::cerr << ", ";
+        auto maybeLexMin = dependenceConstraints.findIntegerLexMin();
+        if (!maybeLexMin.isEmpty()) {
+          if (maybeLexMin.isBounded()) {
+            for (unsigned i = 0; i < d; ++i) {
+              auto integerSample = maybeLexMin.getBoundedOptimum();
+              if (dependenceConstraints.hasValue(i)) {
+                std::cerr << makeDisambigName(dependenceConstraints.getValue(i))
+                          << "->" << integerSample[i];
+                if (i < d - 1)
+                  std::cerr << ", ";
+              }
+            }
+          } else {
+            std::cerr << "lex min is unbounded";
           }
+        } else {
+          std::cerr << "no lex min";
         }
         std::cerr << "}";
         std::cerr << "\n\n";
       } else {
         std::cerr << "no dependence";
-
       }
     }
   }
 }
+
+static void sanityCheckDependenceSrcDst(Operation *srcOpInst,
+                                        Operation *dstOpInst) {
+  checkDependenceSrcDst(srcOpInst, dstOpInst, checkMemrefAccessDependence);
+};
+
+static void myCheckDependenceSrcDst(Operation *srcOpInst,
+                                    Operation *dstOpInst) {
+  checkDependenceSrcDst(srcOpInst, dstOpInst, myCheckMemrefAccessDependence);
+};
 
 #endif // LOOPY_AFFINE_ANALYSIS_H

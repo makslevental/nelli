@@ -1,18 +1,16 @@
-from loopy.loopy_mlir import ir
 from loopy.mlir import f64_t, index_t
 from loopy.mlir.affine import (
     affine_for as range,
     affine_endfor,
 )
+from loopy.mlir.utils import mlir_mod_ctx
 from loopy.sympy_ import d0, d1, s0, s1
 from loopy.mlir.arith import constant
 from loopy.mlir.func import mlir_func
 from loopy.mlir.memref import aff_alloc
 
 
-module = ir.Module.create()
-
-with ir.InsertionPoint(module.body):
+with mlir_mod_ctx() as module:
 
     @mlir_func
     def double_loop(M: index_t, N: index_t):
@@ -28,7 +26,8 @@ with ir.InsertionPoint(module.body):
         affine_endfor()
         return mem
 
-    m = constant(10, index_type=True)
-    n = constant(20, index_type=True)
+    m = constant(10, index=True)
+    n = constant(20, index=True)
     r = double_loop(m, n)
+
 print(module)

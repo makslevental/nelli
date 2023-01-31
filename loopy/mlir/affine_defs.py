@@ -1,4 +1,4 @@
-from typing import Dict, Optional
+from typing import Optional
 
 from .affine import Apply
 from ..loopy_mlir import ir

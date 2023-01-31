@@ -24,7 +24,6 @@ DefaultContext.__enter__()
 DefaultContext.allow_unregistered_dialects = True
 
 
-
 @atexit.register
 def __exit_ctxt():
     DefaultContext.__exit__(None, None, None)
@@ -37,5 +36,6 @@ DefaultLocation.__enter__()
 @atexit.register
 def __exit_loc():
     DefaultLocation.__exit__(None, None, None)
+
 
 from . import mlir

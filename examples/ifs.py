@@ -1,4 +1,3 @@
-from loopy.loopy_mlir import ir
 from loopy.mlir import f64_t
 from loopy.mlir.scf import (
     scf_if,
@@ -8,12 +7,9 @@ from loopy.mlir.scf import (
 from loopy.mlir.arith import constant
 from loopy.mlir.func import mlir_func
 from loopy.mlir.memref import aff_alloc
+from loopy.mlir.utils import mlir_mod_ctx
 
-
-module = ir.Module.create()
-
-
-with ir.InsertionPoint(module.body):
+with mlir_mod_ctx() as module:
 
     @mlir_func
     def ifs(M: f64_t, N: f64_t):

@@ -1,4 +1,4 @@
-from contextvars import ContextVar, Token
+from contextvars import ContextVar
 from typing import Optional, Union, Sequence
 
 from . import _affine_ops_gen as affine
