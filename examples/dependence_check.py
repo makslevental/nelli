@@ -13,13 +13,12 @@ from loopy.aff import (
 from loopy.mlir import f64_t, index_t
 from loopy.mlir.affine import (
     affine_for as range,
-    affine_endfor as endfor,
 )
 from loopy.sympy_ import d0, d1, s0, s1
 from loopy.mlir.arith import constant
 from loopy.mlir.func import mlir_func
 from loopy.mlir.memref import aff_alloc
-from loopy.utils import reset_disambig_names, find_ops, mlir_mod_ctx, mlir_gc
+from loopy.utils import find_ops, mlir_mod_ctx
 
 
 def has_dep():
@@ -34,17 +33,11 @@ def has_dep():
                     ii = (d0 * 2 - d1 * 4 + s1) @ (i, j, N)
                     jj = (d1 * 3 - s0) @ (j, M)
                     mem[ii, jj] = zero
-                endfor()
-            endfor()
             for i in range(0, 100):
                 for j in range(0, 50):
                     ii = (d0 * 7 + d1 * 9 - s1) @ (i, j, M)
                     jj = (d1 * 11 + s0) @ (j, K)
                     v = mem[ii, jj]
-                endfor()
-            endfor()
-
-    # print(module)
 
     stores_loads = find_ops(
         module, lambda op: op.name in {"affine.store", "affine.load"}
@@ -78,15 +71,11 @@ def hasnt_dep():
                     ii = 2 * (d0 * 2 - d1 * 4 + s1) @ (i, j, N)
                     jj = 2 * (d1 * 3 - s0) @ (j, M)
                     mem[ii, jj] = zero
-                endfor()
-            endfor()
             for i in range(0, 100):
                 for j in range(0, 50):
                     ii = (2 * (d0 * 7 + d1 * 9 - s1) + 1) @ (i, j, M)
                     jj = (2 * (d1 * 11 + s0) + 1) @ (j, K)
                     v = mem[ii, jj]
-                endfor()
-            endfor()
 
     # print(module)
 
@@ -112,7 +101,7 @@ def hasnt_dep():
 
 if __name__ == "__main__":
     has_dep()
-    reset_disambig_names()
-    mlir_gc()
-    hasnt_dep()
-    mlir_gc()
+    # reset_disambig_names()
+    # mlir_gc()
+    # hasnt_dep()
+    # mlir_gc()

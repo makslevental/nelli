@@ -152,3 +152,7 @@ Use this for CMake
 -DPython3_EXECUTABLE=python \
 -DCMAKE_PREFIX_PATH=<LLVM_INSTALL>/install
 ```
+
+# Caveats
+
+1. Globals (`global a, b, c`) will not work in functions decorated with `@mlir_func` (because of how we implement ["sugar"](https://github.com/makslevental/loopy/blob/02cf6e00b33e1e827b837b175c25623a16d62b6e/loopy/mlir/func.py#L34)).
