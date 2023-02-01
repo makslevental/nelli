@@ -4,7 +4,7 @@ requires = [
     "wheel",
     "numpy",
     "PyYAML",
-    "pybind11==2.8.0",
+    "pybind11",
     "pip",
     "cmake",
     "ninja"

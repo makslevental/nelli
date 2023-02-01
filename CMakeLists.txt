@@ -23,14 +23,6 @@ set(CMAKE_BUILD_WITH_INSTALL_NAME_DIR ON)
 
 set(CMAKE_CXX_STANDARD 17 CACHE STRING "C++ standard to conform to")
 
-if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-    set(MD5 0fc838d4399baf4533c0b2ee33a59fe6)
-elseif (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
-    set(MD5 96c8e619850285c6dc2be3287843b48d)
-else ()
-    message(FATAL_ERROR "unknown system - no md5 hash")
-endif ()
-
 set(LLVM_INSTALL_DIR "" CACHE STRING "Path to LLVM install dir")
 if (LLVM_INSTALL_DIR STREQUAL "")
     execute_process(COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/setup.py" --llvm-url OUTPUT_VARIABLE LLVM_URL)
@@ -38,7 +30,6 @@ if (LLVM_INSTALL_DIR STREQUAL "")
     FetchContent_Populate(
             MLIR
             URL "${LLVM_URL}"
-            URL_HASH MD5=${MD5}
             SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/llvm_install"
     )
     list(APPEND CMAKE_PREFIX_PATH)

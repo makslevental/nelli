@@ -1,7 +1,6 @@
 from loopy.mlir import f64_t, index_t
 from loopy.mlir.affine import (
     affine_for as range,
-    affine_endfor,
 )
 from loopy.mlir.arith import constant
 from loopy.mlir.func import mlir_func
@@ -21,8 +20,6 @@ with mlir_mod_ctx() as module:
                 v = mem[a, a]
                 w = v * two
                 mem[a, a] = w
-            affine_endfor()
-        affine_endfor()
         return mem
 
     m = constant(10, index=True)
