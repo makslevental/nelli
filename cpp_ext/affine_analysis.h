@@ -85,7 +85,7 @@ static mlir::Block *getCommonBlock(mlir::Operation *opA, mlir::Operation *opB) {
 
 // Returns the number of outer loop common to 'src/dstDomain'.
 // Loops common to 'src/dst' domains are added to 'commonLoops' if non-null.
-SmallVector<AffineForOp>
+SmallVector<AffineForOp, 4>
 getCommonLoops(const FlatAffineValueConstraints &srcDomain,
                const FlatAffineValueConstraints &dstDomain) {
   // Find the number of common loops shared by src and dst accesses.
@@ -307,8 +307,8 @@ std::string showValueAsOperand(Value v) {
   auto parent = v.getParentRegion()->getParentOfType<func::FuncOp>();
   AsmState state(parent, OpPrintingFlags().printGenericOpForm());
   v.printAsOperand(os, state);
-    return str;
-//  return std::regex_replace(str, std::regex("%"), "");
+  return str;
+  //  return std::regex_replace(str, std::regex("%"), "");
 }
 
 std::string showOp(Operation *o) {

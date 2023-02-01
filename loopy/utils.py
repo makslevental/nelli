@@ -1,3 +1,6 @@
+import builtins
+import contextlib
+
 # noinspection PyUnresolvedReferences
 from .loopy_mlir._mlir_libs._loopy_mlir import (
     get_common_loops,
@@ -7,7 +10,7 @@ from .loopy_mlir._mlir_libs._loopy_mlir import (
     show_sanity_check_access_relation,
     walk_operation,
 )
-from .loopy_mlir.ir import Value
+from .loopy_mlir.ir import Value, Module, InsertionPoint
 
 seen_ambiguous_names = {}
 
@@ -39,3 +42,18 @@ def find_ops(op, pred):
 
     walk_operation(op.operation, find)
     return matching
+
+
+def mlir_gc():
+    import gc
+
+    for i in builtins.range(10):
+        gc.collect()
+    reset_disambig_names()
+
+
+@contextlib.contextmanager
+def mlir_mod_ctx():
+    module = Module.create()
+    with InsertionPoint(module.body):
+        yield module

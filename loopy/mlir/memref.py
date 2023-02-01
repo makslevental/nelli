@@ -63,6 +63,7 @@ class AllocaOp(memref.AllocaOp):
 
 class AffineMemRefValue(ArithValue):
     most_recent_store = None
+
     def __getitem__(self, item):
         if not isinstance(item, tuple):
             item = tuple([item])

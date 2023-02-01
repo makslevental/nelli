@@ -1,4 +1,3 @@
-import contextlib
 import os
 import sys
 import tempfile
@@ -7,7 +6,6 @@ from io import StringIO
 # from loopy.loopy_mlir.ir import (
 #     register_attribute_builder,
 # )
-from ..loopy_mlir.ir import Module, InsertionPoint
 
 
 def run_pipeline_with_repro_report(
@@ -76,13 +74,6 @@ def lower_pi_to_linalg(module):
         enable_ir_printing=False,
     )
     return module
-
-
-@contextlib.contextmanager
-def mlir_mod_ctx():
-    module = Module.create()
-    with InsertionPoint(module.body):
-        yield module
 
 
 # @register_attribute_builder("AnyI64Attr")

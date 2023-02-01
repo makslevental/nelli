@@ -1,0 +1,43 @@
+name: Test
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    branches:
+      - main
+
+jobs:
+
+  test:
+
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        os: [ ubuntu-latest ]
+        arch: [ x86_64 ]
+        python_version: [ "3.10" ]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python_version }}
+
+      - name: Install
+        run: |
+          pip install wheel cmake ninja
+          pip install -r requirements.txt
+          CMAKE_GENERATOR=Ninja pip install . --no-build-isolation -vvvv
+
+      - name: Test
+        run: |
+          python tests/memref_dependence_check.py
