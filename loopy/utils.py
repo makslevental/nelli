@@ -1,28 +1,32 @@
+# noinspection PyUnresolvedReferences
 from .loopy_mlir._mlir_libs._loopy_mlir import (
-    print_value_as_operand,
+    get_common_loops,
+    show_value_as_operand,
     reset_disambig_names as _reset_disambig_names,
-    walk_operation
+    show_access_relation,
+    show_sanity_check_access_relation,
+    walk_operation,
 )
 from .loopy_mlir.ir import Value
 
-seen = {}
+seen_ambiguous_names = {}
 
 
 def make_disambig_name(o: Value):
-    name = print_value_as_operand(o)
-    if name in seen and o not in seen[name]:
-        seen[name][o] = name + "'" * len(seen[name])
-    elif name in seen and o in seen[name]:
+    name = show_value_as_operand(o)
+    if name in seen_ambiguous_names and o not in seen_ambiguous_names[name]:
+        seen_ambiguous_names[name][o] = name + "'" * len(seen_ambiguous_names[name])
+    elif name in seen_ambiguous_names and o in seen_ambiguous_names[name]:
         # name = seen[name][o]
         pass
     else:
-        seen[name] = {o: name}
-    return seen[name][o]
+        seen_ambiguous_names[name] = {o: name}
+    return seen_ambiguous_names[name][o]
 
 
 def reset_disambig_names():
-    global seen
-    seen = {}
+    global seen_ambiguous_names
+    seen_ambiguous_names = {}
     _reset_disambig_names()
 
 

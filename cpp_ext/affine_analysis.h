@@ -85,26 +85,21 @@ static mlir::Block *getCommonBlock(mlir::Operation *opA, mlir::Operation *opB) {
 
 // Returns the number of outer loop common to 'src/dstDomain'.
 // Loops common to 'src/dst' domains are added to 'commonLoops' if non-null.
-static unsigned
-getNumCommonLoops(const FlatAffineValueConstraints &srcDomain,
-                  const FlatAffineValueConstraints &dstDomain,
-                  SmallVectorImpl<AffineForOp> *commonLoops = nullptr) {
+SmallVector<AffineForOp>
+getCommonLoops(const FlatAffineValueConstraints &srcDomain,
+               const FlatAffineValueConstraints &dstDomain) {
   // Find the number of common loops shared by src and dst accesses.
+  SmallVector<AffineForOp, 4> commonLoops{};
   unsigned minNumLoops =
       std::min(srcDomain.getNumDimVars(), dstDomain.getNumDimVars());
-  unsigned numCommonLoops = 0;
   for (unsigned i = 0; i < minNumLoops; ++i) {
     if (!isForInductionVar(srcDomain.getValue(i)) ||
         !isForInductionVar(dstDomain.getValue(i)) ||
         srcDomain.getValue(i) != dstDomain.getValue(i))
       break;
-    if (commonLoops != nullptr)
-      commonLoops->push_back(getForInductionVarOwner(srcDomain.getValue(i)));
-    ++numCommonLoops;
+    commonLoops.push_back(getForInductionVarOwner(srcDomain.getValue(i)));
   }
-  if (commonLoops != nullptr)
-    assert(commonLoops->size() == numCommonLoops);
-  return numCommonLoops;
+  return commonLoops;
 }
 
 /// Returns true if the ancestor operation of 'srcAccess' appears before the
@@ -141,7 +136,7 @@ addOrderingConstraints(const FlatAffineValueConstraints &srcDomain,
   unsigned numCols = dependenceDomain->getNumCols();
   SmallVector<int64_t, 4> eq(numCols);
   unsigned numSrcDims = srcDomain.getNumDimVars();
-  unsigned numCommonLoops = getNumCommonLoops(srcDomain, dstDomain);
+  unsigned numCommonLoops = getCommonLoops(srcDomain, dstDomain).size();
   unsigned numCommonLoopConstraints = std::min(numCommonLoops, loopDepth);
   for (unsigned i = 0; i < numCommonLoopConstraints; ++i) {
     std::fill(eq.begin(), eq.end(), 0);
@@ -166,9 +161,8 @@ static void computeDirectionVector(
     FlatAffineValueConstraints *dependenceDomain,
     SmallVector<DependenceComponent, 2> *dependenceComponents) {
   // Find the number of common loops shared by src and dst accesses.
-  SmallVector<AffineForOp, 4> commonLoops;
-  unsigned numCommonLoops =
-      getNumCommonLoops(srcDomain, dstDomain, &commonLoops);
+  auto commonLoops = getCommonLoops(srcDomain, dstDomain);
+  unsigned numCommonLoops = commonLoops.size();
   if (numCommonLoops == 0)
     return;
   // Compute direction vectors for requested loop depth.
@@ -250,7 +244,7 @@ DependenceResult myCheckMemrefAccessDependence(
   // operation of 'dstAccess' in the same common operation block.
   // Note: this check is skipped if 'allowRAR' is true, because because RAR
   // deps can exist irrespective of lexicographic ordering b/w src and dst.
-  unsigned numCommonLoops = getNumCommonLoops(srcDomain, dstDomain);
+  unsigned numCommonLoops = getCommonLoops(srcDomain, dstDomain).size();
   assert(loopDepth <= numCommonLoops + 1);
   if (!allowRAR && loopDepth > numCommonLoops &&
       !srcAppearsBeforeDstInAncestralBlock(srcAccess, dstAccess)) {
@@ -313,8 +307,8 @@ std::string showValueAsOperand(Value v) {
   auto parent = v.getParentRegion()->getParentOfType<func::FuncOp>();
   AsmState state(parent, OpPrintingFlags().printGenericOpForm());
   v.printAsOperand(os, state);
-  //  return str;
-  return std::regex_replace(str, std::regex("%"), "");
+    return str;
+//  return std::regex_replace(str, std::regex("%"), "");
 }
 
 std::string showOp(Operation *o) {

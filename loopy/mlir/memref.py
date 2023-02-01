@@ -62,6 +62,7 @@ class AllocaOp(memref.AllocaOp):
 
 
 class AffineMemRefValue(ArithValue):
+    most_recent_store = None
     def __getitem__(self, item):
         if not isinstance(item, tuple):
             item = tuple([item])
@@ -70,7 +71,8 @@ class AffineMemRefValue(ArithValue):
     def __setitem__(self, indices, value):
         if not isinstance(indices, tuple):
             indices = tuple([indices])
-        return AffineStoreOp(self, value, indices)
+        # store op has no result...
+        self.most_recent_store = AffineStoreOp(self, value, indices)
 
 
 def aff_alloc(

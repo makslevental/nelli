@@ -1,11 +1,11 @@
 import io
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Tuple, Set
 
 import z3
 from sympy import Matrix, pretty
 from sympy.core import (
-    Symbol,
+    Symbol as SySymbol,
 )
 from sympy.core.relational import Relational
 from z3 import (
@@ -30,6 +30,7 @@ from z3 import (
     set_param,
     OnClause,
     Optimize,
+    ArithRef, ExprRef,
 )
 
 from loopy.sympy_ import SymPyVisitor
@@ -45,17 +46,19 @@ def sympy_to_z3(sympy_exp):
     return z3_vars
 
 
-def build_z3_access_constraints(sympy_constraints: List[Relational]):
+def build_z3_access_constraints(
+    sympy_constraints: List[Relational],
+) -> Tuple[List[ExprRef], Set[ExprRef]]:
     assert len(sympy_constraints)
-    z3_vars = set()
+    vars = set()
     constraints = []
     for constraint in sympy_constraints:
         z3_rel = SymPyVisitor(symbol_factory=Int).visit(constraint)
         z3_rel = simplify(z3_rel, arith_lhs=False, sort_sums=True)
         constraints.append(z3_rel)
-        z3_vars.update(get_vars(z3_rel))
+        vars.update(get_vars(z3_rel))
 
-    return constraints
+    return constraints, vars
 
 
 def pp_z3(a):
@@ -102,9 +105,9 @@ def show_z3_constraints_as_tableau(cons: list, quants: Optional[list] = None) ->
     }
     tab = Matrix.zeros(rows=len(cons) + 1, cols=len(all_vars) + 2)
     for v in all_vars:
-        tab[0, all_vars[v]] = Symbol(str(v))
-    tab[0, -1] = Symbol("const")
-    tab[0, -2] = Symbol("")
+        tab[0, all_vars[v]] = SySymbol(str(v))
+    tab[0, -1] = SySymbol("const")
+    tab[0, -2] = SySymbol("")
     for i, con in enumerate(cons, start=1):
         con = simplify(con, arith_lhs=True, sort_sums=True)
         assert is_bool(con), f"unexpected expr type {con=}"
@@ -125,7 +128,7 @@ def show_z3_constraints_as_tableau(cons: list, quants: Optional[list] = None) ->
         else:
             raise RuntimeError(f"unexpected constraint type {con=}")
 
-        tab[i, -2] = Symbol(rel)
+        tab[i, -2] = SySymbol(rel)
         swap = 1
         if is_lt(con) or is_le(con):
             swap = -1
@@ -133,7 +136,7 @@ def show_z3_constraints_as_tableau(cons: list, quants: Optional[list] = None) ->
         tab[i, -1] = int(str(rhs)) * swap
 
         if lhs.num_args() == 0:
-            tab[i, all_vars[lhs]] = 1 * swap * Symbol(str(lhs))
+            tab[i, all_vars[lhs]] = 1 * swap * SySymbol(str(lhs))
         else:
             for j in range(lhs.num_args()):
                 term = lhs.arg(j)
@@ -142,15 +145,15 @@ def show_z3_constraints_as_tableau(cons: list, quants: Optional[list] = None) ->
                 assert len(syms) == 1, f"unexpected number of syms: {syms=}"
                 if term.num_args() == 0:
                     # tab[i, all_vars[sym]] = Symbol(str(term))
-                    tab[i, all_vars[sym]] = 1 * swap * Symbol(str(sym))
+                    tab[i, all_vars[sym]] = 1 * swap * SySymbol(str(sym))
                 elif term.num_args() == 1:
                     # negative (-1)
                     # tab[i, all_vars[sym]] = Symbol(str(term))
-                    tab[i, all_vars[sym]] = -1 * swap * Symbol(str(sym))
+                    tab[i, all_vars[sym]] = -1 * swap * SySymbol(str(sym))
                 elif term.num_args() == 2:
                     # coefficient (term.arg(0))
                     # tab[i, all_vars[sym]] = Symbol(str(term))
-                    tab[i, all_vars[sym]] = int(str(term.arg(0))) * Symbol(str(sym))
+                    tab[i, all_vars[sym]] = int(str(term.arg(0))) * SySymbol(str(sym))
 
     quant_cols = {all_vars[q]: tab[:, all_vars[q]] for q in quants}
     for idx, col in sorted(quant_cols.items(), reverse=True):
@@ -159,9 +162,9 @@ def show_z3_constraints_as_tableau(cons: list, quants: Optional[list] = None) ->
     s = pretty(tab)
     for r in range(1, tab.rows):
         s += (
-                " + ".join(map(str, list(tab[r, :])[:-2]))
-                + str(list(tab[r, :])[-2])
-                + str(list(tab[r, :])[-1])
+            " + ".join(map(str, list(tab[r, :])[:-2]))
+            + str(list(tab[r, :])[-2])
+            + str(list(tab[r, :])[-1])
         )
         s += ", \n"
 
