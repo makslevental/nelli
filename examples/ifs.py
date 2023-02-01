@@ -1,13 +1,13 @@
 from loopy.mlir import f64_t
+from loopy.mlir.arith import constant
+from loopy.mlir.func import mlir_func
+from loopy.mlir.memref import aff_alloc
 from loopy.mlir.scf import (
     scf_if,
     scf_else,
     scf_endif as endif,
 )
-from loopy.mlir.arith import constant
-from loopy.mlir.func import mlir_func
-from loopy.mlir.memref import aff_alloc
-from loopy.mlir.utils import mlir_mod_ctx
+from loopy.utils import mlir_mod_ctx
 
 with mlir_mod_ctx() as module:
 

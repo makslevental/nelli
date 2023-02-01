@@ -3,8 +3,6 @@ import platform
 import re
 import subprocess
 import sys
-import tarfile
-import urllib.request
 from pathlib import Path
 
 from pip._internal.req import parse_requirements
@@ -114,7 +112,7 @@ packages = find_namespace_packages(
     ],
 )
 
-VERSION = "0.0.0"
+VERSION = "0.0.1"
 
 if len(sys.argv) > 1 and sys.argv[1] == "--version":
     print(VERSION)
@@ -132,5 +130,5 @@ else:
         cmdclass={"build_ext": CMakeBuild},
         packages=packages,
         zip_safe=False,
-        install_requires=[str(ir.requirement) for ir in install_reqs],
+        install_requires=[str(ir.requirement) for ir in install_reqs if "git" not in str(ir.requirement)],
     )
