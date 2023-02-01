@@ -1,12 +1,13 @@
-from contextvars import ContextVar
 from typing import Optional, Union, Sequence
 
 from . import _affine_ops_gen as affine
+from ._affine_ops_gen import _Dialect
 from .arith import ArithValue
 from ..loopy_mlir.dialects._ods_common import (
     get_op_result_or_value,
     get_op_results_or_values,
 )
+from ..loopy_mlir.dialects._ods_common import _cext
 from ..loopy_mlir.ir import (
     AffineMap,
     AffineMapAttr,
@@ -21,8 +22,11 @@ from ..loopy_mlir.ir import (
 )
 
 
-class ForOp(affine.AffineForOp):
-    """Specialization for the Affine for op class."""
+@_cext.register_operation(_Dialect)
+class AffineForOp(OpView):
+    OPERATION_NAME = "affine.for"
+
+    _ODS_REGIONS = (1, True)
 
     def __init__(
         self,
@@ -51,6 +55,15 @@ class ForOp(affine.AffineForOp):
             )
         )
         self.regions[0].blocks.append(IndexType.get(), *results)
+
+    @property
+    def results_(self):
+        _ods_variadic_group_length = len(self.operation.results) - 1 + 1
+        return self.operation.results[0 : 0 + _ods_variadic_group_length]
+
+    @property
+    def region(self):
+        return self.regions[0]
 
     @property
     def body(self):
@@ -122,15 +135,12 @@ class StoreOp(affine.AffineStoreOp):
         )
 
 
-_current_for_op = ContextVar("_current_affine_for_op")
-
 _for_ip = None
 
 
 def affine_for(start, stop, step=1):
     global _for_ip
-    for_op = ForOp(start, stop, step)
-    _current_for_op.set(for_op)
+    for_op = AffineForOp(start, stop, step)
     _for_ip = InsertionPoint(for_op.body)
     _for_ip.__enter__()
     return [for_op.induction_variable]

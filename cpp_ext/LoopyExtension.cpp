@@ -18,6 +18,7 @@
 #include "mlir/IR/Operation.h"
 #include <pybind11/functional.h>
 #include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
 
 #include "affine_analysis.h"
 
@@ -197,7 +198,7 @@ PYBIND11_MODULE(_loopy_mlir, m) {
     return aff_map.get();
   });
 
-  m.def("print_value_as_operand", [](const py::handle valueApiObject) {
+  m.def("show_value_as_operand", [](const py::handle valueApiObject) {
     auto capsule = pybind11::detail::mlirApiObjectToCapsule(valueApiObject);
     MlirValue mlirValue = mlirPythonCapsuleToValue(capsule.ptr());
     return showValueAsOperand(unwrap(mlirValue));
@@ -278,11 +279,39 @@ PYBIND11_MODULE(_loopy_mlir, m) {
           auto *dstOp = unwrapApiObject<mlir::Operation>(dstOpApiObject);
           myCheckDependenceSrcDst(srcOp, dstOp);
         });
+
   m.def("show_sanity_check_access_relation",
         [](const py::handle srcOpApiObject, const py::handle dstOpApiObject) {
           auto *srcOp = unwrapApiObject<mlir::Operation>(srcOpApiObject);
           auto *dstOp = unwrapApiObject<mlir::Operation>(dstOpApiObject);
-          myCheckDependenceSrcDst(srcOp, dstOp);
+          sanityCheckDependenceSrcDst(srcOp, dstOp);
         });
   m.def("reset_disambig_names", []() { seen.clear(); });
+
+  m.def("get_common_loops",
+        [](const py::handle srcOpApiObject, const py::handle dstOpApiObject)
+            -> std::optional<std::vector<py::object>> {
+          auto *srcOp = unwrapApiObject<mlir::Operation>(srcOpApiObject);
+          auto *dstOp = unwrapApiObject<mlir::Operation>(dstOpApiObject);
+          MemRefAccess srcAccess(srcOp);
+          MemRefAccess dstAccess(dstOp);
+          FlatAffineRelation srcRel, dstRel;
+          if (failed(srcAccess.getAccessRelation(srcRel)))
+            return {};
+          if (failed(dstAccess.getAccessRelation(dstRel)))
+            return {};
+          FlatAffineValueConstraints srcDomain = srcRel.getDomainSet();
+          FlatAffineValueConstraints dstDomain = dstRel.getDomainSet();
+          auto res = llvm::map_range(
+              getCommonLoops(srcDomain, dstDomain), [](AffineForOp forOp) {
+                auto mlirForOp = wrap(forOp);
+                auto ctx = PyMlirContext::forContext(
+                    mlirOperationGetContext(mlirForOp));
+                auto pyFoundOp = PyOperation::forOperation(ctx, mlirForOp);
+                return pyFoundOp->createOpView();
+              });
+          // createOpView finds that right class but only if you put py::object here
+          std::vector<py::object> resVec(res.begin(), res.end());
+          return {resVec};
+        });
 }

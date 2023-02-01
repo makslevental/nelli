@@ -55,8 +55,8 @@ class AffineApplyOp(_ods_ir.OpView):
         return self.operation.operands[0 : 0 + _ods_variadic_group_length]
 
 
-@_ods_cext.register_operation(_Dialect)
-@extend_opview_class(_ods_ext_module)
+# @_ods_cext.register_operation(_Dialect)
+# @extend_opview_class(_ods_ext_module)
 class AffineForOp(_ods_ir.OpView):
     OPERATION_NAME = "affine.for"
 

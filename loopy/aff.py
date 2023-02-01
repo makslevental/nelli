@@ -1,16 +1,19 @@
 import logging
+from collections import OrderedDict
 from typing import Union, List, Tuple
 
 # from symengine import Eq, Symbol, Integer
 from sympy import Eq, Symbol, Integer, pretty
 from sympy.core.relational import Relational
-from z3 import Int, substitute, is_eq, simplify
+from z3 import Int, substitute, is_eq, simplify, ExprRef
 from z3.z3util import get_vars
 
 from .loopy_mlir._mlir_libs._loopy_mlir import (
     get_affine_map_from_attr,
     get_access_relation,
     walk_affine_exprs,
+    get_common_loops,
+    show_value_as_operand,
 )
 from .loopy_mlir.ir import (
     AffineAddExpr,
@@ -124,7 +127,7 @@ class MemOp:
             }
 
         self.positions_to_idxs = {k: Symbol(v) for k, v in positions_to_idxs.items()}
-        self.operands = {}
+        self.operands = OrderedDict()
         self.quantified = set()
         for i, o in enumerate(idx_operands):
             assert o.owner.name == "affine.apply"
@@ -136,6 +139,16 @@ class MemOp:
         self.sympy_access_constraints = build_sympy_access_constraints(
             self, tuple(self.operands.values())
         )
+
+        self.z3_access_constraints, self.z3_vars = build_z3_access_constraints(
+            self.sympy_access_constraints
+        )
+
+    def __repr__(self):
+        return str(self.mlir_op)
+
+    def __str__(self):
+        return str(self.mlir_op)
 
 
 class StoreOp(MemOp):
@@ -186,61 +199,78 @@ def show_sympy_constraints(cons: list[Relational]) -> str:
     return s
 
 
-def compose(*mem_ops: tuple["MemOp", "MemOp"]):
+def compose(src_op: MemOp, dst_op: MemOp) -> Tuple[List[ExprRef], List[ExprRef]]:
     alloc1 = (
-        mem_ops[0].mlir_op.operands[1]
-        if mem_ops[0].mlir_op.name == "affine.store"
-        else mem_ops[0].mlir_op.operands[1]
+        src_op.mlir_op.operands[1]
+        if src_op.mlir_op.name == "affine.store"
+        else src_op.mlir_op.operands[0]
     )
     alloc2 = (
-        mem_ops[1].mlir_op.operands[0]
-        if mem_ops[1].mlir_op.name == "affine.load"
-        else mem_ops[1].mlir_op.operands[1]
+        dst_op.mlir_op.operands[0]
+        if dst_op.mlir_op.name == "affine.load"
+        else dst_op.mlir_op.operands[1]
     )
     assert alloc1 == alloc2
 
     quantified = set()
     constraints = []
-    for m in mem_ops:
-        z3_access_constraints = build_z3_access_constraints(m.sympy_access_constraints)
-        quantified.update(m.quantified)
-        constraints.extend(z3_access_constraints)
+    common_loop_ivs = {
+        show_value_as_operand(l.induction_variable)
+        for l in get_common_loops(src_op.mlir_op, dst_op.mlir_op)
+    }
+    # for ops in the same loop nest, we need to "pretend" the loop ivs
+    # are actually distinct so that we can perform "overlap analysis" downstream
+    for i, m in enumerate([src_op, dst_op]):
+        quantified.update({Int(q.name) for q in m.quantified})
+        for c in m.z3_access_constraints:
+            for iv in common_loop_ivs:
+                c = substitute(c, (Int(iv), Int(iv + "'" * i)))
+            constraints.append(c)
 
-    assert len(mem_ops[0].operands) == len(mem_ops[1].operands)
-    # TODO(max): check idx positions
-    canon = {}
-    for idx_m1, idx_m2 in zip(mem_ops[0].operands, mem_ops[1].operands):
-        for i, c in enumerate(constraints):
-            canonoical_idx = Int(idx_m1.name)
-            canon[canonoical_idx] = []
-            constraints[i] = substitute(c, (Int(idx_m2.name), canonoical_idx))
+    # Here's the description from checkMemrefAccessDependence in MLIR:
+    #
+    # "Compute the dependence relation by composing access relation of
+    # `srcAccess` with the inverse of the access relation of `dstAccess`.
+    # Doing this builds a relation between iteration domain of `srcAccess`
+    # to the iteration domain of `dstAccess` which access the same memory
+    # location."
+    #
+    # Inverse means essentially swapping the role of the domain and range
+    # since everything is linear; effectively you have to find on which
+    # indices in the memref the ivs (through affine maps) line up and equate them
+    #
+    # Note this is "implicit" inversion - you get implicit equations for the
+    # iteration space of the dst access in terms of the iteration space of the
+    # source access (you need to eliminate variables/solve the equations to get explicit
+    # equations)
+    #
+    # TODO(max): check idx positions wrt syms and dims
+    for dim_m1, dim_m2 in zip(src_op.operands, dst_op.operands):
+        constraints.append(Int(dim_m1.name) == Int(dim_m2.name))
 
-    new_constraints = []
-    for i, c in enumerate(constraints):
-        for ca in canon:
-            if ca in get_vars(c):
-                assert c.arg(0) == ca, f"canon sym {ca} in the wrong place: {c}"
-                assert is_eq(c), f"unexpected canon expression type {c}"
-                canon[ca].append(c)
-                break
-        else:
-            new_constraints.append(c)
+    for i, n in enumerate(constraints):
+        constraints[i] = simplify(n, arith_lhs=False, sort_sums=True)
 
-    for ca, cons in canon.items():
-        assert len(cons) == 2, f"unexpected number of canon constraints {cons=}"
-        new_constraints.insert(0, substitute(cons[0], (ca, cons[1].arg(1))))
-
-    for i, n in enumerate(new_constraints):
-        new_constraints[i] = simplify(n, arith_lhs=True, sort_sums=True)
-
-    if len(quantified):
-        quantified = [Int(s.name) for s in quantified]
-    else:
-        quantified = []
-    return quantified, new_constraints
+    return list(quantified), constraints
 
 
-def check_mem_dep(src_op, dst_op):
+# Adds ordering constraints to 'dependenceDomain' based on number of loops
+# common to 'src/dstDomain' and requested 'loopDepth'.
+# Note that 'loopDepth' cannot exceed the number of common loops plus one.
+# EX: Given a loop nest of depth 3 with IVs 'i' and 'j' and 'k':
+# *) If 'loopDepth == 1' then one constraint is added: i' >= i + 1
+# *) If 'loopDepth == 2' then two constraints are added: i == i' and j' >= j + 1
+# *) If 'loopDepth == 3' then two constraints are added: i == i' and j' == j and k' >= k + 1
+# *) If 'loopDepth == 4' then two constraints are added: i == i' and j == j' and k == k'
+def get_ordering_constraints(
+    src_op: MemOp, dst_op: MemOp, loop_depth: int, constraints: list
+):
+    num_common_loops = get_common_loops(src_op.mlir_op, dst_op.mlir_op)
+    num_common_loop_constraints = min(num_common_loops, loop_depth)
+    print(num_common_loops)
+
+
+def check_mem_dep(src_op: MemOp, dst_op: MemOp):
     quants, cons = compose(src_op, dst_op)
     logger.debug("composed constraint system: ")
     logger.debug(show_z3_constraints(cons))
