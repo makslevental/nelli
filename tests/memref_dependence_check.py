@@ -10,9 +10,10 @@ from loopy.poly.affine import (
 from loopy.poly.constraints import (
     check_mem_dep,
     get_ordering_constraints,
+    compute_dependence_direction_vector,
 )
 
-from loopy.mlir import f64_t, index_t, f32_t
+from loopy.mlir import f64_t, index_t, f32_t, i32_t
 from loopy.mlir.affine import (
     affine_for as range,
 )
@@ -222,3 +223,36 @@ class TestMemrefDependenceCheck:
 
         mlir_gc()
         loop_carried_dep()
+
+    def test_direction_vectors(self):
+        def direction_vector():
+            with mlir_mod_ctx() as module:
+
+                @mlir_func
+                def mod_div_3d():
+                    M = aff_alloc([2, 2, 2], i32_t)
+                    c0 = constant(0, i32_t)
+                    for i0 in range(0, 8):
+                        for i1 in range(0, 8):
+                            for i2 in range(0, 8):
+                                idx0 = (d0 // 4) @ i0
+                                idx1 = (d1 % 2) @ i1
+                                idx2 = (d2 // 4) @ i2
+                                M[idx0, idx1, idx2] = c0
+                                jdx0 = (d0 // 4) @ i0
+                                jdx1 = (d1 % 2) @ i1
+                                jdx2 = (d2 // 4) @ i2
+                                v = M[jdx0, jdx1, jdx2]
+
+            stores_loads = find_ops(
+                module, lambda op: op.name in {"affine.store", "affine.load"}
+            )
+            store = StoreOp(stores_loads[0])
+            load = LoadOp(stores_loads[1])
+            dir_vecs = compute_dependence_direction_vector(store, load, 1)
+            # TODO(max): these are off by one
+            assert str(dir_vecs) == "{v0: [1, 3], v1: [-6, 6], v2: [-3, 3]}"
+            dir_vecs = compute_dependence_direction_vector(store, load, 2)
+            assert str(dir_vecs) == "{v0: [0, 0], v1: [2, 6], v2: [-3, 3]}"
+            dir_vecs = compute_dependence_direction_vector(store, load, 3)
+            assert str(dir_vecs) == "{v0: [0, 0], v1: [0, 0], v2: [1, 3]}"

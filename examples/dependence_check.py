@@ -112,13 +112,14 @@ def direction_vector():
             for i0 in range(0, 8):
                 for i1 in range(0, 8):
                     for i2 in range(0, 8):
-                        idx0 = (d0 % 3) @ i0
+                        idx0 = (d0 // 4) @ i0
                         idx1 = (d1 % 2) @ i1
-                        idx2 = (d2 % 4) @ i2
+                        idx2 = (d2 // 4) @ i2
                         M[idx0, idx1, idx2] = c0
-                        jdx0 = (d0 % 4) @ i0
+
+                        jdx0 = (d0 // 4) @ i0
                         jdx1 = (d1 % 2) @ i1
-                        jdx2 = (d2 % 3) @ i2
+                        jdx2 = (d2 // 4) @ i2
                         v = M[jdx0, jdx1, jdx2]
 
     stores_loads = find_ops(
@@ -126,14 +127,19 @@ def direction_vector():
     )
     store = StoreOp(stores_loads[0])
     load = LoadOp(stores_loads[1])
-    compute_dependence_direction_vector(store, load, 3)
+    dir_vecs = compute_dependence_direction_vector(store, load, 1)
+    print(dir_vecs)
+    dir_vecs = compute_dependence_direction_vector(store, load, 2)
+    print(dir_vecs)
+    dir_vecs = compute_dependence_direction_vector(store, load, 3)
+    print(dir_vecs)
 
 
 if __name__ == "__main__":
-    # has_dep()
-    # reset_disambig_names()
-    # mlir_gc()
-    # hasnt_dep()
-    # mlir_gc()
+    has_dep()
+    reset_disambig_names()
+    mlir_gc()
+    hasnt_dep()
+    mlir_gc()
     direction_vector()
     mlir_gc()
