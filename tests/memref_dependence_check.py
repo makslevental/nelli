@@ -3,19 +3,20 @@ import logging
 logger = logging.getLogger(__name__)
 
 # noinspection PyUnresolvedReferences
-from loopy.aff import (
+from loopy.poly.affine import (
     StoreOp,
     LoadOp,
-    show_sympy_constraints,
+)
+from loopy.poly.constraints import (
     check_mem_dep,
     get_ordering_constraints,
 )
+
 from loopy.mlir import f64_t, index_t, f32_t
 from loopy.mlir.affine import (
     affine_for as range,
 )
-from loopy.aff import StoreOp, LoadOp
-from loopy.sympy_ import d0, d1, d2, s0, s1
+from loopy.poly.sympy_ import d0, d1, d2, s0, s1
 from loopy.mlir.arith import constant
 from loopy.mlir.func import mlir_func
 from loopy.mlir.memref import aff_alloc

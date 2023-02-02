@@ -59,7 +59,7 @@ def mlir_func(f):
     code = ConcreteBytecode.from_code(f_code_o)
     jumps = []
     for i, c in enumerate(code):
-        if c.name in {"POP_JUMP_IF_FALSE", "JUMP_FORWARD"}:
+        if c.name in {"POP_JUMP_IF_FALSE", "JUMP_FORWARD", "POP_JUMP_FORWARD_IF_FALSE"}:
             jumps.append(i)
 
     for i in reversed(jumps):

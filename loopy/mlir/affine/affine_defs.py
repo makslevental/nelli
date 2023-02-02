@@ -1,8 +1,8 @@
 from typing import Optional
 
-from .affine import Apply
-from ..loopy_mlir import ir
-from ..sympy_ import SymPyVisitor
+from ...mlir.affine import Apply
+from ...loopy_mlir import ir
+from ...poly.sympy_ import SymPyVisitor
 
 
 class AffineBuildState:

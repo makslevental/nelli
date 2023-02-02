@@ -5,7 +5,7 @@ from loopy.mlir.affine import (
 from loopy.mlir.arith import constant
 from loopy.mlir.func import mlir_func
 from loopy.mlir.memref import aff_alloc
-from loopy.sympy_ import d0, d1, s0, s1
+from loopy.poly.sympy_ import d0, d1, s0, s1
 from loopy.utils import mlir_mod_ctx
 
 with mlir_mod_ctx() as module:

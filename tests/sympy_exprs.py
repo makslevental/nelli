@@ -2,8 +2,8 @@ from sympy import Eq
 from z3 import Int
 
 from loopy.mlir import arith
-from loopy.sympy_ import SymPyVisitor, d0, d1, s0, s1
-from loopy.z3_ import build_z3_access_constraints
+from loopy.poly.sympy_ import SymPyVisitor, d0, d1, s0, s1
+from loopy.poly.z3_ import build_z3_access_constraints
 
 
 class TestSympyConversion:

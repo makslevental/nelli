@@ -30,10 +30,10 @@ from z3 import (
     set_param,
     OnClause,
     Optimize,
-    ArithRef, ExprRef,
+    ExprRef,
 )
 
-from loopy.sympy_ import SymPyVisitor
+from .sympy_ import SymPyVisitor
 
 set_param(proof=True)
 from z3.z3util import get_vars

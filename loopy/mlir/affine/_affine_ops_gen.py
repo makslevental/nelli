@@ -1,5 +1,5 @@
-from ..loopy_mlir.dialects._ods_common import _cext as _ods_cext
-from ..loopy_mlir.dialects._ods_common import (
+from ...loopy_mlir.dialects._ods_common import _cext as _ods_cext
+from ...loopy_mlir.dialects._ods_common import (
     extend_opview_class,
     get_op_result_or_value,
     get_op_results_or_values,
@@ -7,10 +7,7 @@ from ..loopy_mlir.dialects._ods_common import (
 
 _ods_ir = _ods_cext.ir
 
-try:
-    from . import _affine_ops_ext as _ods_ext_module
-except ImportError:
-    _ods_ext_module = None
+_ods_ext_module = None
 
 import builtins
 

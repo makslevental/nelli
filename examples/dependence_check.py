@@ -4,9 +4,11 @@ FORMAT = "[%(filename)s:%(funcName)s:%(lineno)d] %(message)s"
 logging.basicConfig(level=logging.DEBUG, format=FORMAT)
 logger = logging.getLogger(__name__)
 
-from loopy.aff import (
+from loopy.poly.affine import (
     StoreOp,
     LoadOp,
+)
+from loopy.poly.constraints import (
     show_sympy_constraints,
     check_mem_dep,
 )
@@ -14,7 +16,7 @@ from loopy.mlir import f64_t, index_t
 from loopy.mlir.affine import (
     affine_for as range,
 )
-from loopy.sympy_ import d0, d1, s0, s1
+from loopy.poly.sympy_ import d0, d1, s0, s1
 from loopy.mlir.arith import constant
 from loopy.mlir.func import mlir_func
 from loopy.mlir.memref import aff_alloc

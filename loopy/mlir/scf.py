@@ -1,5 +1,3 @@
-from contextvars import ContextVar, Token
-
 from loopy.loopy_mlir.dialects import scf
 from .arith import ArithValue
 from ..loopy_mlir.ir import (
