@@ -11,8 +11,9 @@ from loopy.poly.affine import (
 from loopy.poly.constraints import (
     show_sympy_constraints,
     check_mem_dep,
+    compute_dependence_direction_vector,
 )
-from loopy.mlir import f64_t, index_t
+from loopy.mlir import f64_t, index_t, f32_t
 from loopy.mlir.affine import (
     affine_for as range,
 )
@@ -20,7 +21,7 @@ from loopy.poly.sympy_ import d0, d1, s0, s1
 from loopy.mlir.arith import constant
 from loopy.mlir.func import mlir_func
 from loopy.mlir.memref import aff_alloc
-from loopy.utils import find_ops, mlir_mod_ctx
+from loopy.utils import find_ops, mlir_mod_ctx, reset_disambig_names, mlir_gc
 
 
 def has_dep():
@@ -101,9 +102,33 @@ def hasnt_dep():
         logger.debug("no dependency")
 
 
+def direction_vector():
+    with mlir_mod_ctx() as module:
+
+        @mlir_func
+        def store_range_load_last_in_range():
+            mem = aff_alloc([100], f32_t)
+            c7 = constant(7.0, f32_t)
+            for i0 in range(0, 10):
+                for i1 in range(0, 10):
+                    a0 = (d0 + 1) @ i1
+                    v0  = mem[a0]
+                    a1 = d0 @ i1
+                    mem[a1] = c7
+
+    stores_loads = find_ops(
+        module, lambda op: op.name in {"affine.store", "affine.load"}
+    )
+    store = StoreOp(stores_loads[1])
+    load = LoadOp(stores_loads[0])
+    compute_dependence_direction_vector(store, load, 1)
+
+
 if __name__ == "__main__":
-    has_dep()
+    # has_dep()
     # reset_disambig_names()
     # mlir_gc()
     # hasnt_dep()
     # mlir_gc()
+    direction_vector()
+    mlir_gc()

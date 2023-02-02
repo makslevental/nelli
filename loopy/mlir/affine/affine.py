@@ -1,13 +1,10 @@
 from typing import Optional, Union, Sequence
 
-from ...mlir.affine import _affine_ops_gen as affine
-from ...mlir.affine._affine_ops_gen import _Dialect
-from ...mlir.arith import ArithValue
+from ...loopy_mlir.dialects._ods_common import _cext
 from ...loopy_mlir.dialects._ods_common import (
     get_op_result_or_value,
     get_op_results_or_values,
 )
-from ...loopy_mlir.dialects._ods_common import _cext
 from ...loopy_mlir.ir import (
     AffineMap,
     AffineMapAttr,
@@ -20,6 +17,9 @@ from ...loopy_mlir.ir import (
     Operation,
     Value,
 )
+from ...mlir.affine import _affine_ops_gen as affine
+from ...mlir.affine._affine_ops_gen import _Dialect
+from ...mlir.arith import ArithValue
 
 
 @_cext.register_operation(_Dialect)

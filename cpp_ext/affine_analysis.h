@@ -166,7 +166,7 @@ static void computeDirectionVector(
   if (numCommonLoops == 0)
     return;
   // Compute direction vectors for requested loop depth.
-  unsigned numIdsToEliminate = dependenceDomain->getNumVars();
+
   // Add new variables to 'dependenceDomain' to represent the direction
   // constraints for each shared loop.
   dependenceDomain->insertDimVar(/*pos=*/0, /*num=*/numCommonLoops);
@@ -186,6 +186,7 @@ static void computeDirectionVector(
     dependenceDomain->addEquality(eq);
   }
 
+  unsigned numIdsToEliminate = dependenceDomain->getNumVars();
   // Eliminate all variables other than the direction variables just added.
   dependenceDomain->projectOut(numCommonLoops, numIdsToEliminate);
 
@@ -307,8 +308,8 @@ std::string showValueAsOperand(Value v) {
   auto parent = v.getParentRegion()->getParentOfType<func::FuncOp>();
   AsmState state(parent, OpPrintingFlags().printGenericOpForm());
   v.printAsOperand(os, state);
-  return str;
-  //  return std::regex_replace(str, std::regex("%"), "");
+  //  return str;
+  return std::regex_replace(str, std::regex("%(\\d+)"), "ssa$1");
 }
 
 std::string showOp(Operation *o) {

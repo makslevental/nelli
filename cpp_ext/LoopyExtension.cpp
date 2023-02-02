@@ -310,8 +310,27 @@ PYBIND11_MODULE(_loopy_mlir, m) {
                 auto pyFoundOp = PyOperation::forOperation(ctx, mlirForOp);
                 return pyFoundOp->createOpView();
               });
-          // createOpView finds that right class but only if you put py::object here
+          // createOpView finds that right class but only if you put py::object
+          // here
           std::vector<py::object> resVec(res.begin(), res.end());
           return {resVec};
         });
+
+  m.def("show_direction_vector", [](const py::handle srcOpApiObject,
+                                    const py::handle dstOpApiObject,
+                                    int toLoopDepth) {
+    auto *srcOp = unwrapApiObject<mlir::Operation>(srcOpApiObject);
+    auto *dstOp = unwrapApiObject<mlir::Operation>(dstOpApiObject);
+    unsigned numCommonLoops = getNumCommonSurroundingLoops(*srcOp, *dstOp);
+    MemRefAccess srcAccess(srcOp);
+    MemRefAccess dstAccess(dstOp);
+    FlatAffineValueConstraints dependenceConstraints;
+    SmallVector<DependenceComponent, 2> dependenceComponents;
+    DependenceResult result = checkMemrefAccessDependence(
+        srcAccess, dstAccess, toLoopDepth, &dependenceConstraints,
+        &dependenceComponents, true);
+    bool ret = hasDependence(result);
+    return getDirectionVectorStr(ret, numCommonLoops, toLoopDepth,
+                                 dependenceComponents);
+  });
 }

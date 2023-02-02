@@ -1,6 +1,8 @@
 import logging
 
-from .z3_ import show_z3_constraints, opt_system
+from z3.z3util import get_vars
+
+from .z3_ import show_z3_constraints, opt_system, elim_vars
 
 logger = logging.getLogger(__name__)
 from typing import Union, Tuple, List
@@ -13,6 +15,7 @@ from z3 import Int, substitute, simplify, ExprRef
 from ..loopy_mlir._mlir_libs._loopy_mlir import (
     get_common_loops,
     show_value_as_operand,
+    show_direction_vector,
 )
 
 
@@ -141,9 +144,14 @@ def get_ordering_constraints(src_op: "MemOp", dst_op: "MemOp", to_loop_depth: in
     return ordering_constraints
 
 
+def build_constraint_system(src_op: "MemOp", dst_op: "MemOp", to_loop_depth: int = 1):
+    quantified_variables, constraints = compose(src_op, dst_op)
+    constraints.extend(get_ordering_constraints(src_op, dst_op, to_loop_depth))
+    return quantified_variables, constraints
+
+
 def check_mem_dep(src_op: "MemOp", dst_op: "MemOp", to_loop_depth: int = 1):
-    quants, cons = compose(src_op, dst_op)
-    cons.extend(get_ordering_constraints(src_op, dst_op, to_loop_depth))
+    quants, cons = build_constraint_system(src_op, dst_op, to_loop_depth)
     logger.debug("composed constraint system: ")
     logger.debug(show_z3_constraints(cons))
     maybe_model = opt_system(cons, quants)
@@ -152,3 +160,39 @@ def check_mem_dep(src_op: "MemOp", dst_op: "MemOp", to_loop_depth: int = 1):
         return dep
     else:
         return None
+
+
+def compute_dependence_direction_vector(
+    src_op: "MemOp", dst_op: "MemOp", to_loop_depth: int = 1
+) -> "dependenceComponents":
+    quants, cons = build_constraint_system(src_op, dst_op, to_loop_depth)
+    common_loop_ivs = get_common_loop_ivs(src_op, dst_op, symbol_factory=Int)
+    num_common_loops = len(common_loop_ivs)
+    if num_common_loops == 0:
+        return None
+
+    # Add new variables to represent the direction constraints for each shared loop.
+    dir_vec_vars = [Int(f"v{i}") for i in range(num_common_loops)]
+    logger.debug(f"{dir_vec_vars=}")
+    for i, iv in enumerate(common_loop_ivs):
+        dv = dir_vec_vars[i]
+        cons.append(dv == iv - Int(str(iv) + "'"))
+
+    # Eliminate all variables other than the direction variables just added.
+    vars_to_eliminate = set()
+    s = "system with direction vars: {\n"
+    for i, c in enumerate(cons):
+        vars_to_eliminate.update(get_vars(c))
+        s += f"  {c}"
+        if i < len(cons) - 1:
+            s += " &&\n"
+        else:
+            s += "\n"
+    s += "}"
+    logger.debug(s)
+    vars_to_eliminate -= set(dir_vec_vars)
+    after_elim = elim_vars(cons, vars_to_eliminate)
+    logger.debug(f"\n{after_elim=}")
+    logger.debug(
+        f"fpl direction vector: {show_direction_vector(src_op.mlir_op, dst_op.mlir_op, 2)}"
+    )

@@ -31,6 +31,7 @@ from z3 import (
     OnClause,
     Optimize,
     ExprRef,
+    Exists,
 )
 
 from .sympy_ import SymPyVisitor
@@ -289,3 +290,14 @@ def opt_system(cons: list, quants: Optional[list] = None, limit=1):
             break
 
     return sorted(models, key=lambda k: str(k)) if models != [] else None
+
+
+def elim_vars(cons, vars):
+    t = Then("simplify", "qe")
+    expr = And(*cons)
+    for i in range(10):
+        new_expr = t(Exists(list(vars), expr)).as_expr()
+        if expr.sexpr() == new_expr.sexpr():
+            break
+        expr = new_expr
+    return expr
