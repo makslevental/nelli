@@ -14,9 +14,6 @@ from loopy.poly.constraints import (
 )
 
 from loopy.mlir import f64_t, index_t, f32_t, i32_t
-from loopy.mlir.affine import (
-    affine_for as range,
-)
 from loopy.poly.sympy_ import d0, d1, d2, s0, s1
 from loopy.mlir.arith import constant
 from loopy.mlir.func import mlir_func

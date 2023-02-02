@@ -14,29 +14,33 @@ class IfOp(scf.IfOp):
         return self.else_block
 
 
-_current_if_op: IfOp = None
+_current_if_op: list[IfOp] = []
 _if_ip: InsertionPoint = None
 
 
 def scf_if(cond: ArithValue):
     assert isinstance(cond, ArithValue)
     global _if_ip, _current_if_op
-    _current_if_op = IfOp(cond)
-    _if_ip = InsertionPoint(_current_if_op.then_block)
+    if_op = IfOp(cond)
+    _current_if_op.append(if_op)
+    _if_ip = InsertionPoint(if_op.then_block)
     _if_ip.__enter__()
     return True
 
 
 def scf_else():
-    scf.YieldOp([])
     global _if_ip, _current_if_op
-    _if_ip.__exit__(None, None, None)
-    _if_ip = InsertionPoint(_current_if_op.add_else())
+    _if_ip = InsertionPoint(_current_if_op[-1].add_else())
     _if_ip.__enter__()
     return True
 
 
-def scf_endif():
-    scf.YieldOp([])
+def scf_endif_branch():
     global _if_ip
+    scf.YieldOp([])
     _if_ip.__exit__(None, None, None)
+
+
+def scf_endif():
+    global _current_if_op
+    _current_if_op.pop()

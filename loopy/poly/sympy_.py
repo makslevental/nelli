@@ -7,6 +7,7 @@ from sympy.core import (
     GreaterThan,
     StrictGreaterThan,
 )
+from z3 import z3
 
 
 class SymPyVisitor:
@@ -59,7 +60,11 @@ class SymPyVisitor:
         assert ls[0].is_Rational and ls[0].numerator == 1
         rhs = self.visit(1 / ls[0])
         lhs = self.visit(ls[1])
-        return lhs / rhs
+        if self.symbol_factory == z3.Int:
+            # z3 division is floor already
+            return lhs / rhs
+        else:
+            return lhs // rhs
 
     def visit_Relational(self, e):
         lhs = self.visit(e.lhs)

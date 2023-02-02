@@ -138,7 +138,7 @@ class StoreOp(affine.AffineStoreOp):
 _for_ip = None
 
 
-def affine_for(start, stop, step=1):
+def affine_range(start, stop, step=1):
     global _for_ip
     for_op = AffineForOp(start, stop, step)
     _for_ip = InsertionPoint(for_op.body)

@@ -41,3 +41,5 @@ jobs:
       - name: Test
         run: |
           python tests/memref_dependence_check.py
+          python tests/loops.py
+          python tests/ifs.py

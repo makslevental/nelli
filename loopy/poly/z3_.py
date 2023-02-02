@@ -39,7 +39,7 @@ from z3 import (
 from .sympy_ import SymPyVisitor
 
 set_param(proof=True)
-set_param("logic", "nia")
+# set_param("logic", "nia")
 
 from z3.z3util import get_vars
 

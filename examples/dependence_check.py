@@ -1,9 +1,12 @@
 import logging
 
 FORMAT = "[%(filename)s:%(funcName)s:%(lineno)d] %(message)s"
-logging.basicConfig(level=logging.DEBUG, format=FORMAT)
+# logging.basicConfig(level=logging.DEBUG, format=FORMAT)
 logger = logging.getLogger(__name__)
 
+from loopy.loopy_mlir._mlir_libs._loopy_mlir import (
+    show_direction_vector,
+)
 from loopy.poly.affine import (
     StoreOp,
     LoadOp,
@@ -13,15 +16,12 @@ from loopy.poly.constraints import (
     check_mem_dep,
     compute_dependence_direction_vector,
 )
-from loopy.mlir import f64_t, index_t, f32_t, i32_t
-from loopy.mlir.affine import (
-    affine_for as range,
-)
+from loopy.mlir import f64_t, index_t, i32_t
 from loopy.poly.sympy_ import d0, d1, s0, s1, d2
 from loopy.mlir.arith import constant
 from loopy.mlir.func import mlir_func
 from loopy.mlir.memref import aff_alloc
-from loopy.utils import find_ops, mlir_mod_ctx, reset_disambig_names, mlir_gc
+from loopy.utils import find_ops, mlir_mod_ctx, mlir_gc, reset_disambig_names
 
 
 def has_dep():
@@ -116,7 +116,9 @@ def direction_vector():
                         idx1 = (d1 % 2) @ i1
                         idx2 = (d2 // 4) @ i2
                         M[idx0, idx1, idx2] = c0
-
+                        # TODO(max): they have to be different
+                        # because in compose equality
+                        # constraints.append(Int(dim_m1.name) == Int(dim_m2.name))
                         jdx0 = (d0 // 4) @ i0
                         jdx1 = (d1 % 2) @ i1
                         jdx2 = (d2 // 4) @ i2
@@ -127,12 +129,11 @@ def direction_vector():
     )
     store = StoreOp(stores_loads[0])
     load = LoadOp(stores_loads[1])
-    dir_vecs = compute_dependence_direction_vector(store, load, 1)
-    print(dir_vecs)
-    dir_vecs = compute_dependence_direction_vector(store, load, 2)
-    print(dir_vecs)
-    dir_vecs = compute_dependence_direction_vector(store, load, 3)
-    print(dir_vecs)
+    for loop_depth in [1, 2, 3]:
+        print(f"{loop_depth=}")
+        dir_vecs = compute_dependence_direction_vector(store, load, loop_depth)
+        print(dir_vecs)
+        print(show_direction_vector(store.mlir_op, load.mlir_op, loop_depth))
 
 
 if __name__ == "__main__":

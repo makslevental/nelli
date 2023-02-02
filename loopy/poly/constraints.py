@@ -184,7 +184,7 @@ def compute_dependence_direction_vector(
     # Eliminate all variables other than the direction variables just added.
     vars_to_eliminate = set()
     s = "system with direction vars: {\n"
-    for i, c in enumerate(cons):
+    for i, c in enumerate(sorted(cons, key=lambda k: str(k))):
         vars_to_eliminate.update(get_vars(c))
         s += f"  {c}"
         if i < len(cons) - 1:
