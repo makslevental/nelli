@@ -1,7 +1,7 @@
 from typing import Optional
 
-from ...mlir.affine import Apply
 from ...loopy_mlir import ir
+from ...mlir.affine import Apply
 from ...poly.sympy_ import SymPyVisitor
 
 

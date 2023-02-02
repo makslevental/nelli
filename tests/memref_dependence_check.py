@@ -53,7 +53,7 @@ class TestMemrefDependenceCheck:
         dep = check_mem_dep(store, load)
         assert dep is not None
         dep = {str(k): v.as_long() for k, v in dep.items()}
-        assert dep == {"%arg0": 0, "%arg0'": 0, "%2": 0, "%2'": 0}
+        assert dep == {"%arg0": 0, "%arg0'": 0, "ssa2": 0, "ssa2'": 0}
         mlir_gc()
 
     def test_num_common_loops(self):
