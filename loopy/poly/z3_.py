@@ -31,7 +31,9 @@ from z3 import (
     OnClause,
     Optimize,
     ExprRef,
-    Exists, Tactic, set_option,
+    Exists,
+    Tactic,
+    set_option,
 )
 
 from .sympy_ import SymPyVisitor
@@ -267,22 +269,23 @@ def all_smt(s, initial_terms):
 
 
 # http://www.hakank.org/z3/
-def opt_system(cons: list, quants: Optional[list] = None, limit=1):
+def opt_system(cons: list, opt_vars: Optional[list] = None, min=True, limit=1):
     assert isinstance(cons, list), f"unexpected constraints {cons=}"
-    assert isinstance(quants, list), f"unexpected quants {quants=}"
+    assert isinstance(opt_vars, list), f"unexpected quants {opt_vars=}"
     con = And(*cons)
-    nonquants = list(set(get_vars(con)) - set(quants))
     opt = Optimize()
     opt.set("opt.priority", "lex")
     opt.add(con)
-    for n in nonquants:
-        opt.minimize(n)
-    for q in quants:
-        opt.minimize(q)
+    if min:
+        for q in opt_vars:
+            opt.minimize(q)
+    else:
+        for q in opt_vars:
+            opt.maximize(q)
 
     i = 0
     models = []
-    for maybe_model in all_smt(opt, quants + nonquants):
+    for maybe_model in all_smt(opt, opt_vars):
         if limit == 1:
             return maybe_model
         else:
@@ -294,15 +297,13 @@ def opt_system(cons: list, quants: Optional[list] = None, limit=1):
     return sorted(models, key=lambda k: str(k)) if models != [] else None
 
 
-def elim_vars(cons, vars):
-    # t = Then("qflia", "simplify", "qe")
-    # set_option("logic", "qf_lia")
-    t = Then("simplify", "qe", "demodulator")
+def elim_vars(cons, vars, dir_vec_vars):
+    t = Then("simplify", "qe")
     expr = Exists(list(vars), And(*cons))
     for i in range(100):
-        # new_expr = t(Exists(list(vars), expr)).as_expr()
         new_expr = t(expr).as_expr()
         if expr.sexpr() == new_expr.sexpr():
             break
         expr = new_expr
+
     return expr

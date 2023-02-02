@@ -1,4 +1,5 @@
 import logging
+from functools import reduce
 
 from z3.z3util import get_vars
 
@@ -154,7 +155,9 @@ def check_mem_dep(src_op: "MemOp", dst_op: "MemOp", to_loop_depth: int = 1):
     quants, cons = build_constraint_system(src_op, dst_op, to_loop_depth)
     logger.debug("composed constraint system: ")
     logger.debug(show_z3_constraints(cons))
-    maybe_model = opt_system(cons, quants)
+    all_vars = reduce(lambda acc, c: acc | set(get_vars(c)), cons, set())
+    nonquants = list(all_vars - set(quants))
+    maybe_model = opt_system(cons, quants + nonquants)
     if maybe_model is not None:
         dep = {v: maybe_model[v] for v in maybe_model}
         return dep
@@ -176,7 +179,7 @@ def compute_dependence_direction_vector(
     logger.debug(f"{dir_vec_vars=}")
     for i, iv in enumerate(common_loop_ivs):
         dv = dir_vec_vars[i]
-        cons.append(dv == iv - Int(str(iv) + "'"))
+        cons.append(dv == Int(str(iv) + "'") - iv)
 
     # Eliminate all variables other than the direction variables just added.
     vars_to_eliminate = set()
@@ -191,8 +194,13 @@ def compute_dependence_direction_vector(
     s += "}"
     logger.debug(s)
     vars_to_eliminate -= set(dir_vec_vars)
-    after_elim = elim_vars(cons, vars_to_eliminate)
-    logger.debug(f"\n{after_elim=}")
-    logger.debug(
-        f"fpl direction vector: {show_direction_vector(src_op.mlir_op, dst_op.mlir_op, to_loop_depth)}"
-    )
+    after_elim = elim_vars(cons, vars_to_eliminate, dir_vec_vars)
+    min_vecs = opt_system([after_elim], dir_vec_vars, min=True)
+    assert min_vecs is not None, f"couldn't minimize dir vec"
+    dir_vecs = {v: [min_vecs[v]] for v in min_vecs}
+    max_vecs = opt_system([after_elim], dir_vec_vars, min=False)
+    assert max_vecs is not None, f"couldn't minimize dir vec"
+    for v in max_vecs:
+        dir_vecs[v].append(max_vecs[v])
+
+    return {k: dir_vecs[k] for k in sorted(dir_vecs, key=lambda k: str(k))}
