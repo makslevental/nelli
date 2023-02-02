@@ -194,5 +194,5 @@ def compute_dependence_direction_vector(
     after_elim = elim_vars(cons, vars_to_eliminate)
     logger.debug(f"\n{after_elim=}")
     logger.debug(
-        f"fpl direction vector: {show_direction_vector(src_op.mlir_op, dst_op.mlir_op, 2)}"
+        f"fpl direction vector: {show_direction_vector(src_op.mlir_op, dst_op.mlir_op, to_loop_depth)}"
     )

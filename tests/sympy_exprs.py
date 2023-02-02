@@ -34,9 +34,31 @@ class TestSympyConversion:
 
         module = ir.Module.create()
         with ir.InsertionPoint(module.body):
-            i = arith.constant(1, index=True).mlir_value
-            j = arith.constant(2, index=True).mlir_value
-            k = arith.constant(3, index=True).mlir_value
-            l = arith.constant(4, index=True).mlir_value
+            i = arith.constant(1, index=True)
+            j = arith.constant(2, index=True)
+            k = arith.constant(3, index=True)
+            l = arith.constant(4, index=True)
             res = expr @ (i, j, k, l)
         print(module)
+
+    def test_mod_floordiv(self):
+        from loopy import ir
+
+        expr = d0 % 2
+        res = SymPyVisitor(symbol_factory=Int).visit(expr)
+        assert res.sexpr() == "(mod d0 2)"
+
+        expr = d0 // 2
+        res = SymPyVisitor(symbol_factory=Int).visit(expr)
+        assert res.sexpr() == "(div d0 2)"
+
+        # expr = 2 * d0 + 3 * d1 - 5 - s0 + 3 * s1
+        #
+        # module = ir.Module.create()
+        # with ir.InsertionPoint(module.body):
+        #     i = arith.constant(1, index=True)
+        #     j = arith.constant(2, index=True)
+        #     k = arith.constant(3, index=True)
+        #     l = arith.constant(4, index=True)
+        #     res = expr @ (i, j, k, l)
+        # print(module)
