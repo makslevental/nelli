@@ -98,23 +98,34 @@ class CmpIOp(arith_dialect.CmpIOp):
         loc=None,
         ip=None,
     ):
-        assert predicate in {
-            "eq",
-            "ne",
-            "slt",
-            "sle",
-            "sgt",
-            "sge",
-            "ult",
-            "ule",
-            "ugt",
-            "uge",
+        #     -   equal (mnemonic: `"eq"`; integer value: `0`)
+        #     -   not equal (mnemonic: `"ne"`; integer value: `1`)
+        #     -   signed less than (mnemonic: `"slt"`; integer value: `2`)
+        #     -   signed less than or equal (mnemonic: `"sle"`; integer value: `3`)
+        #     -   signed greater than (mnemonic: `"sgt"`; integer value: `4`)
+        #     -   signed greater than or equal (mnemonic: `"sge"`; integer value: `5`)
+        #     -   unsigned less than (mnemonic: `"ult"`; integer value: `6`)
+        #     -   unsigned less than or equal (mnemonic: `"ule"`; integer value: `7`)
+        #     -   unsigned greater than (mnemonic: `"ugt"`; integer value: `8`)
+        #     -   unsigned greater than or equal (mnemonic: `"uge"`; integer value: `9`)
+        predicates = {
+            "eq": 0,
+            "ne": 1,
+            "slt": 2,
+            "sle": 3,
+            "sgt": 4,
+            "sge": 5,
+            "ult": 6,
+            "ule": 7,
+            "ugt": 8,
+            "uge": 9,
         }
+        assert predicate in predicates, f"predicate {predicate} not in predicates"
 
         context = get_default_loc_context(loc)
         lhs = get_op_result_or_value(lhs)
         rhs = get_op_result_or_value(rhs)
-        predicate = StringAttr.get(predicate, context=context)
+        predicate = IntegerAttr.get(IntegerType.get_signless(64), predicates[predicate])
         result_type = IntegerType.get_signless(1, context=context)
         super().__init__(result_type, predicate, lhs, rhs, loc=loc, ip=ip)
 
@@ -253,7 +264,7 @@ def gt(lhs, rhs) -> OpView:
         return CmpIOp("sgt", lhs, rhs)
     if _is_index_type(lhs.type):
         return CmpIOp("ugt", lhs, rhs)
-    raise NotImplementedError("Unsupported 'mul' operands: {lhs}, {rhs}")
+    raise NotImplementedError("Unsupported 'gt' operands: {lhs}, {rhs}")
 
 
 def lt(lhs, rhs) -> OpView:
@@ -266,7 +277,7 @@ def lt(lhs, rhs) -> OpView:
         return CmpIOp("slt", lhs, rhs)
     if _is_index_type(lhs.type):
         return CmpIOp("ult", lhs, rhs)
-    raise NotImplementedError("Unsupported 'mul' operands: {lhs}, {rhs}")
+    raise NotImplementedError("Unsupported 'lt' operands: {lhs}, {rhs}")
 
 
 def ge(lhs, rhs) -> OpView:
@@ -279,7 +290,7 @@ def ge(lhs, rhs) -> OpView:
         return CmpIOp("sge", lhs, rhs)
     if _is_index_type(lhs.type):
         return CmpIOp("uge", lhs, rhs)
-    raise NotImplementedError("Unsupported 'mul' operands: {lhs}, {rhs}")
+    raise NotImplementedError("Unsupported 'ge' operands: {lhs}, {rhs}")
 
 
 def le(lhs, rhs) -> OpView:
@@ -292,7 +303,7 @@ def le(lhs, rhs) -> OpView:
         return CmpIOp("sle", lhs, rhs)
     if _is_index_type(lhs.type):
         return CmpIOp("ule", lhs, rhs)
-    raise NotImplementedError("Unsupported 'mul' operands: {lhs}, {rhs}")
+    raise NotImplementedError("Unsupported 'le' operands: {lhs}, {rhs}")
 
 
 class ArithValue(ArithValue):
