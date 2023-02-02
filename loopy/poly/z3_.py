@@ -31,12 +31,14 @@ from z3 import (
     OnClause,
     Optimize,
     ExprRef,
-    Exists,
+    Exists, Tactic, set_option,
 )
 
 from .sympy_ import SymPyVisitor
 
 set_param(proof=True)
+set_param("logic", "nia")
+
 from z3.z3util import get_vars
 
 
@@ -293,10 +295,13 @@ def opt_system(cons: list, quants: Optional[list] = None, limit=1):
 
 
 def elim_vars(cons, vars):
-    t = Then("simplify", "qe")
-    expr = And(*cons)
-    for i in range(10):
-        new_expr = t(Exists(list(vars), expr)).as_expr()
+    # t = Then("qflia", "simplify", "qe")
+    # set_option("logic", "qf_lia")
+    t = Then("simplify", "qe", "demodulator")
+    expr = Exists(list(vars), And(*cons))
+    for i in range(100):
+        # new_expr = t(Exists(list(vars), expr)).as_expr()
+        new_expr = t(expr).as_expr()
         if expr.sexpr() == new_expr.sexpr():
             break
         expr = new_expr

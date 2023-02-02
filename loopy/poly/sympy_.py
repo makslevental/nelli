@@ -1,4 +1,4 @@
-from sympy import ordered
+from sympy import ordered, floor
 from sympy.core import (
     Symbol,
     Equality,
@@ -45,6 +45,22 @@ class SymPyVisitor:
         # )
         return lhs
 
+    def visit_Mod(self, e):
+        assert len(e.args) == 2, f"too many mod args {e.args=}"
+        ls = list(ordered(e.args))
+        assert ls[0].is_Integer
+        rhs = self.visit(ls[0])
+        lhs = self.visit(ls[1])
+        return lhs % rhs
+
+    def visit_FloorDiv(self, e):
+        assert len(e.args) == 1, f"too many floor div args {e.args=}"
+        ls = list(ordered(e.args[0].args))
+        assert ls[0].is_Rational and ls[0].numerator == 1
+        rhs = self.visit(1 / ls[0])
+        lhs = self.visit(ls[1])
+        return lhs / rhs
+
     def visit_Relational(self, e):
         lhs = self.visit(e.lhs)
         rhs = self.visit(e.rhs)
@@ -63,10 +79,13 @@ class SymPyVisitor:
         elif hasattr(self, f"visit_{e.__class__.__name__}"):
             return getattr(self, f"visit_{e.__class__.__name__}")(e)
         elif isinstance(
-                e,
-                (Equality, LessThan, StrictLessThan, GreaterThan, StrictGreaterThan),
+            e,
+            (Equality, LessThan, StrictLessThan, GreaterThan, StrictGreaterThan),
         ):
             return self.visit_Relational(e)
+        elif isinstance(e, floor):
+            assert e.args[0].is_Mul
+            return self.visit_FloorDiv(e)
         else:
             raise NotImplementedError(
                 f"unexpected sympy expr {e.__class__.__name__} {e=}"
