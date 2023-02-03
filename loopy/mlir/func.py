@@ -1,6 +1,8 @@
 import logging
 from functools import wraps
 
+from .memref import MemRefValue
+
 logger = logging.getLogger(__name__)
 import inspect
 import ast
@@ -13,6 +15,7 @@ from .affine import affine_endfor, affine_range
 from .scf import scf_endif_branch, scf_if, scf_else, scf_endif
 from .arith import ArithValue
 from ..loopy_mlir.dialects import func as func_dialect
+from ..loopy_mlir.ir import Type as MLIRType, MemRefType
 
 func = func_dialect.FuncOp.from_py_func
 
@@ -84,7 +87,8 @@ def rewrite_ast(f):
     logger.debug(ast.unparse(tree))
 
     ast.fix_missing_locations(tree)
-    module_code_o = compile(tree, "<ast>", "exec")
+    # TODO(max): it's annoying that this ruins debugging - maybe line numbers?
+    module_code_o = compile(tree, f"<{f.__name__}:ast>", "exec")
     f_code_o = next(
         c
         for c in module_code_o.co_consts
@@ -117,6 +121,7 @@ def doublewrap(f):
 def mlir_func(f, rewrite_ast_=True):
     sig = inspect.signature(f)
     annots = [p.annotation for p in sig.parameters.values()]
+    assert all(isinstance(a, MLIRType) for a in annots)
 
     if rewrite_ast_:
         f_code_o = rewrite_ast(f)
@@ -169,7 +174,13 @@ def mlir_func(f, rewrite_ast_=True):
     )
 
     def args_wrapped_f(*args, func_op=None):
-        args = [ArithValue(a) for a in args]
+        args = list(args)
+        for i, a in enumerate(args):
+            logger.debug(f"{f.__name__} arg {i}: {a}")
+            if MemRefType.isinstance(a.type):
+                args[i] = MemRefValue(a)
+            else:
+                args[i] = ArithValue(a)
         return updated_f(*args)
 
     args_wrapped_f.__name__ = f.__name__

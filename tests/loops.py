@@ -1,10 +1,10 @@
 from textwrap import dedent
 import difflib
 
-from loopy.mlir import f64_t, index_t
+from loopy.mlir import F64, Index
 from loopy.mlir.arith import constant, ArithValue
 from loopy.mlir.func import mlir_func
-from loopy.mlir.memref import aff_alloc
+from loopy.mlir.memref import MemRefValue as MemRef
 from loopy.mlir.affine import affine_endfor
 from loopy.mlir.scf import scf_if, scf_endif_branch, scf_endif
 from loopy.utils import mlir_mod_ctx
@@ -25,9 +25,9 @@ class TestLoops:
         with mlir_mod_ctx() as module:
 
             @mlir_func(rewrite_ast_=False)
-            def double_loop(M: index_t, N: index_t):
+            def double_loop(M: Index, N: Index):
                 two = constant(1.0)
-                mem = aff_alloc([10, 10], f64_t)
+                mem = MemRef.alloca([10, 10], F64)
                 for i in range(1, 10, 1):
                     for j in range(1, 10, 1):
                         v = mem[i, j]
@@ -60,9 +60,9 @@ class TestLoops:
         with mlir_mod_ctx() as module:
 
             @mlir_func(rewrite_ast_=True)
-            def double_loop(M: index_t, N: index_t):
+            def double_loop(M: Index, N: Index):
                 two = constant(1.0)
-                mem = aff_alloc([10, 10], f64_t)
+                mem = MemRef.alloca([10, 10], F64)
                 for i in range(1, 10, 1):
                     for j in range(1, 10, 1):
                         v = mem[i, j]
@@ -93,9 +93,9 @@ class TestLoops:
         with mlir_mod_ctx() as module:
 
             @mlir_func(rewrite_ast_=False)
-            def double_loop(M: index_t, N: index_t):
+            def double_loop(M: Index, N: Index):
                 two = constant(1.0)
-                mem = aff_alloc([10, 10], f64_t)
+                mem = MemRef.alloca([10, 10], F64)
                 for i in range(1, 10, 1):
                     for j in range(1, 10, 1):
                         if scf_if(ArithValue(i) < ArithValue(j)):
@@ -135,9 +135,9 @@ class TestLoops:
         with mlir_mod_ctx() as module:
 
             @mlir_func(rewrite_ast_=True)
-            def double_loop(M: index_t, N: index_t):
+            def double_loop(M: Index, N: Index):
                 two = constant(1.0)
-                mem = aff_alloc([10, 10], f64_t)
+                mem = MemRef.alloca([10, 10], F64)
                 for i in range(1, 10, 1):
                     for j in range(1, 10, 1):
                         if i < j:
@@ -172,9 +172,9 @@ class TestLoops:
         with mlir_mod_ctx() as module:
 
             @mlir_func(rewrite_ast_=True)
-            def double_loop(M: index_t, N: index_t):
+            def double_loop(M: Index, N: Index):
                 two = constant(1.0)
-                mem = aff_alloc([10, 10], f64_t)
+                mem = MemRef.alloca([10, 10], F64)
                 for i in range(1, 10, 1):
                     for j in range(1, 10, 1):
                         if i < j:
@@ -215,9 +215,9 @@ class TestLoops:
         with mlir_mod_ctx() as module:
 
             @mlir_func(rewrite_ast_=True)
-            def double_loop(M: index_t, N: index_t):
+            def double_loop(M: Index, N: Index):
                 two = constant(1.0)
-                mem = aff_alloc([10, 10], f64_t)
+                mem = MemRef.alloca([10, 10], F64)
                 for i in range(1, 10, 1):
                     for j in range(1, 10, 1):
                         if M < N:
@@ -258,9 +258,9 @@ class TestLoops:
         with mlir_mod_ctx() as module:
 
             @mlir_func(rewrite_ast_=True)
-            def double_loop(M: index_t, N: index_t):
+            def double_loop(M: Index, N: Index):
                 two = constant(1.0)
-                mem = aff_alloc([10, 10], f64_t)
+                mem = MemRef.alloca([10, 10], F64)
                 if M < N:
                     for i in range(1, 10, 1):
                         for j in range(1, 10, 1):

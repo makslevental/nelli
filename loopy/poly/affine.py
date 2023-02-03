@@ -124,6 +124,7 @@ class MemOp:
         self.operands = OrderedDict()
         self.quantified = set()
         for i, o in enumerate(idx_operands):
+            # TODO(max): handle passing just block args
             assert o.owner.name == "affine.apply"
             apply_op = ApplyOp(o.owner)
             for sym in apply_op.symbols.values():
@@ -148,13 +149,10 @@ class MemOp:
 class StoreOp(MemOp):
     def __init__(self, store_op):
         assert store_op.name == "affine.store"
-        assert store_op.operands[0].owner.name == "arith.constant"
-        # assert store_op.operands[1].owner.name == "memref.alloc"
         super().__init__(store_op, list(store_op.operands[2:]))
 
 
 class LoadOp(MemOp):
     def __init__(self, load_op):
         assert load_op.name == "affine.load"
-        # assert load_op.operands[0].owner.name == "memref.alloc"
         super().__init__(load_op, list(load_op.operands[1:]))

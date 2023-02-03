@@ -13,11 +13,11 @@ from loopy.poly.constraints import (
     compute_dependence_direction_vector,
 )
 
-from loopy.mlir import f64_t, index_t, f32_t, i32_t
+from loopy.mlir import F64, Index, F32, I32
 from loopy.poly.sympy_ import d0, d1, d2, s0, s1
 from loopy.mlir.arith import constant
 from loopy.mlir.func import mlir_func
-from loopy.mlir.memref import aff_alloc
+from loopy.mlir.memref import MemRefValue
 from loopy.utils import (
     mlir_gc,
     mlir_mod_ctx,
@@ -33,8 +33,8 @@ class TestMemrefDependenceCheck:
             @mlir_func
             def dependent_loops():
 
-                m = aff_alloc([10], f32_t)
-                cst = constant(7.0, f32_t)
+                m = MemRefValue.alloca([10], F32)
+                cst = constant(7.0, F32)
 
                 for i in range(0, 10):
                     m[d0 @ i] = cst
@@ -61,8 +61,8 @@ class TestMemrefDependenceCheck:
                 @mlir_func
                 def zero_loops():
 
-                    m = aff_alloc([10], f32_t)
-                    cst = constant(7.0, f32_t)
+                    m = MemRefValue.alloca([10], F32)
+                    cst = constant(7.0, F32)
 
                     for i in range(0, 10):
                         m[d0 @ i] = cst
@@ -84,8 +84,8 @@ class TestMemrefDependenceCheck:
 
                 @mlir_func
                 def one_loop():
-                    m = aff_alloc([10], f32_t)
-                    cst = constant(7.0, f32_t)
+                    m = MemRefValue.alloca([10], F32)
+                    cst = constant(7.0, F32)
 
                     for i in range(0, 10):
                         m[d0 @ i] = cst
@@ -105,8 +105,8 @@ class TestMemrefDependenceCheck:
                 @mlir_func
                 def two_loops():
 
-                    m = aff_alloc([10], f32_t)
-                    cst = constant(7.0, f32_t)
+                    m = MemRefValue.alloca([10], F32)
+                    cst = constant(7.0, F32)
 
                     for i in range(0, 10):
                         for i in range(0, 10):
@@ -127,8 +127,8 @@ class TestMemrefDependenceCheck:
                 @mlir_func
                 def three_loops():
 
-                    m = aff_alloc([10], f32_t)
-                    cst = constant(7.0, f32_t)
+                    m = MemRefValue.alloca([10], F32)
+                    cst = constant(7.0, F32)
 
                     for i in range(0, 10):
                         for i in range(0, 10):
@@ -161,9 +161,9 @@ class TestMemrefDependenceCheck:
             with mlir_mod_ctx() as module:
 
                 @mlir_func
-                def has_dep(M: index_t, N: index_t, K: index_t):
+                def has_dep(M: Index, N: Index, K: Index):
 
-                    mem = aff_alloc([4, 4], f64_t)
+                    mem = MemRefValue.alloca([4, 4], F64)
                     zero = constant(0.0)
                     for i in range(0, 100):
                         for j in range(0, 50):
@@ -227,8 +227,8 @@ class TestMemrefDependenceCheck:
 
                 @mlir_func
                 def mod_div_3d():
-                    M = aff_alloc([2, 2, 2], i32_t)
-                    c0 = constant(0, i32_t)
+                    M = MemRefValue.alloca([2, 2, 2], I32)
+                    c0 = constant(0, I32)
                     for i0 in range(0, 8):
                         for i1 in range(0, 8):
                             for i2 in range(0, 8):

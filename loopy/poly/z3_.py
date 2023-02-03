@@ -269,12 +269,12 @@ def all_smt(s, initial_terms):
 
 
 # http://www.hakank.org/z3/
-def opt_system(cons: list, opt_vars: Optional[list] = None, min=True, limit=1):
+def opt_system(cons: list, opt_vars: Optional[list] = None, min=True, priority="lex", limit=1):
     assert isinstance(cons, list), f"unexpected constraints {cons=}"
     assert isinstance(opt_vars, list), f"unexpected quants {opt_vars=}"
     con = And(*cons)
     opt = Optimize()
-    opt.set("opt.priority", "lex")
+    opt.set("opt.priority", priority)
     opt.add(con)
     if min:
         for q in opt_vars:

@@ -2,7 +2,7 @@ import logging
 import time
 
 FORMAT = "[%(filename)s:%(funcName)s:%(lineno)d] %(message)s"
-# logging.basicConfig(level=logging.DEBUG, format=FORMAT)
+logging.basicConfig(level=logging.DEBUG, format=FORMAT)
 logger = logging.getLogger(__name__)
 
 from loopy.loopy_mlir._mlir_libs._loopy_mlir import (
@@ -17,11 +17,11 @@ from loopy.poly.constraints import (
     check_mem_dep,
     compute_dependence_direction_vector,
 )
-from loopy.mlir import f64_t, index_t, i32_t
+from loopy.mlir import F64, Index, I32
 from loopy.poly.sympy_ import d0, d1, d2, d3, d4, d5, s0, s1
 from loopy.mlir.arith import constant
 from loopy.mlir.func import mlir_func
-from loopy.mlir.memref import aff_alloc
+from loopy.mlir.memref import MemRefValue as MemRef
 from loopy.utils import find_ops, mlir_mod_ctx, mlir_gc, reset_disambig_names
 
 
@@ -29,8 +29,8 @@ def has_dep():
     with mlir_mod_ctx() as module:
 
         @mlir_func
-        def has_dep(M: index_t, N: index_t, K: index_t):
-            mem = aff_alloc([4, 4], f64_t)
+        def has_dep(M: Index, N: Index, K: Index):
+            mem = MemRef.alloca([4, 4], F64)
             zero = constant(0.0)
             for i in range(0, 100):
                 for j in range(0, 50):
@@ -67,8 +67,8 @@ def hasnt_dep():
     with mlir_mod_ctx() as module:
 
         @mlir_func
-        def hasnt_dep(M: index_t, N: index_t, K: index_t):
-            mem = aff_alloc([4, 4], f64_t)
+        def hasnt_dep(M: Index, N: Index, K: Index):
+            mem = MemRef.alloca([4, 4], F64)
             zero = constant(0.0)
             for i in range(0, 100):
                 for j in range(0, 50):
@@ -81,7 +81,7 @@ def hasnt_dep():
                     jj = (2 * (d1 * 11 + s0) + 1) @ (j, K)
                     v = mem[ii, jj]
 
-    # print(module)
+    print(module)
 
     stores_loads = find_ops(
         module, lambda op: op.name in {"affine.store", "affine.load"}
@@ -108,8 +108,8 @@ def direction_vector():
 
         @mlir_func
         def mod_div_3d():
-            M = aff_alloc([2, 2, 2], i32_t)
-            c0 = constant(0, i32_t)
+            M = MemRef.alloca([2, 2, 2], I32)
+            c0 = constant(0, I32)
             for i0 in range(0, 8):
                 for i1 in range(0, 8):
                     for i2 in range(0, 8):
@@ -125,6 +125,7 @@ def direction_vector():
                         jdx2 = (d2 // 4) @ i2
                         v = M[jdx0, jdx1, jdx2]
 
+    # print(module)
     stores_loads = find_ops(
         module, lambda op: op.name in {"affine.store", "affine.load"}
     )
@@ -141,10 +142,8 @@ def deep_loop(scale=10):
     with mlir_mod_ctx() as module:
 
         @mlir_func
-        def mod_div_6d(
-            K: index_t, L: index_t, MM: index_t, N: index_t, O: index_t, P: index_t
-        ):
-            M = aff_alloc(
+        def mod_div_6d(K: Index, L: Index, MM: Index, N: Index, O: Index, P: Index):
+            M = MemRef.alloca(
                 [
                     10 * scale,
                     10 * scale,
@@ -153,9 +152,9 @@ def deep_loop(scale=10):
                     10 * scale,
                     10 * scale,
                 ],
-                i32_t,
+                I32,
             )
-            c0 = constant(0, i32_t)
+            c0 = constant(0, I32)
             for i0 in range(0, 10 * scale):
                 for i1 in range(0, 10 * scale):
                     for i2 in range(0, 10 * scale):
@@ -197,6 +196,42 @@ def deep_loop(scale=10):
         print("fpl", time.monotonic() - s)
 
 
+def collapsing_memref():
+    with mlir_mod_ctx() as module:
+
+        @mlir_func
+        def collapsing_memref(A: MemRef[8, 8, 8, F64]):
+            B = MemRef.alloca([2, 2, 2], F64)
+            for i in range(0, 8):
+                for j in range(0, 8):
+                    for k in range(0, 8):
+                        # TODO(max): should be able to just pass block args but
+                        # right now constraint system construction doesn't work with that
+                        ii = d0 @ i
+                        jj = d1 @ j
+                        kk = d2 @ k
+                        a = A[ii, jj, kk]
+
+                        ii = (d0 // 4) @ i
+                        jj = (d1 % 2) @ j
+                        kk = (d2 // 4) @ k
+                        B[ii, jj, kk] = a
+
+    # print(module)
+
+    stores_loads = find_ops(
+        module, lambda op: op.name in {"affine.store", "affine.load"}
+    )
+    assert stores_loads[1].name == "affine.store"
+    assert stores_loads[0].name == "affine.load"
+    store = StoreOp(stores_loads[1])
+    logger.debug("constraint system for store op:")
+    logger.debug(show_sympy_constraints(store.sympy_access_constraints))
+    load = LoadOp(stores_loads[0])
+    logger.debug("constraint system for load op:")
+    logger.debug(show_sympy_constraints(load.sympy_access_constraints))
+
+
 if __name__ == "__main__":
     has_dep()
     reset_disambig_names()
@@ -206,3 +241,4 @@ if __name__ == "__main__":
     direction_vector()
     mlir_gc()
     deep_loop(scale=100)
+    collapsing_memref()

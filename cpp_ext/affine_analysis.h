@@ -85,11 +85,11 @@ static mlir::Block *getCommonBlock(mlir::Operation *opA, mlir::Operation *opB) {
 
 // Returns the number of outer loop common to 'src/dstDomain'.
 // Loops common to 'src/dst' domains are added to 'commonLoops' if non-null.
-SmallVector<AffineForOp, 16>
+std::vector<AffineForOp>
 getCommonLoops(const FlatAffineValueConstraints &srcDomain,
                const FlatAffineValueConstraints &dstDomain) {
   // Find the number of common loops shared by src and dst accesses.
-  SmallVector<AffineForOp, 16> commonLoops{};
+  std::vector<AffineForOp> commonLoops{};
   unsigned minNumLoops =
       std::min(srcDomain.getNumDimVars(), dstDomain.getNumDimVars());
   for (unsigned i = 0; i < minNumLoops; ++i) {

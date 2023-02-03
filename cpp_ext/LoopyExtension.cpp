@@ -159,9 +159,10 @@ public:
   static void bindDerived(ClassTy &m) {}
 };
 
+// TODO(max): make this correct
 bool isArithValue(MlirValue value) { return true; }
 
-/// Python wrapper for MlirBlockArgument.
+/// Python wrapper for value from arith.*
 class PyArithValue : public PyConcreteValue<PyArithValue> {
 public:
   static constexpr IsAFunctionTy isaFunction = isArithValue;
@@ -169,9 +170,22 @@ public:
   using PyConcreteValue::PyConcreteValue;
 };
 
+// TODO(max): make this correct
+bool isMemRefValue(MlirValue value) { return true; }
+
+/// Python wrapper for value from arith.*
+class PyMemRefValue : public PyConcreteValue<PyMemRefValue> {
+public:
+  static constexpr IsAFunctionTy isaFunction = isMemRefValue;
+  static constexpr const char *pyClassName = "MemRefValue";
+  using PyConcreteValue::PyConcreteValue;
+};
+
 PYBIND11_MODULE(_loopy_mlir, m) {
   auto mod = py::module_::import(MAKE_MLIR_PYTHON_QUALNAME("ir"));
   PyArithValue::bind(m);
+  PyMemRefValue::bind(m);
+
   m.def("walk_affine_exprs",
         [](PyAffineMap &self,
            std::function<void(size_t resIdx, MlirAffineExpr expr)> callback) {
@@ -302,17 +316,15 @@ PYBIND11_MODULE(_loopy_mlir, m) {
             return {};
           FlatAffineValueConstraints srcDomain = srcRel.getDomainSet();
           FlatAffineValueConstraints dstDomain = dstRel.getDomainSet();
-          auto res = llvm::map_range(
-              getCommonLoops(srcDomain, dstDomain), [](AffineForOp forOp) {
-                auto mlirForOp = wrap(forOp);
-                auto ctx = PyMlirContext::forContext(
-                    mlirOperationGetContext(mlirForOp));
-                auto pyFoundOp = PyOperation::forOperation(ctx, mlirForOp);
-                return pyFoundOp->createOpView();
-              });
-          // createOpView finds that right class but only if you put py::object
-          // here
-          std::vector<py::object> resVec(res.begin(), res.end());
+          std::vector<py::object> resVec{};
+          for (const AffineForOp &forOp :
+               getCommonLoops(srcDomain, dstDomain)) {
+            auto mlirForOp = wrap(forOp);
+            auto ctx =
+                PyMlirContext::forContext(mlirOperationGetContext(mlirForOp));
+            auto pyFoundOp = PyOperation::forOperation(ctx, mlirForOp);
+            resVec.emplace_back(pyFoundOp->createOpView());
+          }
           return {resVec};
         });
 

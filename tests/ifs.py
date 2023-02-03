@@ -1,10 +1,10 @@
 from textwrap import dedent
 import difflib
 
-from loopy.mlir import f64_t
+from loopy.mlir import F64
 from loopy.mlir.arith import constant
 from loopy.mlir.func import mlir_func
-from loopy.mlir.memref import aff_alloc
+from loopy.mlir.memref import MemRefValue as MemRef
 from loopy.mlir.scf import scf_if, scf_endif_branch, scf_else, scf_endif
 from loopy.utils import mlir_mod_ctx
 
@@ -24,16 +24,16 @@ class TestIfs:
         with mlir_mod_ctx() as module:
 
             @mlir_func(rewrite_ast_=False)
-            def ifs(M: f64_t, N: f64_t):
+            def ifs(M: F64, N: F64):
                 one = constant(1.0)
                 if scf_if(M < N):
                     one = constant(1.0)
-                    mem = aff_alloc([10, 10], f64_t)
+                    mem = MemRef.alloca([10, 10], F64)
                     scf_endif_branch()
                 else:
                     scf_else()
                     two = constant(2.0)
-                    mem = aff_alloc([20, 20], f64_t)
+                    mem = MemRef.alloca([20, 20], F64)
                     scf_endif_branch()
                     scf_endif()
 
@@ -63,21 +63,21 @@ class TestIfs:
         with mlir_mod_ctx() as module:
 
             @mlir_func(rewrite_ast_=False)
-            def ifs(M: f64_t, N: f64_t, K: f64_t, J: f64_t):
+            def ifs(M: F64, N: F64, K: F64, J: F64):
                 one = constant(1.0)
                 if scf_if(M < N):
                     two = constant(2.0)
-                    mem = aff_alloc([3, 3], f64_t)
+                    mem = MemRef.alloca([3, 3], F64)
                     if scf_if(K < J):
                         four = constant(4.0)
-                        mem = aff_alloc([5, 5], f64_t)
+                        mem = MemRef.alloca([5, 5], F64)
 
                         scf_endif_branch()
                         scf_endif()
 
                     if scf_if(K < J):
                         four = constant(4.0)
-                        mem = aff_alloc([5, 5], f64_t)
+                        mem = MemRef.alloca([5, 5], F64)
                         scf_endif_branch()
                         scf_endif()
 
@@ -85,7 +85,7 @@ class TestIfs:
                 else:
                     scf_else()
                     six = constant(6.0)
-                    mem = aff_alloc([7, 7], f64_t)
+                    mem = MemRef.alloca([7, 7], F64)
                     scf_endif_branch()
                     scf_endif()
 
@@ -126,11 +126,11 @@ class TestIfs:
         with mlir_mod_ctx() as module:
 
             @mlir_func(rewrite_ast_=True)
-            def ifs(M: f64_t, N: f64_t):
+            def ifs(M: F64, N: F64):
                 one = constant(1.0)
                 if M < N:
                     two = constant(2.0)
-                    mem = aff_alloc([3, 3], f64_t)
+                    mem = MemRef.alloca([3, 3], F64)
 
         correct = dedent(
             """\
@@ -153,14 +153,14 @@ class TestIfs:
         with mlir_mod_ctx() as module:
 
             @mlir_func(rewrite_ast_=True)
-            def ifs(M: f64_t, N: f64_t):
+            def ifs(M: F64, N: F64):
                 one = constant(1.0)
                 if M < N:
                     two = constant(2.0)
-                    mem = aff_alloc([3, 3], f64_t)
+                    mem = MemRef.alloca([3, 3], F64)
                 else:
                     six = constant(6.0)
-                    mem = aff_alloc([7, 7], f64_t)
+                    mem = MemRef.alloca([7, 7], F64)
 
         correct = dedent(
             """\
@@ -186,14 +186,14 @@ class TestIfs:
         with mlir_mod_ctx() as module:
 
             @mlir_func(rewrite_ast_=True)
-            def ifs(M: f64_t, N: f64_t):
+            def ifs(M: F64, N: F64):
                 one = constant(1.0)
                 if M < N:
                     two = constant(2.0)
-                    mem = aff_alloc([3, 3], f64_t)
+                    mem = MemRef.alloca([3, 3], F64)
                 else:
                     six = constant(6.0)
-                    mem = aff_alloc([7, 7], f64_t)
+                    mem = MemRef.alloca([7, 7], F64)
 
         correct = dedent(
             """\
@@ -219,17 +219,17 @@ class TestIfs:
         with mlir_mod_ctx() as module:
 
             @mlir_func(rewrite_ast_=True)
-            def ifs(M: f64_t, N: f64_t, K: f64_t, J: f64_t):
+            def ifs(M: F64, N: F64, K: F64, J: F64):
                 one = constant(1.0)
                 if M < N:
                     two = constant(2.0)
-                    mem = aff_alloc([3, 3], f64_t)
+                    mem = MemRef.alloca([3, 3], F64)
                     if K < J:
                         four = constant(4.0)
-                        mem = aff_alloc([5, 5], f64_t)
+                        mem = MemRef.alloca([5, 5], F64)
                 else:
                     six = constant(6.0)
-                    mem = aff_alloc([7, 7], f64_t)
+                    mem = MemRef.alloca([7, 7], F64)
 
         correct = dedent(
             """\
@@ -260,20 +260,20 @@ class TestIfs:
         with mlir_mod_ctx() as module:
 
             @mlir_func(rewrite_ast_=True)
-            def ifs(M: f64_t, N: f64_t, K: f64_t, J: f64_t):
+            def ifs(M: F64, N: F64, K: F64, J: F64):
                 one = constant(1.0)
                 if M < N:
                     two = constant(2.0)
-                    mem = aff_alloc([3, 3], f64_t)
+                    mem = MemRef.alloca([3, 3], F64)
                     if K < J:
                         four = constant(4.0)
-                        mem = aff_alloc([5, 5], f64_t)
+                        mem = MemRef.alloca([5, 5], F64)
                     else:
                         four = constant(6.0)
-                        mem = aff_alloc([7, 7], f64_t)
+                        mem = MemRef.alloca([7, 7], F64)
                 else:
                     six = constant(8.0)
-                    mem = aff_alloc([9, 9], f64_t)
+                    mem = MemRef.alloca([9, 9], F64)
 
         correct = dedent(
             """\
@@ -307,24 +307,24 @@ class TestIfs:
         with mlir_mod_ctx() as module:
 
             @mlir_func(rewrite_ast_=True)
-            def ifs(M: f64_t, N: f64_t, K: f64_t, J: f64_t):
+            def ifs(M: F64, N: F64, K: F64, J: F64):
                 one = constant(1.0)
                 if M < N:
                     two = constant(2.0)
-                    mem = aff_alloc([3, 3], f64_t)
+                    mem = MemRef.alloca([3, 3], F64)
                     if K < J:
                         four = constant(4.0)
-                        mem = aff_alloc([5, 5], f64_t)
+                        mem = MemRef.alloca([5, 5], F64)
                     else:
                         four = constant(6.0)
-                        mem = aff_alloc([7, 7], f64_t)
+                        mem = MemRef.alloca([7, 7], F64)
 
                     if K < J:
                         four = constant(8.0)
-                        mem = aff_alloc([9, 9], f64_t)
+                        mem = MemRef.alloca([9, 9], F64)
                 else:
                     six = constant(10.0)
-                    mem = aff_alloc([11, 11], f64_t)
+                    mem = MemRef.alloca([11, 11], F64)
 
         correct = dedent(
             """\
