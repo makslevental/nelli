@@ -140,11 +140,6 @@ no dependency
 Use this for CMake
 
 ```bash
--DCMAKE_INSTALL_PREFIX=<SRC_ROOT>/loopy/loopy \
--DPython3_EXECUTABLE=python \
--DCMAKE_PREFIX_PATH=<LLVM_INSTALL>/install
+-DPython3_EXECUTABLE="$(which python)" \
+-DCMAKE_INSTALL_PREFIX=llvm_install
 ```
-
-# Caveats
-
-1. Globals (`global a, b, c`) will not work in functions decorated with `@mlir_func` (because of how we implement ["sugar"](https://github.com/makslevental/loopy/blob/02cf6e00b33e1e827b837b175c25623a16d62b6e/loopy/mlir/func.py#L34)).

@@ -297,10 +297,10 @@ def opt_system(cons: list, opt_vars: Optional[list] = None, min=True, limit=1):
     return sorted(models, key=lambda k: str(k)) if models != [] else None
 
 
-def elim_vars(cons, vars, dir_vec_vars):
+def elim_vars(cons, vars, repeats=1):
     t = Then("simplify", "qe")
     expr = Exists(list(vars), And(*cons))
-    for i in range(100):
+    for i in range(repeats):
         new_expr = t(expr).as_expr()
         if expr.sexpr() == new_expr.sexpr():
             break

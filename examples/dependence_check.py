@@ -1,4 +1,5 @@
 import logging
+import time
 
 FORMAT = "[%(filename)s:%(funcName)s:%(lineno)d] %(message)s"
 # logging.basicConfig(level=logging.DEBUG, format=FORMAT)
@@ -17,7 +18,7 @@ from loopy.poly.constraints import (
     compute_dependence_direction_vector,
 )
 from loopy.mlir import f64_t, index_t, i32_t
-from loopy.poly.sympy_ import d0, d1, s0, s1, d2
+from loopy.poly.sympy_ import d0, d1, d2, d3, d4, d5, s0, s1
 from loopy.mlir.arith import constant
 from loopy.mlir.func import mlir_func
 from loopy.mlir.memref import aff_alloc
@@ -136,6 +137,66 @@ def direction_vector():
         print(show_direction_vector(store.mlir_op, load.mlir_op, loop_depth))
 
 
+def deep_loop(scale=10):
+    with mlir_mod_ctx() as module:
+
+        @mlir_func
+        def mod_div_6d(
+            K: index_t, L: index_t, MM: index_t, N: index_t, O: index_t, P: index_t
+        ):
+            M = aff_alloc(
+                [
+                    10 * scale,
+                    10 * scale,
+                    10 * scale,
+                    10 * scale,
+                    10 * scale,
+                    10 * scale,
+                ],
+                i32_t,
+            )
+            c0 = constant(0, i32_t)
+            for i0 in range(0, 10 * scale):
+                for i1 in range(0, 10 * scale):
+                    for i2 in range(0, 10 * scale):
+                        for i3 in range(0, 10 * scale):
+                            for i4 in range(0, 10 * scale):
+                                for i5 in range(0, 10 * scale):
+                                    idx0 = (d0 // 4 + s0) @ (i0, K)
+                                    idx1 = (d1 % 2 + s0) @ (i1, L)
+                                    idx2 = (d2 // 4 + s0) @ (i2, MM)
+                                    idx3 = (d3 % 4 + s0) @ (i3, N)
+                                    idx4 = (d4 // 2 + s0) @ (i4, O)
+                                    idx5 = (d5 % 4 + s0) @ (i5, P)
+                                    M[idx0, idx1, idx2, idx3, idx4, idx5] = c0
+                                    # TODO(max): they have to be different
+                                    # because in compose equality
+                                    # constraints.append(Int(dim_m1.name) == Int(dim_m2.name))
+                                    jdx0 = (d0 // 4 + s0) @ (i0, K)
+                                    jdx1 = (d1 % 2 + s0) @ (i1, L)
+                                    jdx2 = (d2 // 4 + s0) @ (i2, MM)
+                                    jdx3 = (d3 % 4 + s0) @ (i3, N)
+                                    jdx4 = (d4 // 2 + s0) @ (i4, O)
+                                    jdx5 = (d5 % 4 + s0) @ (i5, P)
+                                    v = M[jdx0, jdx1, jdx2, jdx3, jdx4, jdx5]
+
+    print(module)
+    stores_loads = find_ops(
+        module, lambda op: op.name in {"affine.store", "affine.load"}
+    )
+    store = StoreOp(stores_loads[0])
+    load = LoadOp(stores_loads[1])
+    for loop_depth in [1, 2, 3, 4, 5, 6]:
+        print(f"{loop_depth=}")
+        s = time.monotonic()
+        dir_vecs = compute_dependence_direction_vector(store, load, loop_depth)
+        print("mine", time.monotonic() - s)
+        print(dir_vecs)
+        s = time.monotonic()
+        print(show_direction_vector(store.mlir_op, load.mlir_op, loop_depth))
+        print("fpl", time.monotonic() - s)
+
+
 if __name__ == "__main__":
     has_dep()
     reset_disambig_names()
@@ -144,3 +205,4 @@ if __name__ == "__main__":
     mlir_gc()
     direction_vector()
     mlir_gc()
+    deep_loop(scale=100)

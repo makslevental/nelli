@@ -30,20 +30,12 @@ class SymPyVisitor:
         for child in ls[1:]:
             lhs += self.visit(child)
         return lhs
-        # self.var_map[str(e)] = (
-        #     # reduce(lambda acc, v: acc * self.var_map[str(v)], ls)
-        #     reduce(callback, ls[1:], self.var_map[str(ls[0])])
-        # )
 
     def visit_Mul(self, e):
         ls = list(ordered(e.args))
         lhs = self.visit(ls[0])
         for child in ls[1:]:
             lhs *= self.visit(child)
-        # self.var_map[str(e)] = (
-        #     # reduce(lambda acc, v: acc * self.var_map[str(v)], ls)
-        #     reduce(callback, ls[1:], self.var_map[str(ls[0])])
-        # )
         return lhs
 
     def visit_Mod(self, e):
@@ -100,7 +92,13 @@ class SymPyVisitor:
 s0 = Symbol("s0")
 s1 = Symbol("s1")
 s2 = Symbol("s2")
+s3 = Symbol("s3")
+s4 = Symbol("s4")
+s5 = Symbol("s5")
 
 d0 = Symbol("d0")
 d1 = Symbol("d1")
 d2 = Symbol("d2")
+d3 = Symbol("d3")
+d4 = Symbol("d4")
+d5 = Symbol("d5")

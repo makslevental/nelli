@@ -194,7 +194,7 @@ def compute_dependence_direction_vector(
     s += "}"
     logger.debug(s)
     vars_to_eliminate -= set(dir_vec_vars)
-    after_elim = elim_vars(cons, vars_to_eliminate, dir_vec_vars)
+    after_elim = elim_vars(cons, vars_to_eliminate)
     min_vecs = opt_system([after_elim], dir_vec_vars, min=True)
     assert min_vecs is not None, f"couldn't minimize dir vec"
     dir_vecs = {v: [min_vecs[v]] for v in min_vecs}

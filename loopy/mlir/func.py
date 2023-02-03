@@ -147,10 +147,15 @@ def mlir_func(f, rewrite_ast_=True):
             logger.debug(f"no-oping jump {i}: {c=}")
             code[i] = ConcreteInstr("NOP", lineno=c.lineno, location=c.location)
 
+    f_code_o = code.to_code()
     updated_f = FunctionType(
-        code.to_code(),
-        {
+        code=f_code_o,
+        globals={
             **f.__globals__,
+            **{
+                fr: f.__closure__[i].cell_contents
+                for i, fr in enumerate(f.__code__.co_freevars)
+            },
             affine_endfor.__name__: affine_endfor,
             "range": affine_range,
             ArithValue.__name__: ArithValue,
@@ -159,9 +164,8 @@ def mlir_func(f, rewrite_ast_=True):
             scf_endif_branch.__name__: scf_endif_branch,
             scf_endif.__name__: scf_endif,
         },
-        f.__name__,
-        f.__defaults__,
-        f.__closure__,
+        name=f.__name__,
+        argdefs=f.__defaults__,
     )
 
     def args_wrapped_f(*args, func_op=None):
