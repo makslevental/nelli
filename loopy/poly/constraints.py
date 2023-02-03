@@ -76,13 +76,13 @@ def compose(src_op: "MemOp", dst_op: "MemOp") -> Tuple[List[ExprRef], List[ExprR
     )
     assert alloc1 == alloc2
 
-    quantified = set()
+    symbolic = set()
     constraints = []
     # for ops in the same loop nest, we need to "pretend" the loop ivs
     # are actually distinct so that we can perform "overlap analysis" downstream
     common_loop_ivs = get_common_loop_ivs(src_op, dst_op, symbol_factory=Int)
     for i, m in enumerate([src_op, dst_op]):
-        quantified.update({Int(q.name) for q in m.quantified})
+        symbolic.update({Int(q.name) for q in m.symbolic})
         for c in m.z3_access_constraints:
             for iv in common_loop_ivs:
                 c = substitute(c, (iv, Int(str(iv) + "'" * i)))
@@ -112,7 +112,7 @@ def compose(src_op: "MemOp", dst_op: "MemOp") -> Tuple[List[ExprRef], List[ExprR
     for i, n in enumerate(constraints):
         constraints[i] = simplify(n, arith_lhs=True, sort_sums=True)
 
-    return list(quantified), constraints
+    return list(symbolic), constraints
 
 
 # Adds ordering constraints to 'dependenceDomain' based on number of loops
@@ -146,9 +146,9 @@ def get_ordering_constraints(src_op: "MemOp", dst_op: "MemOp", to_loop_depth: in
 
 
 def build_constraint_system(src_op: "MemOp", dst_op: "MemOp", to_loop_depth: int = 1):
-    quantified_variables, constraints = compose(src_op, dst_op)
+    symbolic_variables, constraints = compose(src_op, dst_op)
     constraints.extend(get_ordering_constraints(src_op, dst_op, to_loop_depth))
-    return quantified_variables, constraints
+    return symbolic_variables, constraints
 
 
 def check_mem_dep(src_op: "MemOp", dst_op: "MemOp", to_loop_depth: int = 1):

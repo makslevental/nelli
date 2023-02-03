@@ -217,7 +217,7 @@ def collapsing_memref():
                         kk = (d2 // 4) @ k
                         B[ii, jj, kk] = a
 
-    # print(module)
+    print(module)
 
     stores_loads = find_ops(
         module, lambda op: op.name in {"affine.store", "affine.load"}

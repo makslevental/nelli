@@ -122,13 +122,13 @@ class MemOp:
 
         self.positions_to_idxs = {k: Symbol(v) for k, v in positions_to_idxs.items()}
         self.operands = OrderedDict()
-        self.quantified = set()
+        self.symbolic = set()
         for i, o in enumerate(idx_operands):
             # TODO(max): handle passing just block args
             assert o.owner.name == "affine.apply"
             apply_op = ApplyOp(o.owner)
             for sym in apply_op.symbols.values():
-                self.quantified.add(sym["operand"])
+                self.symbolic.add(sym["operand"])
             self.operands[Symbol(make_disambig_name(o))] = apply_op
 
         self.sympy_access_constraints = build_sympy_access_constraints(
