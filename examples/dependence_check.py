@@ -205,12 +205,7 @@ def collapsing_memref():
             for i in range(0, 8):
                 for j in range(0, 8):
                     for k in range(0, 8):
-                        # TODO(max): should be able to just pass block args but
-                        # right now constraint system construction doesn't work with that
-                        ii = d0 @ i
-                        jj = d1 @ j
-                        kk = d2 @ k
-                        a = A[ii, jj, kk]
+                        a = A[i, j, k]
 
                         ii = (d0 // 4) @ i
                         jj = (d1 % 2) @ j

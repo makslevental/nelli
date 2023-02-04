@@ -5,7 +5,7 @@ from typing import List
 # from symengine import Eq, Symbol, Integer
 from sympy import Eq, Symbol, Integer
 
-from loopy.loopy_mlir.ir import (
+from ..loopy_mlir.ir import (
     AffineAddExpr,
     AffineExpr,
     AffineBinaryExpr,
@@ -22,10 +22,14 @@ from .constraints import build_sympy_access_constraints
 from .z3_ import (
     build_z3_access_constraints,
 )
+
+# noinspection PyUnresolvedReferences
 from ..loopy_mlir._mlir_libs._loopy_mlir import (
     get_affine_map_from_attr,
     get_access_relation,
     walk_affine_exprs,
+    get_opview,
+    get_loop_bounds,
 )
 from ..utils import make_disambig_name
 
@@ -107,6 +111,15 @@ class ApplyOp:
         ).xreplace({v["expr"]: v["operand"] for k, v in self.symbols.items()})
 
 
+class ForOp:
+    def __init__(self, for_op):
+        self.for_op = for_op
+        assert for_op.name == "affine.for"
+        for_op = get_opview(for_op)
+        self.domain_bounds = get_loop_bounds(for_op)
+        self.operands = [Symbol(make_disambig_name(for_op.induction_variable))]
+
+
 class MemOp:
     sympy_access_constraints: list
 
@@ -124,12 +137,16 @@ class MemOp:
         self.operands = OrderedDict()
         self.symbolic = set()
         for i, o in enumerate(idx_operands):
-            # TODO(max): handle passing just block args
-            assert o.owner.name == "affine.apply"
-            apply_op = ApplyOp(o.owner)
-            for sym in apply_op.symbols.values():
-                self.symbolic.add(sym["operand"])
-            self.operands[Symbol(make_disambig_name(o))] = apply_op
+            if o.owner.name == "affine.apply":
+                apply_op = ApplyOp(o.owner)
+                for sym in apply_op.symbols.values():
+                    self.symbolic.add(sym["operand"])
+                self.operands[Symbol(make_disambig_name(o))] = apply_op
+            elif o.owner.name == "affine.for":
+                for_op = ForOp(o.owner)
+                self.operands[Symbol(make_disambig_name(o))] = for_op
+            else:
+                raise NotImplementedError(f"unknown idx operand {o}")
 
         self.sympy_access_constraints = build_sympy_access_constraints(
             self, tuple(self.operands.values())

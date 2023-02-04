@@ -23,7 +23,11 @@ from ..loopy_mlir._mlir_libs._loopy_mlir import (
 def build_sympy_access_constraints(
     affine_mem_op: Union["MemOp"], idx_affine_ops: Tuple["ApplyOp", ...]
 ):
-    constraints = [app.affine_relation for app in idx_affine_ops]
+    from .affine import ApplyOp
+
+    constraints = [
+        app.affine_relation for app in idx_affine_ops if isinstance(app, ApplyOp)
+    ]
     for sym, bounds in affine_mem_op.domain_bounds.items():
         for bound_type, bound in bounds.items():
             match bound_type:

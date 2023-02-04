@@ -181,6 +181,30 @@ public:
   using PyConcreteValue::PyConcreteValue;
 };
 
+py::object getOpView(MlirOperation op) {
+  auto ctx = PyMlirContext::forContext(mlirOperationGetContext(op));
+  auto pyFoundOp = PyOperation::forOperation(ctx, op);
+  return pyFoundOp->createOpView();
+}
+
+py::dict getBoundsFromRelation(const mlir::FlatAffineRelation &relation) {
+  py::dict bounds;
+  auto nds = relation.getNumDimAndSymbolVars();
+  for (unsigned i = 0; i < nds; ++i) {
+    py::dict bound;
+    if (relation.hasValue(i)) {
+      bound["LB"] =
+          relation.getConstantBound(mlir::presburger::IntegerRelation::LB, i);
+      bound["UB"] =
+          relation.getConstantBound(mlir::presburger::IntegerRelation::UB, i);
+      bound["EQ"] =
+          relation.getConstantBound(mlir::presburger::IntegerRelation::EQ, i);
+      bounds[py::cast<>(wrap(relation.getValue(i)))] = bound;
+    }
+  }
+  return bounds;
+}
+
 PYBIND11_MODULE(_loopy_mlir, m) {
   auto mod = py::module_::import(MAKE_MLIR_PYTHON_QUALNAME("ir"));
   PyArithValue::bind(m);
@@ -271,19 +295,7 @@ PYBIND11_MODULE(_loopy_mlir, m) {
     getOpIndexSet(mlirOp, &domain);
     mlir::FlatAffineRelation domainRel(domain.getNumDimVars(),
                                        /*numRangeDims=*/0, domain);
-    py::dict bounds;
-    for (unsigned i = 0; i < domainRel.getNumDimAndSymbolVars(); ++i) {
-      py::dict bound;
-      if (domainRel.hasValue(i)) {
-        bound["LB"] = domainRel.getConstantBound(
-            mlir::presburger::IntegerRelation::LB, i);
-        bound["UB"] = domainRel.getConstantBound(
-            mlir::presburger::IntegerRelation::UB, i);
-        bound["EQ"] = domainRel.getConstantBound(
-            mlir::presburger::IntegerRelation::EQ, i);
-        bounds[py::cast<>(wrap(domainRel.getValue(i)))] = bound;
-      }
-    }
+    auto bounds = getBoundsFromRelation(domainRel);
     return py::make_tuple(bounds, indices);
   });
 
@@ -320,13 +332,33 @@ PYBIND11_MODULE(_loopy_mlir, m) {
           for (const AffineForOp &forOp :
                getCommonLoops(srcDomain, dstDomain)) {
             auto mlirForOp = wrap(forOp);
-            auto ctx =
-                PyMlirContext::forContext(mlirOperationGetContext(mlirForOp));
-            auto pyFoundOp = PyOperation::forOperation(ctx, mlirForOp);
-            resVec.emplace_back(pyFoundOp->createOpView());
+            resVec.emplace_back(getOpView(mlirForOp));
           }
           return {resVec};
         });
+
+  m.def("get_loop_bounds", [](const py::handle srcOpApiObject) {
+    auto *forOp = unwrapApiObject<Operation>(srcOpApiObject);
+    AffineForOp affForOp = llvm::dyn_cast<AffineForOp>(forOp);
+
+    mlir::FlatAffineRelation lowerRel;
+    auto lowerMap = affForOp.getLowerBoundMap();
+    getRelationFromMap(lowerMap, lowerRel);
+    mlir::FlatAffineRelation upperRel;
+    auto upperMap = affForOp.getUpperBoundMap();
+    getRelationFromMap(upperMap, upperRel);
+    py::dict bounds;
+    py::dict bound;
+    bound["LB"] =
+        lowerRel.getConstantBound(mlir::presburger::IntegerRelation::LB, 0);
+    bound["UB"] =
+        upperRel.getConstantBound(mlir::presburger::IntegerRelation::UB, 0);
+    bound["EQ"] = py::none();
+    bounds[py::cast<>(wrap(affForOp.getInductionVar()))] = bound;
+    return bounds;
+  });
+
+  m.def("get_opview", [](const MlirOperation op) { return getOpView(op); });
 
   m.def("show_direction_vector", [](const py::handle srcOpApiObject,
                                     const py::handle dstOpApiObject,
