@@ -18,8 +18,8 @@ CMAKE_GENERATOR=Ninja pip install . --no-build-isolation -vvvv
 
 ```python
 @mlir_func
-def has_dep(M: index_t, N: index_t, K: index_t):
-    mem = aff_alloc([4, 4], f64_t)
+def has_dep(M: Index, N: Index, K: Index):
+    mem = MemRef.alloca([4, 4], F64)
     zero = constant(0.0)
     for i in range(0, 100):
         for j in range(0, 50):
@@ -82,9 +82,8 @@ and from this (can you spot the difference?)
 
 
 ```python
-@mlir_func
-def hasnt_dep(M: index_t, N: index_t, K: index_t):
-    mem = aff_alloc([4, 4], f64_t)
+def hasnt_dep(M: Index, N: Index, K: Index):
+    mem = MemRef.alloca([4, 4], F64)
     zero = constant(0.0)
     for i in range(0, 100):
         for j in range(0, 50):

@@ -7,4 +7,5 @@ pycapi
 PyYAML
 wheel
 pytest
-bytecode @ git+https://github.com/MatthieuDartiailh/bytecode.git
+bytecode
+cibuildwheel

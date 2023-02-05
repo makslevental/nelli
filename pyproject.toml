@@ -16,3 +16,16 @@ log_cli = true
 log_cli_level = "DEBUG"
 log_cli_format = "[%(filename)s:%(funcName)s:%(lineno)d] %(message)s"
 log_cli_date_format = "%Y-%m-%d %H:%M:%S"
+
+[tool.cibuildwheel]
+build = "cp310-* cp311-*"
+build-verbosity = "3"
+[tool.cibuildwheel.linux]
+archs = ["x86_64"]
+#before-build = "yum install -y clang"
+before-build = "yum -y update && yum install -y epel-release && yum install -y centos-release-scl && yum install -y llvm-toolset-7.0 && scl enable llvm-toolset-7.0 sh && exit"
+#before-build = 'bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"'
+environment = { CXX = "clang++", CC = "clang", CMAKE_GENERATOR = "Ninja" }
+[tool.cibuildwheel.macos]
+archs = ["arm64"]
+environment = { LIB_ARCH = "arm64" }

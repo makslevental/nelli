@@ -130,5 +130,9 @@ else:
         cmdclass={"build_ext": CMakeBuild},
         packages=packages,
         zip_safe=False,
-        install_requires=[str(ir.requirement) for ir in install_reqs if "git" not in str(ir.requirement)],
+        install_requires=[
+            str(ir.requirement)
+            for ir in install_reqs
+            if "git" not in str(ir.requirement)
+        ],
     )

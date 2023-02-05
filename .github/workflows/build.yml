@@ -15,7 +15,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ ubuntu-latest,
-#              macos-latest
+              macos-latest
         ]
         arch: [ x86_64,
 #                arm64
@@ -24,6 +24,8 @@ jobs:
         exclude:
           - os: ubuntu-latest
             arch: arm64
+          - os: macos-latest
+            python_version: 3.11
 
     steps:
       - name: Checkout
@@ -36,9 +38,14 @@ jobs:
 
       - name: Build wheel
         run: |
-          pip install wheel cmake ninja
-          pip install -r requirements.txt
-          CMAKE_GENERATOR=Ninja pip wheel . -w wheelhouse --no-build-isolation --no-deps -vvvv
+          if [ x"${{ matrix.os }}" == x"ubuntu-latest" ]; then
+            pip install wheel cmake ninja
+            pip install -r requirements.txt
+            CMAKE_GENERATOR=Ninja pip wheel . -w wheelhouse --no-build-isolation --no-deps -vvvv
+          else
+            pip install cibuildwheel
+            cibuildwheel --platform macos
+          fi
           
           mkdir -p ${{ github.sha }}
           mv wheelhouse/loopy*.whl ${{ github.sha }}/

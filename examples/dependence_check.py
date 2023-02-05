@@ -52,18 +52,18 @@ def has_dep():
     assert stores_loads[0].name == "affine.store"
     assert stores_loads[1].name == "affine.load"
     store = StoreOp(stores_loads[0])
-    logger.debug("constraint system for store op:")
-    logger.debug(show_sympy_constraints(store.sympy_access_constraints))
+    print("constraint system for store op:")
+    print(show_sympy_constraints(store.sympy_access_constraints))
     load = LoadOp(stores_loads[1])
-    logger.debug("constraint system for load op:")
-    logger.debug(show_sympy_constraints(load.sympy_access_constraints))
+    print("constraint system for load op:")
+    print(show_sympy_constraints(load.sympy_access_constraints))
 
     # show_access_relation(store.mlir_op, load.mlir_op)
     dep = check_mem_dep(store, load)
     if dep is not None:
-        logger.debug(f"dependence found @ {dep}".replace(":", "->"))
+        print(f"dependence found @ {dep}".replace(":", "->"))
     else:
-        logger.debug("no dependency")
+        print("no dependency")
 
 
 def hasnt_dep():
@@ -84,7 +84,7 @@ def hasnt_dep():
                     jj = (2 * (d1 * 11 + s0) + 1) @ (j, K)
                     v = mem[ii, jj]
 
-    print(module)
+    # print(module)
 
     stores_loads = find_ops(
         module, lambda op: op.name in {"affine.store", "affine.load"}
@@ -92,18 +92,18 @@ def hasnt_dep():
     assert stores_loads[0].name == "affine.store"
     assert stores_loads[1].name == "affine.load"
     store = StoreOp(stores_loads[0])
-    logger.debug("constraint system for store op:")
-    logger.debug(show_sympy_constraints(store.sympy_access_constraints))
+    print("constraint system for store op:")
+    print(show_sympy_constraints(store.sympy_access_constraints))
     load = LoadOp(stores_loads[1])
-    logger.debug("constraint system for load op:")
-    logger.debug(show_sympy_constraints(load.sympy_access_constraints))
+    print("constraint system for load op:")
+    print(show_sympy_constraints(load.sympy_access_constraints))
 
     # show_access_relation(store.mlir_op, load.mlir_op)
     dep = check_mem_dep(store, load)
     if dep is not None:
-        logger.debug(f"dependence found @ {dep}".replace(":", "->"))
+        print(f"dependence found @ {dep}".replace(":", "->"))
     else:
-        logger.debug("no dependency")
+        print("no dependency")
 
 
 def direction_vector():
@@ -223,8 +223,8 @@ def collapsing_memref():
     assert stores_loads[1].name == "affine.store"
     assert stores_loads[0].name == "affine.load"
     store = StoreOp(stores_loads[1])
-    logger.debug("constraint system for store op:")
-    logger.debug(show_sympy_constraints(store.sympy_access_constraints))
+    print("constraint system for store op:")
+    print(show_sympy_constraints(store.sympy_access_constraints))
     idx0, idx1, idx2 = (
         store.positions_to_idxs[0],
         store.positions_to_idxs[1],
