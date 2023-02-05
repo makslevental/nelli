@@ -1,5 +1,8 @@
 import logging
 import time
+from itertools import product
+
+from loopy.poly.z3_ import opt_system
 
 FORMAT = "[%(filename)s:%(funcName)s:%(lineno)d] %(message)s"
 logging.basicConfig(level=logging.DEBUG, format=FORMAT)
@@ -200,16 +203,16 @@ def collapsing_memref():
     with mlir_mod_ctx() as module:
 
         @mlir_func
-        def collapsing_memref(A: MemRef[8, 8, 8, F64]):
-            B = MemRef.alloca([2, 2, 2], F64)
-            for i in range(0, 8):
-                for j in range(0, 8):
-                    for k in range(0, 8):
+        def collapsing_memref(A: MemRef[31, 31, 31, F64]):
+            B = MemRef.alloca([3, 4, 5], F64)
+            for i in range(0, 31):
+                for j in range(0, 31):
+                    for k in range(0, 31):
                         a = A[i, j, k]
 
-                        ii = (d0 // 4) @ i
-                        jj = (d1 % 2) @ j
-                        kk = (d2 // 4) @ k
+                        ii = (d0 % 3) @ i
+                        jj = (d1 % 4) @ j
+                        kk = (d2 % 5) @ k
                         B[ii, jj, kk] = a
 
     print(module)
@@ -222,9 +225,27 @@ def collapsing_memref():
     store = StoreOp(stores_loads[1])
     logger.debug("constraint system for store op:")
     logger.debug(show_sympy_constraints(store.sympy_access_constraints))
-    load = LoadOp(stores_loads[0])
-    logger.debug("constraint system for load op:")
-    logger.debug(show_sympy_constraints(load.sympy_access_constraints))
+    idx0, idx1, idx2 = (
+        store.positions_to_idxs[0],
+        store.positions_to_idxs[1],
+        store.positions_to_idxs[2],
+    )
+    idx0_z3, idx1_z3, idx2_z3 = (
+        store.z3_vars[str(idx0)],
+        store.z3_vars[str(idx1)],
+        store.z3_vars[str(idx2)],
+    )
+    for i, j, k in product(range(2), range(3), range(5)):
+        cons = list(store.z3_access_constraints)
+        cons.extend(
+            [
+                idx0_z3 == i,
+                idx1_z3 == j,
+                idx2_z3 == k,
+            ]
+        )
+        model = opt_system(cons, list(store.z3_vars.values()), min=False)
+        print(model)
 
 
 if __name__ == "__main__":
@@ -236,4 +257,5 @@ if __name__ == "__main__":
     direction_vector()
     mlir_gc()
     deep_loop(scale=100)
+    reset_disambig_names()
     collapsing_memref()

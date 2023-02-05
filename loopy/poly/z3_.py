@@ -269,9 +269,9 @@ def all_smt(s, initial_terms):
 
 
 # http://www.hakank.org/z3/
-def opt_system(cons: list, opt_vars: Optional[list] = None, min=True, priority="lex", limit=1):
+def opt_system(cons: list, opt_vars: list, min=True, priority="lex", limit=1):
     assert isinstance(cons, list), f"unexpected constraints {cons=}"
-    assert isinstance(opt_vars, list), f"unexpected quants {opt_vars=}"
+    assert isinstance(opt_vars, list), f"unexpected opt vars {opt_vars=}"
     con = And(*cons)
     opt = Optimize()
     opt.set("opt.priority", priority)
@@ -286,13 +286,17 @@ def opt_system(cons: list, opt_vars: Optional[list] = None, min=True, priority="
     i = 0
     models = []
     for maybe_model in all_smt(opt, opt_vars):
-        if limit == 1:
-            return maybe_model
-        else:
-            models.append(maybe_model)
-        i += 1
-        if i > limit:
-            break
+        if maybe_model is not None:
+            model = {
+                k: maybe_model[k] for k in sorted(maybe_model, key=lambda m: str(m))
+            }
+            if limit == 1:
+                return model
+            else:
+                models.append(model)
+            i += 1
+            if i > limit:
+                break
 
     return sorted(models, key=lambda k: str(k)) if models != [] else None
 

@@ -152,9 +152,10 @@ class MemOp:
             self, tuple(self.operands.values())
         )
 
-        self.z3_access_constraints, self.z3_vars = build_z3_access_constraints(
+        self.z3_access_constraints, z3_vars = build_z3_access_constraints(
             self.sympy_access_constraints
         )
+        self.z3_vars = {str(z): z for z in z3_vars}
 
     def __repr__(self):
         return f"MemOp({str(self.mlir_op)}"
