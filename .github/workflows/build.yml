@@ -22,8 +22,6 @@ jobs:
         ]
         python_version: [ "3.10", "3.11" ]
         exclude:
-          - os: ubuntu-latest
-            arch: arm64
           - os: macos-latest
             python_version: 3.11
 
@@ -38,9 +36,9 @@ jobs:
 
       - name: Build wheel
         run: |
+          pip install wheel cmake ninja
+          pip install -r requirements.txt
           if [ x"${{ matrix.os }}" == x"ubuntu-latest" ]; then
-            pip install wheel cmake ninja
-            pip install -r requirements.txt
             CMAKE_GENERATOR=Ninja pip wheel . -w wheelhouse --no-build-isolation --no-deps -vvvv
           else
             pip install cibuildwheel

@@ -1,4 +1,5 @@
 import io
+import logging
 from pathlib import Path
 from typing import List, Optional, Tuple, Set
 
@@ -42,6 +43,8 @@ set_param(proof=True)
 # set_param("logic", "nia")
 
 from z3.z3util import get_vars
+
+logger = logging.getLogger(__name__)
 
 
 def sympy_to_z3(sympy_exp):
@@ -164,7 +167,9 @@ def show_z3_constraints_as_tableau(cons: list, quants: Optional[list] = None) ->
     for idx, col in sorted(quant_cols.items(), reverse=True):
         tab.col_del(idx)
         tab = tab.col_insert(-2, col)
-    s = pretty(tab)
+    s = "\n"
+    s += pretty(tab)
+    s += "\n"
     for r in range(1, tab.rows):
         s += (
             " + ".join(map(str, list(tab[r, :])[:-2]))
@@ -273,6 +278,7 @@ def opt_system(cons: list, opt_vars: list, min=True, priority="lex", limit=1):
     assert isinstance(cons, list), f"unexpected constraints {cons=}"
     assert isinstance(opt_vars, list), f"unexpected opt vars {opt_vars=}"
     con = And(*cons)
+    # logger.debug(con.sexpr())
     opt = Optimize()
     opt.set("opt.priority", priority)
     opt.add(con)
