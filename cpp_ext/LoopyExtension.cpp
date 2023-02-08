@@ -74,34 +74,12 @@ template <> struct type_caster<MlirAffineExpr> {
   }
 };
 
-template <> struct type_caster<MlirValue> {
-  PYBIND11_TYPE_CASTER(MlirValue, _("MlirValue"));
-
-  bool load(handle src, bool) {
-    py::object capsule = mlirApiObjectToCapsule(src);
-    value = mlirPythonCapsuleToValue(capsule.ptr());
-    if (mlirValueIsNull(value)) {
-      return false;
-    }
-    return !mlirValueIsNull(value);
-  }
-
-  static handle cast(MlirValue v, return_value_policy, handle) {
-    auto capsule =
-        py::reinterpret_steal<py::object>(mlirPythonValueToCapsule(v));
-    return py::module::import(MAKE_MLIR_PYTHON_QUALNAME("ir"))
-        .attr("Value")
-        .attr(MLIR_PYTHON_CAPI_FACTORY_ATTR)(capsule)
-        .release();
-  }
-};
-
 } // namespace pybind11::detail
 
 static mlir::LogicalResult
 getOpIndexSet(mlir::Operation *op, mlir::FlatAffineValueConstraints *indexSet) {
   llvm::SmallVector<mlir::Operation *, 4> ops;
-  mlir::getEnclosingAffineForAndIfOps(*op, &ops);
+  mlir::getEnclosingAffineOps(*op, &ops);
   return getIndexSet(ops, indexSet);
 }
 
@@ -193,12 +171,27 @@ py::dict getBoundsFromRelation(const mlir::FlatAffineRelation &relation) {
   for (unsigned i = 0; i < nds; ++i) {
     py::dict bound;
     if (relation.hasValue(i)) {
-      bound["LB"] =
+      auto LB =
           relation.getConstantBound(mlir::presburger::IntegerRelation::LB, i);
-      bound["UB"] =
+      auto UB =
           relation.getConstantBound(mlir::presburger::IntegerRelation::UB, i);
-      bound["EQ"] =
+      auto EQ =
           relation.getConstantBound(mlir::presburger::IntegerRelation::EQ, i);
+      if (LB.has_value()) {
+        bound["LB"] = int64FromMPInt(LB.value());
+      } else {
+        bound["LB"] = py::none();
+      }
+      if (UB.has_value()) {
+        bound["UB"] = int64FromMPInt(UB.value());
+      } else {
+        bound["UB"] = py::none();
+      }
+      if (EQ.has_value()) {
+        bound["EQ"] = int64FromMPInt(EQ.value());
+      } else {
+        bound["EQ"] = py::none();
+      }
       bounds[py::cast<>(wrap(relation.getValue(i)))] = bound;
     }
   }

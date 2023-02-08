@@ -43,3 +43,4 @@ jobs:
           python tests/memref_dependence_check.py
           python tests/loops.py
           python tests/ifs.py
+          python tests/runtime.py

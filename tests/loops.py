@@ -8,19 +8,10 @@ from loopy.mlir.memref import MemRefValue as MemRef
 from loopy.mlir.affine import affine_endfor
 from loopy.mlir.scf import scf_if, scf_endif_branch, scf_endif
 from loopy.utils import mlir_mod_ctx
+from util import check_correct
 
 
 class TestLoops:
-    def check_correct(self, correct, module):
-        diff = list(
-            difflib.unified_diff(
-                str(module).splitlines(),
-                str(correct).splitlines(),
-                lineterm="",
-            )
-        )
-        assert len(diff) == 0, "\n".join(diff)
-
     def test_without_rewriting_ast1(self):
         with mlir_mod_ctx() as module:
 
@@ -41,7 +32,7 @@ class TestLoops:
         module {
           func.func @double_loop(%arg0: index, %arg1: index) {
             %cst = arith.constant 1.000000e+00 : f64
-            %0 = memref.alloca() : memref<10x10xf64>
+            %alloca = memref.alloca() : memref<10x10xf64>
             affine.for %arg2 = 1 to 10 {
               affine.for %arg3 = 1 to 10 {
                 %1 = affine.load %0[%arg2, %arg3] : memref<10x10xf64>
@@ -54,7 +45,7 @@ class TestLoops:
         }
         """
         )
-        self.check_correct(correct, module)
+        check_correct(correct, module)
 
     def test_with_rewriting_ast1(self):
         with mlir_mod_ctx() as module:
@@ -74,7 +65,7 @@ class TestLoops:
         module {
           func.func @double_loop(%arg0: index, %arg1: index) {
             %cst = arith.constant 1.000000e+00 : f64
-            %0 = memref.alloca() : memref<10x10xf64>
+            %alloca = memref.alloca() : memref<10x10xf64>
             affine.for %arg2 = 1 to 10 {
               affine.for %arg3 = 1 to 10 {
                 %1 = affine.load %0[%arg2, %arg3] : memref<10x10xf64>
@@ -87,7 +78,7 @@ class TestLoops:
         }
         """
         )
-        self.check_correct(correct, module)
+        check_correct(correct, module)
 
     def test_without_rewriting_ast2(self):
         with mlir_mod_ctx() as module:
@@ -113,7 +104,7 @@ class TestLoops:
         module {
           func.func @double_loop(%arg0: index, %arg1: index) {
             %cst = arith.constant 1.000000e+00 : f64
-            %0 = memref.alloca() : memref<10x10xf64>
+            %alloca = memref.alloca() : memref<10x10xf64>
             affine.for %arg2 = 1 to 10 {
               affine.for %arg3 = 1 to 10 {
                 %1 = arith.cmpi ult, %arg2, %arg3 : index
@@ -129,7 +120,7 @@ class TestLoops:
         }
         """
         )
-        self.check_correct(correct, module)
+        check_correct(correct, module)
 
     def test_with_rewriting_ast2(self):
         with mlir_mod_ctx() as module:
@@ -150,7 +141,7 @@ class TestLoops:
         module {
           func.func @double_loop(%arg0: index, %arg1: index) {
             %cst = arith.constant 1.000000e+00 : f64
-            %0 = memref.alloca() : memref<10x10xf64>
+            %alloca = memref.alloca() : memref<10x10xf64>
             affine.for %arg2 = 1 to 10 {
               affine.for %arg3 = 1 to 10 {
                 %1 = arith.cmpi ult, %arg2, %arg3 : index
@@ -166,7 +157,7 @@ class TestLoops:
         }
         """
         )
-        self.check_correct(correct, module)
+        check_correct(correct, module)
 
     def test_with_rewriting_ast3(self):
         with mlir_mod_ctx() as module:
@@ -190,7 +181,7 @@ class TestLoops:
         module {
           func.func @double_loop(%arg0: index, %arg1: index) {
             %cst = arith.constant 1.000000e+00 : f64
-            %0 = memref.alloca() : memref<10x10xf64>
+            %alloca = memref.alloca() : memref<10x10xf64>
             affine.for %arg2 = 1 to 10 {
               affine.for %arg3 = 1 to 10 {
                 %1 = arith.cmpi ult, %arg2, %arg3 : index
@@ -209,7 +200,7 @@ class TestLoops:
         }
         """
         )
-        self.check_correct(correct, module)
+        check_correct(correct, module)
 
     def test_with_rewriting_ast4(self):
         with mlir_mod_ctx() as module:
@@ -233,7 +224,7 @@ class TestLoops:
         module {
           func.func @double_loop(%arg0: index, %arg1: index) {
             %cst = arith.constant 1.000000e+00 : f64
-            %0 = memref.alloca() : memref<10x10xf64>
+            %alloca = memref.alloca() : memref<10x10xf64>
             affine.for %arg2 = 1 to 10 {
               affine.for %arg3 = 1 to 10 {
                 %1 = arith.cmpi ult, %arg0, %arg1 : index
@@ -252,7 +243,7 @@ class TestLoops:
         }
         """
         )
-        self.check_correct(correct, module)
+        check_correct(correct, module)
 
     def test_with_rewriting_ast5(self):
         with mlir_mod_ctx() as module:
@@ -274,7 +265,7 @@ class TestLoops:
         module {
           func.func @double_loop(%arg0: index, %arg1: index) {
             %cst = arith.constant 1.000000e+00 : f64
-            %0 = memref.alloca() : memref<10x10xf64>
+            %alloca = memref.alloca() : memref<10x10xf64>
             %1 = arith.cmpi ult, %arg0, %arg1 : index
             scf.if %1 {
               affine.for %arg2 = 1 to 10 {
@@ -290,4 +281,4 @@ class TestLoops:
         }
         """
         )
-        self.check_correct(correct, module)
+        check_correct(correct, module)

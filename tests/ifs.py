@@ -7,19 +7,10 @@ from loopy.mlir.func import mlir_func
 from loopy.mlir.memref import MemRefValue as MemRef
 from loopy.mlir.scf import scf_if, scf_endif_branch, scf_else, scf_endif
 from loopy.utils import mlir_mod_ctx
+from util import check_correct
 
 
 class TestIfs:
-    def check_correct(self, correct, module):
-        diff = list(
-            difflib.unified_diff(
-                str(module).splitlines(),
-                str(correct).splitlines(),
-                lineterm="",
-            )
-        )
-        assert len(diff) == 0, "\n".join(diff)
-
     def test_without_rewriting_ast1(self):
         with mlir_mod_ctx() as module:
 
@@ -57,7 +48,7 @@ class TestIfs:
         }
         """
         )
-        self.check_correct(correct, module)
+        check_correct(correct, module)
 
     def test_without_rewriting_ast2(self):
         with mlir_mod_ctx() as module:
@@ -120,7 +111,7 @@ class TestIfs:
         }
         """
         )
-        self.check_correct(correct, module)
+        check_correct(correct, module)
 
     def test_with_rewriting_ast1(self):
         with mlir_mod_ctx() as module:
@@ -147,7 +138,7 @@ class TestIfs:
         }
         """
         )
-        self.check_correct(correct, module)
+        check_correct(correct, module)
 
     def test_with_rewriting_ast2(self):
         with mlir_mod_ctx() as module:
@@ -180,7 +171,7 @@ class TestIfs:
         }
         """
         )
-        self.check_correct(correct, module)
+        check_correct(correct, module)
 
     def test_with_rewriting_ast3(self):
         with mlir_mod_ctx() as module:
@@ -213,7 +204,7 @@ class TestIfs:
         }
         """
         )
-        self.check_correct(correct, module)
+        check_correct(correct, module)
 
     def test_with_rewriting_ast4(self):
         with mlir_mod_ctx() as module:
@@ -254,7 +245,7 @@ class TestIfs:
         }
         """
         )
-        self.check_correct(correct, module)
+        check_correct(correct, module)
 
     def test_with_rewriting_ast5(self):
         with mlir_mod_ctx() as module:
@@ -301,7 +292,7 @@ class TestIfs:
         }
         """
         )
-        self.check_correct(correct, module)
+        check_correct(correct, module)
 
     def test_with_rewriting_ast6(self):
         with mlir_mod_ctx() as module:
@@ -357,4 +348,4 @@ class TestIfs:
         }
         """
         )
-        self.check_correct(correct, module)
+        check_correct(correct, module)

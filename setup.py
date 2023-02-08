@@ -25,10 +25,10 @@ def get_llvm_url():
     LIB_ARCH = os.environ.get("LIB_ARCH", platform.machine())
     assert LIB_ARCH, "empty LIB_ARCH"
     # print(f"ARCH {LIB_ARCH}")
-    LLVM_RELEASE_VERSION = os.environ.get("LLVM_RELEASE_VERSION", "15.0.7")
+    LLVM_RELEASE_VERSION = os.environ.get("LLVM_RELEASE_VERSION", "16.0.0-rc1")
     assert LLVM_RELEASE_VERSION, "empty LLVM_RELEASE_VERSION"
     # print(f"ARCH {LIB_ARCH}")
-    name = f"llvm+mlir+python-{sys.version_info.major}.{sys.version_info.minor}-{LLVM_RELEASE_VERSION}-{LIB_ARCH}-{system_suffix}-release"
+    name = f"llvm+mlir-{sys.version_info.major}.{sys.version_info.minor}-{LLVM_RELEASE_VERSION}-{LIB_ARCH}-{system_suffix}-release"
     url = f"https://github.com/makslevental/llvm-releases/releases/download/llvm-{LLVM_RELEASE_VERSION}/{name}.tar.xz"
     return url
 

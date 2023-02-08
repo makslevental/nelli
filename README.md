@@ -2,6 +2,9 @@
 
 Loop analysis for the polyhedrally challenged.
 
+[![Test](https://github.com/makslevental/loopy/actions/workflows/test.yml/badge.svg)](https://github.com/makslevental/loopy/actions/workflows/test.yml)
+[![Build](https://github.com/makslevental/loopy/actions/workflows/build.yml/badge.svg)](https://github.com/makslevental/loopy/actions/workflows/build.yml)
+
 # Installing
 
 Just

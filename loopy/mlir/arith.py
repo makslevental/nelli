@@ -84,8 +84,8 @@ class CmpFOp(arith_dialect.CmpFOp):
         lhs = get_op_result_or_value(lhs)
         rhs = get_op_result_or_value(rhs)
         predicate = IntegerAttr.get(IntegerType.get_signless(64), predicates[predicate])
-        result_type = IntegerType.get_signless(1, context=context)
-        super().__init__(result_type, predicate, lhs, rhs, loc=loc, ip=ip)
+        # result_type = IntegerType.get_signless(1, context=context)
+        super().__init__(predicate, lhs, rhs, loc=loc, ip=ip)
 
 
 class CmpIOp(arith_dialect.CmpIOp):
@@ -126,8 +126,7 @@ class CmpIOp(arith_dialect.CmpIOp):
         lhs = get_op_result_or_value(lhs)
         rhs = get_op_result_or_value(rhs)
         predicate = IntegerAttr.get(IntegerType.get_signless(64), predicates[predicate])
-        result_type = IntegerType.get_signless(1, context=context)
-        super().__init__(result_type, predicate, lhs, rhs, loc=loc, ip=ip)
+        super().__init__(predicate, lhs, rhs, loc=loc, ip=ip)
 
 
 def cast_to_integer(to_type: Type, operand: OpView, is_unsigned_cast: bool) -> OpView:

@@ -3,10 +3,23 @@ import sys
 import tempfile
 from io import StringIO
 
+from loopy.loopy_mlir.passmanager import PassManager
+from loopy.loopy_mlir.ir import StringAttr
 
-# from loopy.loopy_mlir.ir import (
-#     register_attribute_builder,
-# )
+
+class LoopyMlirCompilerError(Exception):
+    def __init__(self, value: str):
+        super().__init__()
+        self.value = value
+
+    def __str__(self) -> str:
+        return self.value
+
+
+def get_module_name_for_debug_dump(module):
+    if not "loopy.debug_module_name" in module.operation.attributes:
+        return "UnnammedModule"
+    return StringAttr(module.operation.attributes["loopy.debug_module_name"]).value
 
 
 def run_pipeline_with_repro_report(
@@ -45,36 +58,14 @@ def run_pipeline_with_repro_report(
             {description} failed with the following diagnostics:
             {sys.stderr.getvalue()}
 
-            For Torch-MLIR developers, the error can be reproduced with:
-            $ torch-mlir-opt -pass-pipeline='{pipeline}' {filename}
+            For developers, the error can be reproduced with:
+            $ mlir-opt -pass-pipeline='{pipeline}' {filename}
             Add '{debug_options}' to get the IR dump for debugging purpose.
             """
         trimmed_message = "\n".join([m.lstrip() for m in message.split("\n")])
-        raise TorchMlirCompilerError(trimmed_message) from None
+        raise LoopyMlirCompilerError(trimmed_message) from None
     finally:
         sys.stderr = original_stderr
-
-
-def lower_pi_to_linalg(module):
-    run_pipeline_with_repro_report(
-        module,
-        "builtin.module("
-        + ",".join(
-            [
-                # "builtin.module(torchscript-module-to-torch-backend-pipeline)",
-                # "torchscript-module-to-torch-backend-pipeline",
-                "symbol-dce",
-                "inline{default-pipeline= max-iterations=4}",
-                "torch-adjust-calling-conventions",
-                "torch-lower-to-backend-contract{decompose=true max-iterations=10}",
-                "torch-backend-to-linalg-on-tensors-backend-pipeline",
-            ]
-        )
-        + ")",
-        "Lowering Torch MLIR -> Linalg",
-        enable_ir_printing=False,
-    )
-    return module
 
 
 # @register_attribute_builder("AnyI64Attr")

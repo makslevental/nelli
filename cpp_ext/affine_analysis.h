@@ -93,8 +93,8 @@ getCommonLoops(const FlatAffineValueConstraints &srcDomain,
   unsigned minNumLoops =
       std::min(srcDomain.getNumDimVars(), dstDomain.getNumDimVars());
   for (unsigned i = 0; i < minNumLoops; ++i) {
-    if (!isForInductionVar(srcDomain.getValue(i)) ||
-        !isForInductionVar(dstDomain.getValue(i)) ||
+    if (!isAffineForInductionVar(srcDomain.getValue(i)) ||
+        !isAffineForInductionVar(dstDomain.getValue(i)) ||
         srcDomain.getValue(i) != dstDomain.getValue(i))
       break;
     auto owner = getForInductionVarOwner(srcDomain.getValue(i));
@@ -196,11 +196,11 @@ static void computeDirectionVector(
   dependenceComponents->resize(numCommonLoops);
   for (unsigned j = 0; j < numCommonLoops; ++j) {
     (*dependenceComponents)[j].op = commonLoops[j].getOperation();
-    auto lbConst = dependenceDomain->getConstantBound(
+    auto lbConst = dependenceDomain->getConstantBound64(
         mlir::presburger::IntegerPolyhedron::LB, j);
     (*dependenceComponents)[j].lb =
         lbConst.value_or(std::numeric_limits<int64_t>::min());
-    auto ubConst = dependenceDomain->getConstantBound(
+    auto ubConst = dependenceDomain->getConstantBound64(
         mlir::presburger::IntegerPolyhedron::UB, j);
     (*dependenceComponents)[j].ub =
         ubConst.value_or(std::numeric_limits<int64_t>::max());
@@ -395,7 +395,7 @@ void printDependenceConstraints(FlatAffineValueConstraints dep,
     Row_t row;
     for (unsigned j = 0, f = nc; j < f; ++j) {
       auto coeff = dep.atEq(i, j);
-      auto s = std::to_string(coeff);
+      auto s = std::to_string(int64FromMPInt(coeff));
       if (j < nds && dep.hasValue(j) && coeff != 0) {
         s += "*" + makeDisambigName(dep.getValue(j));
       }
@@ -411,7 +411,7 @@ void printDependenceConstraints(FlatAffineValueConstraints dep,
     Row_t row;
     for (unsigned j = 0, f = nc; j < f; ++j) {
       auto coeff = dep.atIneq(i, j);
-      auto s = std::to_string(coeff);
+      auto s = std::to_string(int64FromMPInt(coeff));
       if (j < nds && dep.hasValue(j) && coeff != 0) {
         s += "*" + makeDisambigName(dep.getValue(j));
       }
@@ -474,7 +474,7 @@ static void checkDependenceSrcDst(
               auto integerSample = maybeLexMin.getBoundedOptimum();
               if (dependenceConstraints.hasValue(i)) {
                 std::cerr << makeDisambigName(dependenceConstraints.getValue(i))
-                          << "->" << integerSample[i];
+                          << "->" << int64FromMPInt(integerSample[i]);
                 if (i < d - 1)
                   std::cerr << ", ";
               }
