@@ -13,6 +13,7 @@ from sympy import Eq, pretty
 from sympy.core.relational import Relational
 from z3 import Int, substitute, simplify, ExprRef
 
+# noinspection PyUnresolvedReferences
 from ..loopy_mlir._mlir_libs._loopy_mlir import (
     get_common_loops,
     show_value_as_operand,

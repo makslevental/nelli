@@ -16,6 +16,8 @@ declare_mlir_python_extension(LoopyPythonSources.Extension
         ADD_TO_PARENT LoopyPythonSources
         SOURCES
         LoopyExtension.cpp
+        LoopUtils.cpp
+        AffineAnalysis.cpp
 
         PRIVATE_LINK_LIBS
         MLIRIR

@@ -5,6 +5,7 @@ from typing import List
 # from symengine import Eq, Symbol, Integer
 from sympy import Eq, Symbol, Integer
 
+from .op import Op
 from ..loopy_mlir.ir import (
     AffineAddExpr,
     AffineExpr,
@@ -30,15 +31,17 @@ from ..loopy_mlir._mlir_libs._loopy_mlir import (
     walk_affine_exprs,
     get_opview,
     get_loop_bounds,
+    affine_for_skew,
+    affine_for_unroll_by_factor,
 )
 from ..utils import make_disambig_name
 
 logger = logging.getLogger(__name__)
 
 
-class ApplyOp:
+class ApplyOp(Op):
     def __init__(self, apply_op):
-        self.apply_op = apply_op
+        super().__init__(apply_op)
         assert apply_op.name == "affine.apply"
 
         self.operands = [Symbol(make_disambig_name(o)) for o in apply_op.operands]
@@ -111,20 +114,26 @@ class ApplyOp:
         ).xreplace({v["expr"]: v["operand"] for k, v in self.symbols.items()})
 
 
-class ForOp:
+class ForOp(Op):
     def __init__(self, for_op):
-        self.for_op = for_op
+        super().__init__(for_op)
         assert for_op.name == "affine.for"
         for_op = get_opview(for_op)
         self.domain_bounds = get_loop_bounds(for_op)
         self.operands = [Symbol(make_disambig_name(for_op.induction_variable))]
 
+    def skew(self, shifts):
+        affine_for_skew(self.mlir_op, shifts)
 
-class MemOp:
+    def unroll_by_factor(self, factor, annotator=None):
+        affine_for_unroll_by_factor(self.mlir_op, factor, annotator)
+
+
+class MemOp(Op):
     sympy_access_constraints: list
 
     def __init__(self, mlir_op, idx_operands: List[Value]):
-        self.mlir_op = mlir_op
+        super().__init__(mlir_op)
 
         domain_bounds, positions_to_idxs = get_access_relation(mlir_op)
         self.domain_bounds = {}
@@ -156,12 +165,6 @@ class MemOp:
             self.sympy_access_constraints
         )
         self.z3_vars = {str(z): z for z in z3_vars}
-
-    def __repr__(self):
-        return f"MemOp({str(self.mlir_op)}"
-
-    def __str__(self):
-        return f"MemOp({str(self.mlir_op)}"
 
 
 class StoreOp(MemOp):
