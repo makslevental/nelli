@@ -3,3 +3,5 @@ python: /home/mlevental/dev_projects/loopy/llvm_install/src/python/MLIRPythonExt
 ```
 
 in debug compile
+
+causes ifs and loops tests to fail

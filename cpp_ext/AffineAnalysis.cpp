@@ -2,54 +2,40 @@
 // Created by mlevental on 1/20/23.
 //
 
-#include "macros.h"
+#include "mlir/Dialect/Affine/Analysis/AffineAnalysis.h"
 #include "mlir/Analysis/Presburger/IntegerRelation.h"
 #include "mlir/Analysis/Presburger/Matrix.h"
-#include "mlir/Analysis/SliceAnalysis.h"
-#include "mlir/Dialect/Affine/Analysis/AffineAnalysis.h"
 #include "mlir/Dialect/Affine/Analysis/AffineStructures.h"
 #include "mlir/Dialect/Affine/Analysis/LoopAnalysis.h"
 #include "mlir/Dialect/Affine/Analysis/Utils.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
-#include "mlir/Dialect/Affine/IR/AffineValueMap.h"
-#include "mlir/Dialect/Affine/Passes.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
-#include "mlir/Dialect/MemRef/IR/MemRef.h"
-#include "mlir/IR/AffineExprVisitor.h"
 #include "mlir/IR/AsmState.h"
 #include "mlir/IR/Builders.h"
-#include "mlir/IR/BuiltinOps.h"
-#include "mlir/IR/IntegerSet.h"
 #include "mlir/IR/OperationSupport.h"
-#include "mlir/Interfaces/SideEffectInterfaces.h"
-#include "mlir/Interfaces/ViewLikeInterface.h"
-#include "mlir/Parser/Parser.h"
-#include "mlir/Pass/PassManager.h"
 #include "mlir/Support/LogicalResult.h"
-#include "tabulate.hpp"
 #include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/TypeSwitch.h"
-#include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 #include <iomanip>
 #include <iostream>
-#include <llvm/Support/Debug.h>
 #include <regex>
-#include <set>
 #include <string>
 
-#ifndef LOOPY_AFFINE_ANALYSIS_H
-#define LOOPY_AFFINE_ANALYSIS_H
+#include "AffineAnalysis.h"
+#include "macros.h"
+#include "tabulate.hpp"
 
 using namespace llvm;
 using namespace mlir;
 using namespace presburger;
 using namespace tabulate;
 
+namespace loopy {
+
 /// Returns the closest surrounding block common to `opA` and `opB`. `opA` and
 /// `opB` should be in the same affine scope and thus such a block is guaranteed
 /// to exist.
-static mlir::Block *getCommonBlock(mlir::Operation *opA, mlir::Operation *opB) {
+mlir::Block *getCommonBlock(mlir::Operation *opA, mlir::Operation *opB) {
   // Get the chain of ancestor blocks for the given `MemRefAccess` instance. The
   // chain extends up to and includnig an op that starts an affine scope.
   auto getChainOfAncestorBlocks =
@@ -107,8 +93,8 @@ getCommonLoops(const FlatAffineValueConstraints &srcDomain,
 /// ancestor operation of 'dstAccess' in their common ancestral block. The
 /// operations for `srcAccess` and `dstAccess` are expected to be in the same
 /// affine scope.
-static bool srcAppearsBeforeDstInAncestralBlock(const MemRefAccess &srcAccess,
-                                                const MemRefAccess &dstAccess) {
+bool srcAppearsBeforeDstInAncestralBlock(const MemRefAccess &srcAccess,
+                                         const MemRefAccess &dstAccess) {
   // Get Block common to 'srcAccess.opInst' and 'dstAccess.opInst'.
   auto *commonBlock = getCommonBlock(srcAccess.opInst, dstAccess.opInst);
   // Check the dominance relationship between the respective ancestors of the
@@ -129,11 +115,10 @@ static bool srcAppearsBeforeDstInAncestralBlock(const MemRefAccess &srcAccess,
 // *) If 'loopDepth == 1' then one constraint is added: i' >= i + 1
 // *) If 'loopDepth == 2' then two constraints are added: i == i' and j' > j + 1
 // *) If 'loopDepth == 3' then two constraints are added: i == i' and j == j'
-static void
-addOrderingConstraints(const FlatAffineValueConstraints &srcDomain,
-                       const FlatAffineValueConstraints &dstDomain,
-                       unsigned loopDepth,
-                       FlatAffineValueConstraints *dependenceDomain) {
+void addOrderingConstraints(const FlatAffineValueConstraints &srcDomain,
+                            const FlatAffineValueConstraints &dstDomain,
+                            unsigned loopDepth,
+                            FlatAffineValueConstraints *dependenceDomain) {
   unsigned numCols = dependenceDomain->getNumCols();
   SmallVector<int64_t, 4> eq(numCols);
   unsigned numSrcDims = srcDomain.getNumDimVars();
@@ -156,7 +141,7 @@ addOrderingConstraints(const FlatAffineValueConstraints &srcDomain,
 // variables to 'dependenceDomain' which represent the difference of the IVs,
 // eliminating all other variables, and reading off distance vectors from
 // equality constraints (if possible), and direction vectors from inequalities.
-static void computeDirectionVector(
+void computeDirectionVector(
     const FlatAffineValueConstraints &srcDomain,
     const FlatAffineValueConstraints &dstDomain, unsigned loopDepth,
     FlatAffineValueConstraints *dependenceDomain,
@@ -279,7 +264,7 @@ DependenceResult myCheckMemrefAccessDependence(
 
 // Returns a result string which represents the direction vector (if there was
 // a dependence), returns the string "false" otherwise.
-static std::string
+std::string
 getDirectionVectorStr(bool ret, unsigned numCommonLoops, unsigned loopNestDepth,
                       ArrayRef<DependenceComponent> dependenceComponents) {
   if (!ret)
@@ -303,7 +288,7 @@ getDirectionVectorStr(bool ret, unsigned numCommonLoops, unsigned loopNestDepth,
   return result;
 }
 
-std::string showValueAsOperand(Value v) {
+std::string showValueAsOperand(mlir::Value v) {
   std::string str;
   llvm::raw_string_ostream os(str);
   auto parent = v.getParentRegion()->getParentOfType<func::FuncOp>();
@@ -323,9 +308,7 @@ std::string showOp(Operation *o) {
   return std::regex_replace(str, std::regex("%"), "");
 }
 
-static std::map<std::string, std::map<void *, std::string>> seen;
-
-std::string makeDisambigName(Value v) {
+std::string makeDisambigName(mlir::Value v) {
   auto name = showValueAsOperand(v);
   if (seen.count(name) && !seen[name].count(v.getAsOpaquePointer())) {
     seen[name][v.getAsOpaquePointer()] =
@@ -339,7 +322,7 @@ std::string makeDisambigName(Value v) {
 }
 
 void printDependenceConstraints(FlatAffineValueConstraints dep,
-                                const std::string &name = "") {
+                                const std::string &name) {
   std::cerr << name << "\n";
   std::string str;
   llvm::raw_string_ostream os(str);
@@ -433,12 +416,12 @@ void printDependenceConstraints(FlatAffineValueConstraints dep,
             << "\n";
 }
 
-static void checkDependenceSrcDst(
+void checkDependenceSrcDst(
     Operation *srcOpInst, Operation *dstOpInst,
-    std::function<DependenceResult(const MemRefAccess &, const MemRefAccess &,
-                                   unsigned, FlatAffineValueConstraints *,
-                                   SmallVector<DependenceComponent, 2> *, bool)>
-        checker) {
+    const std::function<DependenceResult(
+        const MemRefAccess &, const MemRefAccess &, unsigned,
+        FlatAffineValueConstraints *, SmallVector<DependenceComponent, 2> *,
+        bool)> &checker) {
   MemRefAccess srcAccess(srcOpInst);
   MemRefAccess dstAccess(dstOpInst);
 
@@ -494,14 +477,12 @@ static void checkDependenceSrcDst(
   }
 }
 
-static void sanityCheckDependenceSrcDst(Operation *srcOpInst,
-                                        Operation *dstOpInst) {
+void sanityCheckDependenceSrcDst(Operation *srcOpInst, Operation *dstOpInst) {
   checkDependenceSrcDst(srcOpInst, dstOpInst, checkMemrefAccessDependence);
 };
 
-static void myCheckDependenceSrcDst(Operation *srcOpInst,
-                                    Operation *dstOpInst) {
+void myCheckDependenceSrcDst(Operation *srcOpInst, Operation *dstOpInst) {
   checkDependenceSrcDst(srcOpInst, dstOpInst, myCheckMemrefAccessDependence);
 };
 
-#endif // LOOPY_AFFINE_ANALYSIS_H
+} // namespace loopy

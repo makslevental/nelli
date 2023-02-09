@@ -19,7 +19,7 @@ from ...loopy_mlir.ir import (
 )
 from ...mlir.affine import _affine_ops_gen as affine
 from ...mlir.affine._affine_ops_gen import _Dialect
-from ...mlir.arith import ArithValue
+from ...mlir.arith import ArithValue, constant
 
 
 @_cext.register_operation(_Dialect)
@@ -88,12 +88,17 @@ class LoadOp(affine.AffineLoadOp):
     def __init__(
         self,
         memref: Union[Operation, OpView, Value],
-        indices: Optional[Union[Operation, OpView, Sequence[Value]]] = None,
+        indices: Optional[Sequence[Union[Value, int]]] = None,
         *,
         loc=None,
         ip=None,
     ):
+        if isinstance(indices, tuple):
+            indices = list(indices)
         memref_resolved = get_op_result_or_value(memref)
+        for idx, i in enumerate(indices):
+            if isinstance(i, int):
+                indices[idx] = constant(i, index=True)
         indices_resolved = [] if indices is None else get_op_results_or_values(indices)
         return_type = MemRefType(memref_resolved.type).element_type
         map = AffineMapAttr.get(AffineMap.get_identity(n_dims=len(indices)))
@@ -107,12 +112,17 @@ class StoreOp(affine.AffineStoreOp):
         self,
         memref: Union[Operation, OpView, Value],
         value: Value,
-        indices: Optional[Union[Operation, OpView, Sequence[Value]]] = None,
+        indices: Optional[Sequence[Union[Value, int]]] = None,
         *,
         loc=None,
         ip=None,
     ):
+        if isinstance(indices, tuple):
+            indices = list(indices)
         value_resolved = get_op_result_or_value(value)
+        for idx, i in enumerate(indices):
+            if isinstance(i, int):
+                indices[idx] = constant(i, index=True)
         map = AffineMapAttr.get(AffineMap.get_identity(n_dims=len(indices)))
 
         operands = [value_resolved]

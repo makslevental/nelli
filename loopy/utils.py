@@ -1,5 +1,6 @@
 import builtins
 import contextlib
+from typing import Callable
 
 # noinspection PyUnresolvedReferences
 from .loopy_mlir._mlir_libs._loopy_mlir import (
@@ -10,7 +11,7 @@ from .loopy_mlir._mlir_libs._loopy_mlir import (
     show_sanity_check_access_relation,
     walk_operation,
 )
-from .loopy_mlir.ir import Value, Module, InsertionPoint
+from .loopy_mlir.ir import Value, Module, InsertionPoint, Operation
 
 seen_ambiguous_names = {}
 
@@ -33,7 +34,7 @@ def reset_disambig_names():
     _reset_disambig_names()
 
 
-def find_ops(op, pred):
+def find_ops(op, pred: Callable[[Operation], bool]):
     matching = []
 
     def find(op):
