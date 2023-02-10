@@ -23,6 +23,7 @@
 #include "AffineAnalysis.h"
 #include "LoopUtils.h"
 #include "Pybind.h"
+#include "utils.h"
 
 namespace py = pybind11;
 using namespace mlir::python;
@@ -90,6 +91,8 @@ py::dict getBoundsFromRelation(const mlir::FlatAffineRelation &relation) {
   }
   return bounds;
 }
+
+thread_local py::object annotator_;
 
 PYBIND11_MODULE(_loopy_mlir, m) {
   auto mod = py::module_::import(MAKE_MLIR_PYTHON_QUALNAME("ir"));
@@ -258,32 +261,25 @@ PYBIND11_MODULE(_loopy_mlir, m) {
     }
   });
 
-  using MlirAnnotateFn =
-      llvm::function_ref<void(unsigned, Operation *, OpBuilder)>;
-  using MyPyNamedAttribute = py::tuple;
-  using PyAnnotateFn = std::function<std::optional<MyPyNamedAttribute>(
-      unsigned unrolledIteration, MlirOperation)>;
-  m.def(
-      "affine_for_unroll_by_factor",
-      [](const py::handle forOpApiObject, int unrollFactor,
-         const std::optional<PyAnnotateFn> &maybePyAnnotateFn) {
-        auto forOp = unwrapOpObject<mlir::AffineForOp>(forOpApiObject);
-        MlirAnnotateFn annotateFn = nullptr;
-        if (maybePyAnnotateFn.has_value()) {
-          annotateFn = [&maybePyAnnotateFn](unsigned i, Operation *op,
-                                            OpBuilder b) {
-            PyAnnotateFn pyAnnotateFn = maybePyAnnotateFn.value();
-            auto namedAttr = pyAnnotateFn(i, wrap(op));
-            if (namedAttr.has_value()) {
-              auto namedAttr_ = namedAttr.value();
-              op->setAttr(py::cast<std::string>(namedAttr_[0]),
-                          unwrap(py::cast<MlirAttribute>(namedAttr_[1])));
-            }
-          };
+  m.def("affine_for_unroll_by_factor", [](const py::handle forOpApiObject,
+                                          int unrollFactor,
+                                          const py::object &annotator) {
+    auto forOp = unwrapOpObject<mlir::AffineForOp>(forOpApiObject);
+    llvm::function_ref<void(unsigned, Operation *, OpBuilder)> annotateFn =
+        nullptr;
+    using Annotation = std::pair<std::string, MlirAttribute>;
+    annotator_ = py::reinterpret_borrow<py::object>(annotator);
+    if (!annotator_.is(py::none())) {
+      annotateFn = [](unsigned i, Operation *op, OpBuilder b) {
+        auto res = annotator_(i, wrap(op));
+        if (!res.is(py::none())) {
+          auto annot = py::cast<Annotation>(res);
+          op->setAttr(annot.first, unwrap(annot.second));
         }
-
-        if (failed(mlir::loopUnrollByFactor(forOp, unrollFactor, annotateFn))) {
-          throw py::value_error("unroll by factor failed");
-        }
-      });
+      };
+    }
+    if (failed(mlir::loopUnrollByFactor(forOp, unrollFactor, annotateFn))) {
+      throw py::value_error("unroll by factor failed");
+    }
+  });
 }

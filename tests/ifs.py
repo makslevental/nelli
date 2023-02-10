@@ -1,5 +1,4 @@
 from textwrap import dedent
-import difflib
 
 from loopy.mlir import F64
 from loopy.mlir.arith import constant
