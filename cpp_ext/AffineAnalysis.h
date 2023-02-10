@@ -2,7 +2,6 @@
 // Created by mlevental on 1/20/23.
 //
 
-#include "macros.h"
 #include "mlir/Analysis/Presburger/IntegerRelation.h"
 #include "mlir/Analysis/Presburger/Matrix.h"
 #include "mlir/Analysis/SliceAnalysis.h"
@@ -37,6 +36,8 @@
 #include <regex>
 #include <set>
 #include <string>
+
+#include "utils.h"
 
 #ifndef LOOPY_AFFINE_ANALYSIS_H
 #define LOOPY_AFFINE_ANALYSIS_H

@@ -130,7 +130,11 @@ def mlir_func(f, rewrite_ast_=True):
 
     # fall through all arms in a conditional
     code = ConcreteBytecode.from_code(f_code_o)
+    early_returns = []
     for i, c in enumerate(code):
+        if c.name == "RETURN_VALUE":
+            early_returns.append(i)
+
         if c.name in {
             # this is the first test condition jump from python <= 3.10
             "POP_JUMP_IF_FALSE",
@@ -151,6 +155,11 @@ def mlir_func(f, rewrite_ast_=True):
         }:
             logger.debug(f"no-oping jump {i}: {c=}")
             code[i] = ConcreteInstr("NOP", lineno=c.lineno, location=c.location)
+
+    # early returns cause branches in conditionals to not be visited
+    for idx in early_returns[:-1]:
+        c = code[idx]
+        code[idx] = ConcreteInstr("NOP", lineno=c.lineno, location=c.location)
 
     f_code_o = code.to_code()
     updated_f = FunctionType(

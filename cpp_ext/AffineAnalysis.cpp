@@ -22,7 +22,7 @@
 #include <string>
 
 #include "AffineAnalysis.h"
-#include "macros.h"
+#include "utils.h"
 #include "tabulate.hpp"
 
 using namespace llvm;

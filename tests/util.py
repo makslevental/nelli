@@ -1,10 +1,11 @@
 import difflib
 import re
+from textwrap import dedent
 
 
 def check_correct(correct, module):
-    correct = re.sub(r"[%|#]\w+", "%DONT_CARE", correct)
-    module = re.sub(r"[%|#]\w+", "%DONT_CARE", str(module))
+    correct = dedent(re.sub(r"[%|#]\w+", "%DONT_CARE", correct))
+    module = dedent(re.sub(r"[%|#]\w+", "%DONT_CARE", str(module)))
     diff = list(
         difflib.unified_diff(
             module.splitlines(),
