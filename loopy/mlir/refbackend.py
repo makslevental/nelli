@@ -4,6 +4,8 @@
 # Also available under a BSD-style license. See LICENSE.
 
 import ctypes
+from enum import Enum
+
 import numpy as np
 from ..utils import find_ops
 
@@ -127,43 +129,56 @@ class LLVMJITBackendInvoker:
         return invoke
 
 
-LOWERING_PIPELINE = (
-    "builtin.module("
-    + ",".join(
-        [
-            # Bufferize.
-            "func.func(scf-bufferize)",
-            "func.func(empty-tensor-to-alloc-tensor)",
-            "func.func(linalg-bufferize)",
-            "func-bufferize",
-            "arith-bufferize",
-            "func.func(tensor-bufferize)",
-            "func.func(finalizing-bufferize)",
-            "func.func(buffer-deallocation)",
-            # Lower to LLVM
-            "func.func(convert-linalg-to-loops)",
-            "func.func(lower-affine)",
-            "convert-scf-to-cf",
-            "func.func(arith-expand)",
-            "func.func(convert-math-to-llvm)",
-            # Handle some complex mlir::math ops (e.g. atan2)
-            "convert-math-to-libm",
-            "convert-linalg-to-llvm",
-            "expand-strided-metadata",
-            "convert-memref-to-llvm",
-            "lower-affine",
-            "func.func(convert-arith-to-llvm)",
-            "convert-func-to-llvm",
-            "convert-cf-to-llvm",
-            "reconcile-unrealized-casts",
-        ]
-    )
-    + ")"
-)
+BUFFERIZE = [
+    "func.func(scf-bufferize)",
+    "func.func(empty-tensor-to-alloc-tensor)",
+    "func.func(linalg-bufferize)",
+    "func-bufferize",
+    "arith-bufferize",
+    "func.func(tensor-bufferize)",
+    "func.func(finalizing-bufferize)",
+    "func.func(buffer-deallocation)",
+]
+
+LOWER_LOOPS = [
+    "func.func(convert-linalg-to-loops)",
+]
+
+LOWER_TO_LLVM = [
+    "func.func(lower-affine)",
+    "convert-scf-to-cf",
+    "func.func(arith-expand)",
+    "func.func(convert-math-to-llvm)",
+    "convert-math-to-libm",
+    "convert-linalg-to-llvm",
+    "expand-strided-metadata",
+    "convert-memref-to-llvm",
+    "lower-affine",
+    "func.func(convert-arith-to-llvm)",
+    "convert-func-to-llvm",
+    "convert-cf-to-llvm",
+    "reconcile-unrealized-casts",
+]
+
+
+class LinalgLowering(Enum):
+    # scf.for
+    Loops = "convert-linalg-to-loops"
+    Affine = "convert-linalg-to-affine-loops"
+    # scf.parallel
+    Parallel = "convert-linalg-to-parallel-loops"
 
 
 class LLVMJITBackend:
-    def compile(self, module: Module, kernel_name="main"):
+    def compile(
+        self,
+        module: Module,
+        kernel_name="main",
+        bufferize=True,
+        lower_loops=True,
+        lower_to_llvm=True,
+        linalg_lowering=LinalgLowering.Loops,
+    ):
         def cb(op):
             try:
                 return kernel_name == op.opview.sym_name.value
@@ -171,11 +186,25 @@ class LLVMJITBackend:
                 return False
 
         kernel_func = find_ops(module, cb)
-        assert len(kernel_func) == 1, f"unexpected kernel func {kernel_func}"
+        assert len(kernel_func) == 1, f"kernel func {kernel_func} not found"
         kernel_func[0].attributes["llvm.emit_c_interface"] = UnitAttr.get()
         run_pipeline_with_repro_report(
             module,
-            LOWERING_PIPELINE,
+            (
+                "builtin.module("
+                + ",".join(
+                    (BUFFERIZE if bufferize else [])
+                    + (
+                        [
+                            f"func.func({linalg_lowering.value})",
+                        ]
+                        if lower_loops
+                        else []
+                    )
+                    + (LOWER_TO_LLVM if lower_to_llvm else [])
+                )
+                + ")"
+            ),
             "Lowering Linalg-on-Tensors IR to LLVM with RefBackend",
         )
         return module

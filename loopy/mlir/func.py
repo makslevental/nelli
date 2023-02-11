@@ -1,8 +1,6 @@
 import logging
-logger = logging.getLogger(__name__)
 
-from .memref import MemRefValue
-from .utils import doublewrap
+logger = logging.getLogger(__name__)
 
 import inspect
 import ast
@@ -16,8 +14,8 @@ from .scf import scf_endif_branch, scf_if, scf_else, scf_endif
 from .arith import ArithValue
 from ..loopy_mlir.dialects import func as func_dialect
 from ..loopy_mlir.ir import Type as MLIRType, MemRefType
-
-func = func_dialect.FuncOp.from_py_func
+from .memref import MemRefValue
+from .utils import doublewrap
 
 
 def call(name, args=None):
