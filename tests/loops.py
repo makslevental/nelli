@@ -4,7 +4,7 @@ from loopy.mlir import F64, Index
 from loopy.mlir.arith import constant, ArithValue
 from loopy.mlir.func import mlir_func
 from loopy.mlir.memref import MemRefValue as MemRef
-from loopy.mlir.affine import affine_endfor
+from loopy.mlir.affine import affine_range, affine_endfor
 from loopy.mlir.scf import scf_if, scf_endif_branch, scf_endif
 from loopy.utils import mlir_mod_ctx
 from util import check_correct
@@ -18,8 +18,8 @@ class TestLoops:
             def double_loop(M: Index, N: Index):
                 two = constant(1.0)
                 mem = MemRef.alloca([10, 10], F64)
-                for i in range(1, 10, 1):
-                    for j in range(1, 10, 1):
+                for i in affine_range(1, 10, 1):
+                    for j in affine_range(1, 10, 1):
                         v = mem[i, j]
                         w = v * two
                         mem[i, j] = w
@@ -86,8 +86,8 @@ class TestLoops:
             def double_loop(M: Index, N: Index):
                 two = constant(1.0)
                 mem = MemRef.alloca([10, 10], F64)
-                for i in range(1, 10, 1):
-                    for j in range(1, 10, 1):
+                for i in affine_range(1, 10, 1):
+                    for j in affine_range(1, 10, 1):
                         if scf_if(ArithValue(i) < ArithValue(j)):
                             v = mem[i, j]
                             w = v * two
@@ -273,6 +273,51 @@ class TestLoops:
                   %3 = arith.mulf %2, %cst : f64
                   affine.store %3, %0[%arg2, %arg3] : memref<10x10xf64>
                 }
+              }
+            }
+            return
+          }
+        }
+        """
+        )
+        check_correct(correct, module)
+
+    def test_metaprogramming(self):
+        with mlir_mod_ctx() as module:
+
+            @mlir_func(rewrite_ast_=False)
+            def double_loop(M: Index, N: Index):
+                two = constant(1.0)
+                for _ in range(2):
+                    mem = MemRef.alloca([10, 10], F64)
+                for _ in range(2):
+                    for i in affine_range(1, 10, 1):
+                        for j in affine_range(1, 10, 1):
+                            v = mem[i, j]
+                            w = v * two
+                            mem[i, j] = w
+                            affine_endfor()
+                        affine_endfor()
+
+        correct = dedent(
+            """\
+        module {
+          func.func @double_loop(%arg0: index, %arg1: index) {
+            %cst = arith.constant 1.000000e+00 : f64
+            %alloca = memref.alloca() : memref<10x10xf64>
+            %alloca_0 = memref.alloca() : memref<10x10xf64>
+            affine.for %arg2 = 1 to 10 {
+              affine.for %arg3 = 1 to 10 {
+                %0 = affine.load %alloca_0[%arg2, %arg3] : memref<10x10xf64>
+                %1 = arith.mulf %0, %cst : f64
+                affine.store %1, %alloca_0[%arg2, %arg3] : memref<10x10xf64>
+              }
+            }
+            affine.for %arg2 = 1 to 10 {
+              affine.for %arg3 = 1 to 10 {
+                %0 = affine.load %alloca_0[%arg2, %arg3] : memref<10x10xf64>
+                %1 = arith.mulf %0, %cst : f64
+                affine.store %1, %alloca_0[%arg2, %arg3] : memref<10x10xf64>
               }
             }
             return

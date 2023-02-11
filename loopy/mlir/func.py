@@ -1,9 +1,9 @@
 import logging
-from functools import wraps
+logger = logging.getLogger(__name__)
 
 from .memref import MemRefValue
+from .utils import doublewrap
 
-logger = logging.getLogger(__name__)
 import inspect
 import ast
 from textwrap import dedent
@@ -94,42 +94,32 @@ def rewrite_ast(f):
         if type(c) is CodeType and c.co_name == f.__name__
     )
     f_code_o = f_code_o.replace(co_firstlineno=f.__code__.co_firstlineno)
-    return f_code_o
+
+    updated_f = FunctionType(
+        code=f_code_o,
+        globals={
+            **f.__globals__,
+            **{
+                fr: f.__closure__[i].cell_contents
+                for i, fr in enumerate(f.__code__.co_freevars)
+            },
+            affine_endfor.__name__: affine_endfor,
+            "range": affine_range,
+            ArithValue.__name__: ArithValue,
+            scf_else.__name__: scf_else,
+            scf_if.__name__: scf_if,
+            scf_endif_branch.__name__: scf_endif_branch,
+            scf_endif.__name__: scf_endif,
+        },
+        name=f.__name__,
+        argdefs=f.__defaults__,
+    )
+
+    return updated_f
 
 
-def doublewrap(f):
-    """
-    a decorator decorator, allowing the decorator to be used as:
-    @decorator(with, arguments, and=kwargs)
-    or
-    @decorator
-    """
-
-    @wraps(f)
-    def new_dec(*args, **kwargs):
-        if len(args) == 1 and len(kwargs) == 0 and callable(args[0]):
-            # actual decorated function
-            return f(args[0])
-        else:
-            # decorator arguments
-            return lambda realf: f(realf, *args, **kwargs)
-
-    return new_dec
-
-
-@doublewrap
-def mlir_func(f, rewrite_ast_=True):
-    sig = inspect.signature(f)
-    annots = [p.annotation for p in sig.parameters.values()]
-    assert all(isinstance(a, MLIRType) for a in annots)
-
-    if rewrite_ast_:
-        f_code_o = rewrite_ast(f)
-    else:
-        f_code_o = f.__code__
-
-    # fall through all arms in a conditional
-    code = ConcreteBytecode.from_code(f_code_o)
+def rewrite_bytecode(f):
+    code = ConcreteBytecode.from_code(f.__code__)
     early_returns = []
     for i, c in enumerate(code):
         if c.name == "RETURN_VALUE":
@@ -162,7 +152,7 @@ def mlir_func(f, rewrite_ast_=True):
         code[idx] = ConcreteInstr("NOP", lineno=c.lineno, location=c.location)
 
     f_code_o = code.to_code()
-    updated_f = FunctionType(
+    return FunctionType(
         code=f_code_o,
         globals={
             **f.__globals__,
@@ -170,17 +160,23 @@ def mlir_func(f, rewrite_ast_=True):
                 fr: f.__closure__[i].cell_contents
                 for i, fr in enumerate(f.__code__.co_freevars)
             },
-            affine_endfor.__name__: affine_endfor,
-            "range": affine_range,
-            ArithValue.__name__: ArithValue,
-            scf_else.__name__: scf_else,
-            scf_if.__name__: scf_if,
-            scf_endif_branch.__name__: scf_endif_branch,
-            scf_endif.__name__: scf_endif,
         },
         name=f.__name__,
         argdefs=f.__defaults__,
     )
+
+
+@doublewrap
+def mlir_func(f, rewrite_ast_=True, rewrite_bytecode_=True):
+    sig = inspect.signature(f)
+    annots = [p.annotation for p in sig.parameters.values()]
+    assert all(isinstance(a, MLIRType) for a in annots)
+
+    if rewrite_ast_:
+        f = rewrite_ast(f)
+
+    if rewrite_bytecode_:
+        f = rewrite_bytecode(f)
 
     def args_wrapped_f(*args, func_op=None):
         args = list(args)
@@ -190,7 +186,7 @@ def mlir_func(f, rewrite_ast_=True):
                 args[i] = MemRefValue(a)
             else:
                 args[i] = ArithValue(a)
-        return updated_f(*args)
+        return f(*args)
 
     args_wrapped_f.__name__ = f.__name__
 

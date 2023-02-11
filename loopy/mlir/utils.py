@@ -1,6 +1,7 @@
 import os
 import sys
 import tempfile
+from functools import wraps
 from io import StringIO
 
 from loopy.loopy_mlir.passmanager import PassManager
@@ -68,16 +69,21 @@ def run_pipeline_with_repro_report(
         sys.stderr = original_stderr
 
 
-# @register_attribute_builder("AnyI64Attr")
-# def _i64Attr(x, context):
-#     return IntegerAttr.get(IntegerType.get_signless(64, context=context), x)
-#
-#
-# @register_attribute_builder("I1Attr")
-# def _i1Attr(x, context):
-#     return IntegerAttr.get(IntegerType.get_signless(1, context=context), int(x))
-#
-#
-# @register_attribute_builder("F64Attr")
-# def _f64Attr(x, context):
-#     return FloatAttr.get(F64Type.get(context=context), x)
+def doublewrap(f):
+    """
+    a decorator decorator, allowing the decorator to be used as:
+    @decorator(with, arguments, and=kwargs)
+    or
+    @decorator
+    """
+
+    @wraps(f)
+    def new_dec(*args, **kwargs):
+        if len(args) == 1 and len(kwargs) == 0 and callable(args[0]):
+            # actual decorated function
+            return f(args[0])
+        else:
+            # decorator arguments
+            return lambda realf: f(realf, *args, **kwargs)
+
+    return new_dec
