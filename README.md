@@ -151,3 +151,29 @@ Use this for CMake
 -DPython3_EXECUTABLE="$(which python)" \
 -DCMAKE_INSTALL_PREFIX=llvm_install
 ```
+
+## Generating MLIR Python bindings by hand
+
+Create a td file like this (note that inclusion of `Python/Attributes.td`):
+```
+// 
+
+#ifndef PYTHON_BINDINGS_OPENMP_OPS
+#define PYTHON_BINDINGS_OPENMP_OPS
+
+include "mlir/Bindings/Python/Attributes.td"
+include "mlir/Dialect/OpenMP/OpenMPOps.td"
+
+#endif
+```
+
+Then run 
+
+```shell
+LLVM_INSTALL_DIR=/home/mlevental/dev_projects/loopy/llvm_install
+
+$LLVM_INSTALL_DIR/bin/mlir-tblgen -gen-python-op-bindings -bind-dialect=omp \
+  -I $LLVM_INSTALL_DIR/include \
+  OpenMPOps.td \
+  -o _omp_ops_gen.py
+```
