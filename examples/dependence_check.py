@@ -2,6 +2,8 @@ import logging
 import time
 from itertools import product
 
+from loopy.mlir.affine._affine_ops_gen import AffineStoreOp, AffineLoadOp
+
 FORMAT = "[%(filename)s:%(funcName)s:%(lineno)d] %(message)s"
 logging.basicConfig(level=logging.DEBUG, format=FORMAT)
 logger = logging.getLogger(__name__)
@@ -13,13 +15,16 @@ from loopy.loopy_mlir._mlir_libs._loopy_mlir import (
 from loopy.poly.affine import (
     StoreOp,
     LoadOp,
+    make_mem_op,
 )
 from loopy.poly.constraints import (
     show_sympy_constraints,
     check_mem_dep,
     compute_dependence_direction_vector,
+    compose,
+    build_constraint_system,
 )
-from loopy.mlir import F64, Index, I32
+from loopy.mlir import F64, Index, I32, F32
 from loopy.poly.sympy_ import d0, d1, d2, d3, d4, d5, s0, s1
 from loopy.mlir.arith import constant
 from loopy.mlir.func import mlir_func
@@ -59,7 +64,8 @@ def has_dep():
     print(show_sympy_constraints(load.sympy_access_constraints))
 
     # show_access_relation(store.mlir_op, load.mlir_op)
-    dep = check_mem_dep(store, load)
+    quants, cons = build_constraint_system(store, load)
+    dep = check_mem_dep(quants, cons)
     if dep is not None:
         print(f"dependence found @ {dep}".replace(":", "->"))
     else:
@@ -99,7 +105,8 @@ def hasnt_dep():
     print(show_sympy_constraints(load.sympy_access_constraints))
 
     # show_access_relation(store.mlir_op, load.mlir_op)
-    dep = check_mem_dep(store, load)
+    quants, cons = build_constraint_system(store, load)
+    dep = check_mem_dep(quants, cons)
     if dep is not None:
         print(f"dependence found @ {dep}".replace(":", "->"))
     else:
@@ -226,9 +233,9 @@ def collapsing_memref():
     print("constraint system for store op:")
     print(show_sympy_constraints(store.sympy_access_constraints))
     idx0, idx1, idx2 = (
-        store.positions_to_idxs[0],
-        store.positions_to_idxs[1],
-        store.positions_to_idxs[2],
+        store.dim_to_operand[0].res_sym,
+        store.dim_to_operand[1].res_sym,
+        store.dim_to_operand[2].res_sym,
     )
     idx0_z3, idx1_z3, idx2_z3 = (
         store.z3_vars[str(idx0)],
@@ -262,19 +269,35 @@ def matmul():
             return C
 
     print(module)
+
+
+def should_fuse_across_intermediate_loop_with_no_deps():
     with mlir_mod_ctx() as module:
 
         @mlir_func
-        def matmul(A: MemRef[16, 16, 16, F64], B: MemRef[16, 16, 16, F64]):
-            C = MemRef.alloca([16, 16, 16], F64)
-            for i in range(0, 16):
-                for j in range(0, 16):
-                    for k in range(0, 16):
-                        C[i, j, k] = A[i, j, k] * B[i, j, k]
+        def should_fuse_across_intermediate_loop_with_no_deps():
+            A = MemRef.alloca([10], F32)
+            B = MemRef.alloca([10], F32)
+            C = MemRef.alloca([10], F32)
+            cf7 = constant(7.0, F32)
+            for i in range(0, 10):
+                v0 = A[d0 @ i]
+            for i in range(0, 10):
+                v0 = B[d0 @ i]
+                w0 = C[d0 @ i]
+            for i in range(0, 10):
+                v0 = C[d0 @ i]
 
-            return C
+            return
 
+    mem_ops = find_ops(
+        module, lambda op: isinstance(op.opview, (AffineStoreOp, AffineLoadOp))
+    )
+    mem_ops = [make_mem_op(m) for m in mem_ops]
     print(module)
+    symbolic_variables, constraints = compose(*mem_ops)
+    dep = check_mem_dep(symbolic_variables, constraints)
+    print(dep)
 
 
 if __name__ == "__main__":
@@ -290,3 +313,5 @@ if __name__ == "__main__":
     collapsing_memref()
     reset_disambig_names()
     matmul()
+    reset_disambig_names()
+    should_fuse_across_intermediate_loop_with_no_deps()

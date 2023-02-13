@@ -1,5 +1,7 @@
 import logging
 
+from loopy.mlir.affine._affine_ops_gen import AffineStoreOp, AffineLoadOp
+
 logger = logging.getLogger(__name__)
 
 # noinspection PyUnresolvedReferences
@@ -11,6 +13,7 @@ from loopy.poly.constraints import (
     check_mem_dep,
     get_ordering_constraints,
     compute_dependence_direction_vector,
+    build_constraint_system,
 )
 
 from loopy.mlir import F64, Index, F32, I32
@@ -44,14 +47,15 @@ class TestMemrefDependenceCheck:
 
         logger.debug(module)
         stores_loads = find_ops(
-            module, lambda op: op.name in {"affine.store", "affine.load"}
+            module, lambda op: isinstance(op.opview, (AffineStoreOp, AffineLoadOp))
         )
         store = StoreOp(stores_loads[0])
         load = LoadOp(stores_loads[1])
-        dep = check_mem_dep(store, load)
+        quants, cons = build_constraint_system(store, load)
+        dep = check_mem_dep(quants, cons)
         assert dep is not None
         dep = {str(k): v.as_long() for k, v in dep.items()}
-        assert dep == {"%arg0": 0, "%arg0'": 0, "ssa2": 0, "ssa2'": 0}
+        assert dep == {"%arg0": 0, "%arg0'": 0, "ssa0_dim_0": 0, "ssa2": 0, "ssa2'": 0}
         mlir_gc()
 
     def test_num_common_loops(self):
@@ -72,7 +76,7 @@ class TestMemrefDependenceCheck:
 
             logger.debug(module)
             stores_loads = find_ops(
-                module, lambda op: op.name in {"affine.store", "affine.load"}
+                module, lambda op: isinstance(op.opview, (AffineStoreOp, AffineLoadOp))
             )
             store = StoreOp(stores_loads[0])
             load = LoadOp(stores_loads[1])
@@ -93,7 +97,7 @@ class TestMemrefDependenceCheck:
 
             logger.debug(module)
             stores_loads = find_ops(
-                module, lambda op: op.name in {"affine.store", "affine.load"}
+                module, lambda op: isinstance(op.opview, (AffineStoreOp, AffineLoadOp))
             )
             store = StoreOp(stores_loads[0])
             load = LoadOp(stores_loads[1])
@@ -115,7 +119,7 @@ class TestMemrefDependenceCheck:
 
             logger.debug(module)
             stores_loads = find_ops(
-                module, lambda op: op.name in {"affine.store", "affine.load"}
+                module, lambda op: isinstance(op.opview, (AffineStoreOp, AffineLoadOp))
             )
             store = StoreOp(stores_loads[0])
             load = LoadOp(stores_loads[1])
@@ -139,7 +143,7 @@ class TestMemrefDependenceCheck:
 
             logger.debug(module)
             stores_loads = find_ops(
-                module, lambda op: op.name in {"affine.store", "affine.load"}
+                module, lambda op: isinstance(op.opview, (AffineStoreOp, AffineLoadOp))
             )
             store = StoreOp(stores_loads[0])
             load = LoadOp(stores_loads[1])
@@ -180,7 +184,7 @@ class TestMemrefDependenceCheck:
             logger.debug(module)
 
             stores_loads = find_ops(
-                module, lambda op: op.name in {"affine.store", "affine.load"}
+                module, lambda op: isinstance(op.opview, (AffineStoreOp, AffineLoadOp))
             )
             store = StoreOp(stores_loads[0])
             load = LoadOp(stores_loads[1])
@@ -242,7 +246,7 @@ class TestMemrefDependenceCheck:
                                 v = M[jdx0, jdx1, jdx2]
 
             stores_loads = find_ops(
-                module, lambda op: op.name in {"affine.store", "affine.load"}
+                module, lambda op: isinstance(op.opview, (AffineStoreOp, AffineLoadOp))
             )
             store = StoreOp(stores_loads[0])
             load = LoadOp(stores_loads[1])

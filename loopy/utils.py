@@ -2,6 +2,8 @@ import builtins
 import contextlib
 from typing import Callable
 
+import sympy
+
 # noinspection PyUnresolvedReferences
 from .loopy_mlir._mlir_libs._loopy_mlir import (
     get_common_loops,
@@ -26,6 +28,14 @@ def make_disambig_name(o: Value):
     else:
         seen_ambiguous_names[name] = {o: name}
     return seen_ambiguous_names[name][o]
+
+
+def symp_sym(name):
+    return sympy.Symbol(name)
+
+
+def z3_name(name):
+    return z3_name(name)
 
 
 def reset_disambig_names():

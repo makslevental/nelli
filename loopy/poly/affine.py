@@ -19,7 +19,6 @@ from ..loopy_mlir.ir import (
     AffineSymbolExpr,
     Value,
 )
-from .constraints import build_sympy_access_constraints
 from .z3_ import (
     build_z3_access_constraints,
 )
@@ -34,7 +33,13 @@ from ..loopy_mlir._mlir_libs._loopy_mlir import (
     affine_for_skew,
     affine_for_unroll_by_factor,
 )
-from ..utils import make_disambig_name
+from ..mlir.affine._affine_ops_gen import (
+    AffineApplyOp,
+    AffineForOp,
+    AffineStoreOp,
+    AffineLoadOp,
+)
+from ..utils import make_disambig_name, symp_sym
 
 logger = logging.getLogger(__name__)
 
@@ -104,8 +109,7 @@ class ApplyOp(Op):
 
         walk_affine_exprs(affine_map, callback)
         res_name = make_disambig_name(apply_op.result)
-        self.exprs[res_name] = Symbol(res_name)
-
+        self.res_sym = self.exprs[res_name] = Symbol(res_name)
         self.affine_expr = self.exprs[str(affine_map.results[0])]
         self.affine_map = Eq(self.exprs[res_name], self.affine_expr)
 
@@ -131,40 +135,87 @@ class ForOp(Op):
 
 class MemOp(Op):
     sympy_access_constraints: list
+    memref = None
 
-    def __init__(self, mlir_op, idx_operands: List[Value]):
+    def __init__(self, mlir_op, operands: List[Value]):
         super().__init__(mlir_op)
+        assert isinstance(
+            mlir_op.opview, (AffineStoreOp, AffineLoadOp)
+        ), f"unknown affine mem op {mlir_op}"
+        self.memref = mlir_op.opview.memref
 
-        domain_bounds, positions_to_idxs = get_access_relation(mlir_op)
+        domain_bounds, dim_to_ssa = get_access_relation(mlir_op)
         self.domain_bounds = {}
         for sym, bounds in domain_bounds.items():
             self.domain_bounds[Symbol(make_disambig_name(sym))] = {
                 k: Integer(v) if isinstance(v, int) else v for k, v in bounds.items()
             }
 
-        self.positions_to_idxs = {k: Symbol(v) for k, v in positions_to_idxs.items()}
         self.operands = OrderedDict()
         self.symbolic = set()
-        for i, o in enumerate(idx_operands):
-            if o.owner.name == "affine.apply":
+        for o in operands:
+            sym = symp_sym(make_disambig_name(o))
+            if isinstance(o.owner.opview, AffineApplyOp):
                 apply_op = ApplyOp(o.owner)
-                for sym in apply_op.symbols.values():
-                    self.symbolic.add(sym["operand"])
-                self.operands[Symbol(make_disambig_name(o))] = apply_op
-            elif o.owner.name == "affine.for":
-                for_op = ForOp(o.owner)
-                self.operands[Symbol(make_disambig_name(o))] = for_op
+                for symb in apply_op.symbols.values():
+                    self.symbolic.add(symb["operand"])
+                self.operands[sym] = apply_op
+            elif isinstance(o.owner.opview, AffineForOp):
+                self.operands[sym] = ForOp(o.owner)
             else:
                 raise NotImplementedError(f"unknown idx operand {o}")
+        self.dim_to_operand = {
+            dim: self.operands[symp_sym(make_disambig_name(ssa))]
+            for dim, ssa in dim_to_ssa.items()
+        }
 
-        self.sympy_access_constraints = build_sympy_access_constraints(
-            self, tuple(self.operands.values())
-        )
+        self.sympy_access_constraints = self._build_sympy_access_constraints()
 
         self.z3_access_constraints, z3_vars = build_z3_access_constraints(
             self.sympy_access_constraints
         )
         self.z3_vars = {str(z): z for z in z3_vars}
+
+    def _build_sympy_access_constraints(self):
+        # Here's the description from checkMemrefAccessDependence in MLIR:
+        #
+        # "Compute the dependence relation by composing access relation of
+        # `srcAccess` with the inverse of the access relation of `dstAccess`.
+        # Doing this builds a relation between iteration domain of `srcAccess`
+        # to the iteration domain of `dstAccess` which access the same memory
+        # location."
+        #
+        # Inverse means essentially swapping the role of the domain and range
+        # since everything is linear; effectively you have to find on which
+        # indices in the memref the ivs (through affine maps) line up and equate them
+        #
+        # Note this is "implicit" inversion - you get implicit equations for the
+        # iteration space of the dst access in terms of the iteration space of the
+        # source access (you need to eliminate variables/solve the equations to get explicit
+        # equations)
+        constraints = []
+        for dim, operand in self.dim_to_operand.items():
+            sym = symp_sym(f"{make_disambig_name(self.memref)}_dim_{dim}")
+            constraints.append(Eq(sym, operand.res_sym))
+        constraints += [
+            app.affine_relation
+            for app in self.operands.values()
+            if isinstance(app, ApplyOp)
+        ]
+        for sym, bounds in self.domain_bounds.items():
+            for bound_type, bound in bounds.items():
+                match bound_type:
+                    case "LB":
+                        constraints.append(bound <= sym)
+                    case "UB":
+                        constraints.append(sym <= bound)
+                    case "EQ":
+                        if bound is not None:
+                            constraints.append(Eq(bound, sym))
+                    case _:
+                        raise Exception(f"unknown bound type: {bound_type}")
+
+        return constraints
 
 
 class StoreOp(MemOp):
@@ -177,3 +228,12 @@ class LoadOp(MemOp):
     def __init__(self, load_op):
         assert load_op.name == "affine.load"
         super().__init__(load_op, list(load_op.operands[1:]))
+
+
+def make_mem_op(mlir_op):
+    if isinstance(mlir_op.opview, AffineStoreOp):
+        return StoreOp(mlir_op)
+    elif isinstance(mlir_op.opview, AffineLoadOp):
+        return LoadOp(mlir_op)
+    else:
+        raise NotImplementedError(f"unknown affine mem op {mlir_op}")

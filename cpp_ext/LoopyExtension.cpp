@@ -138,12 +138,12 @@ PYBIND11_MODULE(_loopy_mlir, m) {
     py::list syms;
     for (unsigned int i = 0; i < valueMap.getNumDims(); ++i) {
       auto v = valueMap.getOperand(i);
-      dims.append(loopy::showValueAsOperand(v));
+      dims.append(wrap(v));
     }
     for (unsigned int i = valueMap.getNumDims();
          i < valueMap.getNumDims() + valueMap.getNumSymbols(); ++i) {
       auto v = valueMap.getOperand(i);
-      syms.append(loopy::showValueAsOperand(v));
+      syms.append(wrap(v));
     }
     return py::make_tuple(dims, syms);
   });
@@ -153,8 +153,7 @@ PYBIND11_MODULE(_loopy_mlir, m) {
     access = new mlir::MemRefAccess(op);
     py::dict indices;
     for (const auto &pos_idx : llvm::enumerate(access->indices)) {
-      indices[py::cast<>(pos_idx.index())] =
-          loopy::showValueAsOperand(pos_idx.value());
+      indices[py::cast<>(pos_idx.index())] = py::cast<>(wrap(pos_idx.value()));
     }
     mlir::FlatAffineValueConstraints domain;
     getOpIndexSet(op, &domain);

@@ -1,12 +1,14 @@
 import logging
 from functools import reduce
+import itertools
+
+logger = logging.getLogger(__name__)
+from typing import Tuple, List
 
 from z3.z3util import get_vars
 
 from .z3_ import show_z3_constraints, opt_system, elim_vars
 
-logger = logging.getLogger(__name__)
-from typing import Union, Tuple, List
 
 # from symengine import Eq, Symbol, Integer
 from sympy import Eq, pretty
@@ -19,30 +21,6 @@ from ..loopy_mlir._mlir_libs._loopy_mlir import (
     show_value_as_operand,
     show_direction_vector,
 )
-
-
-def build_sympy_access_constraints(
-    affine_mem_op: Union["MemOp"], idx_affine_ops: Tuple["ApplyOp", ...]
-):
-    from .affine import ApplyOp
-
-    constraints = [
-        app.affine_relation for app in idx_affine_ops if isinstance(app, ApplyOp)
-    ]
-    for sym, bounds in affine_mem_op.domain_bounds.items():
-        for bound_type, bound in bounds.items():
-            match bound_type:
-                case "LB":
-                    constraints.append(bound <= sym)
-                case "UB":
-                    constraints.append(sym <= bound)
-                case "EQ":
-                    if bound is not None:
-                        constraints.append(Eq(bound, sym))
-                case _:
-                    raise Exception(f"unknown bound type: {bound_type}")
-
-    return constraints
 
 
 def show_sympy_constraints(cons: list[Relational]) -> str:
@@ -68,51 +46,22 @@ def get_common_loop_ivs(src_op: "MemOp", dst_op: "MemOp", symbol_factory=None):
     return common_loop_ivs
 
 
-def compose(src_op: "MemOp", dst_op: "MemOp") -> Tuple[List[ExprRef], List[ExprRef]]:
-    alloc1 = (
-        src_op.mlir_op.operands[1]
-        if src_op.mlir_op.name == "affine.store"
-        else src_op.mlir_op.operands[0]
-    )
-    alloc2 = (
-        dst_op.mlir_op.operands[0]
-        if dst_op.mlir_op.name == "affine.load"
-        else dst_op.mlir_op.operands[1]
-    )
-    assert alloc1 == alloc2
-
+def compose(*mem_ops: List["MemOp"]) -> Tuple[List[ExprRef], List[ExprRef]]:
     symbolic = set()
     constraints = []
     # for ops in the same loop nest, we need to "pretend" the loop ivs
     # are actually distinct so that we can perform "overlap analysis" downstream
-    common_loop_ivs = get_common_loop_ivs(src_op, dst_op, symbol_factory=Int)
-    for i, m in enumerate([src_op, dst_op]):
-        symbolic.update({Int(q.name) for q in m.symbolic})
-        for c in m.z3_access_constraints:
-            for iv in common_loop_ivs:
-                c = substitute(c, (iv, Int(str(iv) + "'" * i)))
-            constraints.append(c)
-
-    # Here's the description from checkMemrefAccessDependence in MLIR:
-    #
-    # "Compute the dependence relation by composing access relation of
-    # `srcAccess` with the inverse of the access relation of `dstAccess`.
-    # Doing this builds a relation between iteration domain of `srcAccess`
-    # to the iteration domain of `dstAccess` which access the same memory
-    # location."
-    #
-    # Inverse means essentially swapping the role of the domain and range
-    # since everything is linear; effectively you have to find on which
-    # indices in the memref the ivs (through affine maps) line up and equate them
-    #
-    # Note this is "implicit" inversion - you get implicit equations for the
-    # iteration space of the dst access in terms of the iteration space of the
-    # source access (you need to eliminate variables/solve the equations to get explicit
-    # equations)
-    #
-    # TODO(max): check idx positions wrt syms and dims
-    for dim_m1, dim_m2 in zip(src_op.operands, dst_op.operands):
-        constraints.append(Int(dim_m1.name) == Int(dim_m2.name))
+    for i, op1 in enumerate(mem_ops[:-1]):
+        for op2 in mem_ops[i + 1 :]:
+            if op1.memref != op2.memref:
+                continue
+            common_loop_ivs = get_common_loop_ivs(op1, op2, symbol_factory=Int)
+            for i, m in enumerate([op1, op2]):
+                symbolic.update({Int(q.name) for q in m.symbolic})
+                for c in m.z3_access_constraints:
+                    for iv in common_loop_ivs:
+                        c = substitute(c, (iv, Int(str(iv) + "'" * i)))
+                    constraints.append(c)
 
     for i, n in enumerate(constraints):
         constraints[i] = simplify(n, arith_lhs=True, sort_sums=True)
@@ -129,7 +78,7 @@ def compose(src_op: "MemOp", dst_op: "MemOp") -> Tuple[List[ExprRef], List[ExprR
 # *) If 'loopDepth == 3' then three constraints are added: i == i' and j' == j and k' >= k + 1
 # *) If 'loopDepth == 4' then three constraints are added: i == i' and j == j' and k == k'
 #
-# i.e. you constrain all of the common loop ivs (up to loop depth) to be equal, except the last one
+# i.e. you constrain all the common loop ivs (up to loop depth) to be equal, except the last one
 #
 # Note there's an asymmetry here: j' >= j + 1 means we're freeing up the dst access to be after the src access
 def get_ordering_constraints(src_op: "MemOp", dst_op: "MemOp", to_loop_depth: int):
@@ -156,8 +105,7 @@ def build_constraint_system(src_op: "MemOp", dst_op: "MemOp", to_loop_depth: int
     return symbolic_variables, constraints
 
 
-def check_mem_dep(src_op: "MemOp", dst_op: "MemOp", to_loop_depth: int = 1):
-    quants, cons = build_constraint_system(src_op, dst_op, to_loop_depth)
+def check_mem_dep(quants, cons):
     logger.debug("composed constraint system: ")
     logger.debug(show_z3_constraints(cons))
     all_vars = reduce(lambda acc, c: acc | set(get_vars(c)), cons, set())
