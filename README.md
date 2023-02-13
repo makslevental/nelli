@@ -11,7 +11,13 @@ Just
 
 ```shell
 pip install -r requirements.txt 
-CMAKE_GENERATOR=Ninja pip install . --no-build-isolation -vvvv
+CMAKE_GENERATOR=Ninja pip install . --no-build-isolation -vvv
+```
+
+For Raspberry Pi (`linux-aarch64`) prefix `pip install` with these CMake args (in order to prevent OOMing with GNU's `ld`):
+
+```shell
+CMAKE_ARGS="-DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_EXE_LINKER_FLAGS_INIT=-fuse-ld=lld -DCMAKE_MODULE_LINKER_FLAGS_INIT=-fuse-ld=lld -DCMAKE_SHARED_LINKER_FLAGS_INIT=-fuse-ld=lld"
 ```
 
 # Example
