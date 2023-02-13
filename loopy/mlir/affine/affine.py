@@ -17,9 +17,9 @@ from ...loopy_mlir.ir import (
     Operation,
     Value,
 )
-from ...mlir.affine import _affine_ops_gen as affine
-from ...mlir.affine._affine_ops_gen import _Dialect
-from ...mlir.arith import ArithValue, constant
+from . import _affine_ops_gen as affine
+from ._affine_ops_gen import _Dialect
+from ..arith import ArithValue, constant
 
 
 @_cext.register_operation(_Dialect)
