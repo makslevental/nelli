@@ -14,8 +14,9 @@ from .scf import scf_endif_branch, scf_if, scf_else, scf_endif
 from .arith import ArithValue
 from ..loopy_mlir.dialects import func as func_dialect
 from ..loopy_mlir.ir import Type as MLIRType, MemRefType
-from .memref import AffineMemRefValue, MemRefValue
-from .utils import doublewrap
+from .memref import MemRefValue
+from .affine import AffineMemRefValue
+from .utils import doublewrap, Annot
 
 
 def call(name, args=None):
@@ -28,7 +29,7 @@ def call(name, args=None):
     )
 
 
-class InsertEndFors(ast.NodeTransformer):
+class InsertAffineEndFors(ast.NodeTransformer):
     def visit_For(self, node):
         for i, b in enumerate(node.body):
             node.body[i] = self.visit(b)
@@ -79,7 +80,7 @@ def rewrite_ast(f):
     assert isinstance(
         tree.body[0], ast.FunctionDef
     ), f"unexpected ast node {tree.body[0]}"
-    tree = InsertEndFors().visit(tree)
+    tree = InsertAffineEndFors().visit(tree)
     tree = InsertEndIfs().visit(tree)
     tree.body[0].body.append(ast.Return(value=ast.Constant(value=None)))
 
@@ -93,6 +94,7 @@ def rewrite_ast(f):
     )
     f_code_o = f_code_o.replace(co_firstlineno=f.__code__.co_firstlineno)
 
+    # TODO(max): handle other ifs/for loops here
     updated_f = FunctionType(
         code=f_code_o,
         globals={
@@ -165,10 +167,10 @@ def rewrite_bytecode(f):
 
 
 @doublewrap
-def mlir_func(f, rewrite_ast_=True, rewrite_bytecode_=True, affine_memref=True):
+def mlir_func(f, rewrite_ast_=True, rewrite_bytecode_=True):
     sig = inspect.signature(f)
     annots = [p.annotation for p in sig.parameters.values()]
-    assert all(isinstance(a, MLIRType) for a in annots)
+    assert all(isinstance(a, (MLIRType, Annot)) for a in annots)
 
     if rewrite_ast_:
         f = rewrite_ast(f)
@@ -178,19 +180,21 @@ def mlir_func(f, rewrite_ast_=True, rewrite_bytecode_=True, affine_memref=True):
 
     def args_wrapped_f(*args, func_op=None):
         args = list(args)
-        for i, a in enumerate(args):
-            logger.debug(f"{f.__name__} arg {i}: {a}")
-            # TODO(max): figure out a better way to do this (no flag to mlir_func)
-            if MemRefType.isinstance(a.type):
-                if affine_memref:
-                    args[i] = AffineMemRefValue(a)
+        for i, (annot, arg) in enumerate(zip(annots, args)):
+            logger.debug(f"{f.__name__} arg {i}: {arg}")
+            if MemRefType.isinstance(arg.type):
+                if annot.py_type is AffineMemRefValue:
+                    args[i] = AffineMemRefValue(arg)
+                elif annot.py_type is MemRefValue:
+                    args[i] = MemRefValue(arg)
                 else:
-                    args[i] = MemRefValue(a)
-
+                    raise RuntimeError(f"unknown memref annotation: {annot.py_type}")
             else:
-                args[i] = ArithValue(a)
+                args[i] = ArithValue(arg)
         return f(*args)
 
     args_wrapped_f.__name__ = f.__name__
 
-    return func_dialect.FuncOp.from_py_func(*annots)(args_wrapped_f)
+    return func_dialect.FuncOp.from_py_func(
+        *[(an.mlir_type if isinstance(an, Annot) else an) for an in annots]
+    )(args_wrapped_f)

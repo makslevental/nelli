@@ -45,7 +45,7 @@ class TestOMP:
     def test_ws_loop(self):
         with mlir_mod_ctx() as module:
 
-            @mlir_func(rewrite_ast_=False, rewrite_bytecode_=False, affine_memref=False)
+            @mlir_func(rewrite_ast_=False, rewrite_bytecode_=False)
             def ws_loop(one: I32, ten: I32, two: I32, mem: MemRef[12, I32]):
                 p = ParallelOp(num_threads=12)
                 with InsertionPoint.at_block_begin(p.body):
@@ -83,7 +83,7 @@ class TestOMP:
     def test_runtime(self):
         with mlir_mod_ctx() as module:
 
-            @mlir_func(rewrite_ast_=False, rewrite_bytecode_=False, affine_memref=False)
+            @mlir_func(rewrite_ast_=False, rewrite_bytecode_=False)
             def ws_loop(one: I32, ten: I32, two: I32, mem: MemRef[12, I32]):
                 p = ParallelOp(num_threads=12)
                 with InsertionPoint.at_block_begin(p.body):

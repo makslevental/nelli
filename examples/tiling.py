@@ -1,20 +1,18 @@
 import ctypes
 
+import numpy as np
+
 from loopy import DefaultContext
-from loopy.loopy_mlir.ir import _stringAttr
-
-from loopy.loopy_mlir.runtime import get_ranked_memref_descriptor
-
 from loopy.loopy_mlir.execution_engine import ExecutionEngine
+from loopy.loopy_mlir.ir import _stringAttr
+from loopy.loopy_mlir.runtime import get_ranked_memref_descriptor
+from loopy.mlir import F64, Index, F32
+from loopy.mlir.affine import AffineMemRefValue as MemRef
 from loopy.mlir.arith import constant
-
 from loopy.mlir.func import mlir_func
 from loopy.mlir.refbackend import LLVMJITBackend
 from loopy.poly.affine import ForOp
 from loopy.utils import mlir_mod_ctx, find_ops
-from loopy.mlir.memref import AffineMemRefValue as MemRef
-from loopy.mlir import F64, Index, I32, F32
-import numpy as np
 
 
 def skewing():

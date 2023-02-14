@@ -1,5 +1,13 @@
 from typing import Optional, Union, Sequence
 
+from . import _affine_ops_gen as affine
+from ._affine_ops_gen import _Dialect
+from ..arith import ArithValue, constant
+from ..utils import Annot
+from ..memref import AllocaOp
+
+# noinspection PyUnresolvedReferences
+from ...loopy_mlir._mlir_libs._loopy_mlir import MemRefValue
 from ...loopy_mlir.dialects._ods_common import _cext
 from ...loopy_mlir.dialects._ods_common import (
     get_op_result_or_value,
@@ -16,10 +24,8 @@ from ...loopy_mlir.ir import (
     OpView,
     Operation,
     Value,
+    Type,
 )
-from . import _affine_ops_gen as affine
-from ._affine_ops_gen import _Dialect
-from ..arith import ArithValue, constant
 
 
 @_cext.register_operation(_Dialect)
@@ -182,3 +188,29 @@ class Apply(affine.AffineApplyOp):
     def __init__(self, map, operands):
         result = IndexType.get()
         super().__init__(result, map, operands)
+
+
+class AffineMemRefValue(MemRefValue):
+    most_recent_store: StoreOp = None
+
+    @staticmethod
+    def alloca(dim_sizes: Union[list[int], tuple[int, ...]], el_type: Type):
+        return AffineMemRefValue(AllocaOp(dim_sizes, el_type).memref)
+
+    def __class_getitem__(cls, t_args):
+        assert all(
+            isinstance(t, int) for t in t_args[:-1]
+        ), f"wrong type T args for memref: {t_args}"
+        assert isinstance(t_args[-1], Type), f"wrong type T args for memref: {t_args}"
+        return Annot(cls, MemRefType.get(t_args[:-1], t_args[-1]))
+
+    def __getitem__(self, item):
+        if not isinstance(item, tuple):
+            item = tuple([item])
+        return ArithValue(LoadOp(self, item).result)
+
+    def __setitem__(self, indices, value):
+        if not isinstance(indices, tuple):
+            indices = tuple([indices])
+        # store op has no result...
+        self.most_recent_store = StoreOp(self, value, indices)

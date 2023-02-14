@@ -6,15 +6,17 @@ from typing import (
     Tuple,
 )
 
-from .affine import LoadOp as AffineLoadOp, StoreOp as AffineStoreOp
 from .arith import ArithValue
+from .utils import Annot
+
+# noinspection PyUnresolvedReferences
+from ..loopy_mlir._mlir_libs._loopy_mlir import MemRefValue
 from ..loopy_mlir.dialects import memref
 from ..loopy_mlir.dialects._ods_common import (
     get_op_result_or_value,
     get_op_results_or_values,
 )
 from ..loopy_mlir.ir import Type, Value, F64Type, Operation, OpView, MemRefType
-from ..loopy_mlir._mlir_libs._loopy_mlir import MemRefValue
 
 
 class LoadOp(memref.LoadOp):
@@ -68,36 +70,6 @@ class AllocaOp(memref.AllocaOp):
         super().__init__(res_type, [], [], loc=loc, ip=ip)
 
 
-def load(memref_, indices) -> ArithValue:
-    return ArithValue(AffineLoadOp(memref_, indices).result)
-
-
-class AffineMemRefValue(MemRefValue):
-    most_recent_store: AffineStoreOp = None
-
-    @staticmethod
-    def alloca(dim_sizes: Union[list[int], tuple[int, ...]], el_type: Type):
-        return AffineMemRefValue(AllocaOp(dim_sizes, el_type).memref)
-
-    def __class_getitem__(cls, t_args):
-        assert all(
-            isinstance(t, int) for t in t_args[:-1]
-        ), f"wrong type T args for memref: {t_args}"
-        assert isinstance(t_args[-1], Type), f"wrong type T args for memref: {t_args}"
-        return MemRefType.get(t_args[:-1], t_args[-1])
-
-    def __getitem__(self, item):
-        if not isinstance(item, tuple):
-            item = tuple([item])
-        return ArithValue(AffineLoadOp(self, item).result)
-
-    def __setitem__(self, indices, value):
-        if not isinstance(indices, tuple):
-            indices = tuple([indices])
-        # store op has no result...
-        self.most_recent_store = AffineStoreOp(self, value, indices)
-
-
 class MemRefValue(MemRefValue):
     most_recent_store: StoreOp = None
 
@@ -110,7 +82,7 @@ class MemRefValue(MemRefValue):
             isinstance(t, int) for t in t_args[:-1]
         ), f"wrong type T args for memref: {t_args}"
         assert isinstance(t_args[-1], Type), f"wrong type T args for memref: {t_args}"
-        return MemRefType.get(t_args[:-1], t_args[-1])
+        return Annot(cls, MemRefType.get(t_args[:-1], t_args[-1]))
 
     def __getitem__(self, item):
         if not isinstance(item, tuple):
@@ -122,3 +94,7 @@ class MemRefValue(MemRefValue):
             indices = tuple([indices])
         # store op has no result...
         self.most_recent_store = StoreOp(self, value, indices)
+
+
+def load(memref_, indices) -> ArithValue:
+    return ArithValue(LoadOp(memref_, indices).result)
