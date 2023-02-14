@@ -1,6 +1,6 @@
 from textwrap import dedent
 
-from loopy.loopy_mlir.dialects import tensor, func, linalg, memref
+from loopy.loopy_mlir.dialects import tensor, func, linalg
 from loopy.loopy_mlir.dialects.linalg import (
     TV,
     linalg_structured_op,
@@ -14,25 +14,13 @@ from loopy.loopy_mlir.ir import RankedTensorType, MemRefType
 from loopy.mlir import F32
 from loopy.mlir.func import mlir_func
 from loopy.mlir.memref import AllocaOp
-from loopy.mlir.affine import AffineMemRefValue as MemRef
+from loopy.mlir.memref import MemRefValue as MemRef
 from loopy.mlir.refbackend import LLVMJITBackend, LinalgLowering
 from loopy.utils import mlir_mod_ctx
 from util import check_correct
 
 T1 = TV.T1
 T2 = TV.T2
-
-
-def lower(module, kernel_name):
-    backend = LLVMJITBackend()
-    module = backend.compile(
-        module,
-        kernel_name=kernel_name,
-        lower_loops=True,
-        lower_to_llvm=False,
-        linalg_lowering=LinalgLowering.Affine,
-    )
-    return module
 
 
 @linalg_structured_op
@@ -70,6 +58,18 @@ module {
 
 
 class TestLinalg:
+    backend = LLVMJITBackend()
+
+    def lower(self, module, kernel_name):
+        module = self.backend.compile(
+            module,
+            kernel_name=kernel_name,
+            lower_loops=True,
+            lower_to_llvm=False,
+            linalg_lowering=LinalgLowering.Affine,
+        )
+        return module
+
     def test_stock_struct_op_tensors(self):
         with mlir_mod_ctx() as module:
 
@@ -80,7 +80,7 @@ class TestLinalg:
                 init_result = tensor.EmptyOp([4, 8], F32)
                 return matmul_mono(lhs, rhs, outs=[init_result.result])
 
-        module = lower(module, kernel_name="_matmul_mono")
+        module = self.lower(module, kernel_name="_matmul_mono")
         correct = dedent(
             """\
         module {
@@ -120,7 +120,7 @@ class TestLinalg:
                 matmul_mono(lhs, rhs, outs=[init_result.memref])
                 return init_result
 
-        module = lower(module, kernel_name="_matmul_mono")
+        module = self.lower(module, kernel_name="_matmul_mono")
         check_correct(memref_module, module)
 
     def test_struct_op_memrefs(self):
@@ -135,7 +135,7 @@ class TestLinalg:
                 matmul_mono(A, B, outs=[C])
                 return C
 
-        module = lower(module, kernel_name="matmul")
+        module = self.lower(module, kernel_name="matmul")
         check_correct(memref_module, module)
 
     def test_not_struct_op_memrefs(self):
@@ -150,5 +150,5 @@ class TestLinalg:
                 linalg.matmul(A, B, outs=[C])
                 return C
 
-        module = lower(module, kernel_name="matmul")
+        module = self.lower(module, kernel_name="matmul")
         check_correct(memref_module, module)

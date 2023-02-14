@@ -45,7 +45,6 @@ class TestMemrefDependenceCheck:
                 for i in range(0, 10):
                     v = m[d0 @ i]
 
-        logger.debug(module)
         stores_loads = find_ops(
             module, lambda op: isinstance(op.opview, (AffineStoreOp, AffineLoadOp))
         )
@@ -74,7 +73,6 @@ class TestMemrefDependenceCheck:
                     for i in range(0, 10):
                         v = m[d0 @ i]
 
-            logger.debug(module)
             stores_loads = find_ops(
                 module, lambda op: isinstance(op.opview, (AffineStoreOp, AffineLoadOp))
             )
@@ -95,7 +93,6 @@ class TestMemrefDependenceCheck:
                         m[d0 @ i] = cst
                         v = m[d0 @ i]
 
-            logger.debug(module)
             stores_loads = find_ops(
                 module, lambda op: isinstance(op.opview, (AffineStoreOp, AffineLoadOp))
             )
@@ -117,7 +114,6 @@ class TestMemrefDependenceCheck:
                             m[d0 @ i] = cst
                             v = m[d0 @ i]
 
-            logger.debug(module)
             stores_loads = find_ops(
                 module, lambda op: isinstance(op.opview, (AffineStoreOp, AffineLoadOp))
             )
@@ -141,7 +137,6 @@ class TestMemrefDependenceCheck:
 
                                 v = m[d0 @ i]
 
-            logger.debug(module)
             stores_loads = find_ops(
                 module, lambda op: isinstance(op.opview, (AffineStoreOp, AffineLoadOp))
             )
@@ -180,8 +175,6 @@ class TestMemrefDependenceCheck:
                                 iii = (d2 + d0 * 7 + d1 * 9 - s1) @ (i, j, k, M)
                                 jjj = (d2 + d1 * 11 + s0) @ (j, k, K)
                                 v = mem[iii, jjj]
-
-            logger.debug(module)
 
             stores_loads = find_ops(
                 module, lambda op: isinstance(op.opview, (AffineStoreOp, AffineLoadOp))

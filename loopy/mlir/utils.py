@@ -45,6 +45,7 @@ def run_pipeline_with_repro_report(
             if print_pipeline:
                 print(pm)
             if enable_ir_printing:
+                module.context.enable_multithreading(False)
                 pm.enable_ir_printing()
             pm.run(module)
     except Exception as e:
@@ -58,7 +59,10 @@ def run_pipeline_with_repro_report(
 
         message = f"""\
             {description} failed with the following diagnostics:
-            {sys.stderr.getvalue()}
+            
+            {'*' * 80}
+            {sys.stderr.getvalue().strip()}
+            {'*' * 80}
 
             For developers, the error can be reproduced with:
             $ mlir-opt -pass-pipeline='{pipeline}' {filename}

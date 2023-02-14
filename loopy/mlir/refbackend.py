@@ -140,23 +140,24 @@ BUFFERIZE = [
     "func.func(buffer-deallocation)",
 ]
 
-LOWER_LOOPS = [
-    "func.func(convert-linalg-to-loops)",
-]
-
 LOWER_TO_LLVM = [
+    "cse",
     "func.func(lower-affine)",
-    "convert-scf-to-cf",
     "func.func(arith-expand)",
     "func.func(convert-math-to-llvm)",
     "convert-math-to-libm",
     "convert-linalg-to-llvm",
     "expand-strided-metadata",
     "convert-memref-to-llvm",
+    "convert-scf-to-cf",
+    "convert-cf-to-llvm",
+    "cse",
     "lower-affine",
     "func.func(convert-arith-to-llvm)",
     "convert-func-to-llvm",
-    "convert-cf-to-llvm",
+    "canonicalize",
+    "convert-openmp-to-llvm",
+    "cse",
     "reconcile-unrealized-casts",
 ]
 
@@ -176,6 +177,7 @@ class LLVMJITBackend:
         kernel_name="main",
         bufferize=True,
         lower_loops=True,
+        lower_to_openmp=False,
         lower_to_llvm=True,
         linalg_lowering=LinalgLowering.Loops,
     ):
@@ -188,24 +190,23 @@ class LLVMJITBackend:
         kernel_func = find_ops(module, cb)
         assert len(kernel_func) == 1, f"kernel func {kernel_func} not found"
         kernel_func[0].attributes["llvm.emit_c_interface"] = UnitAttr.get()
+
+        pipeline = []
+        if bufferize:
+            pipeline += BUFFERIZE
+        if lower_loops:
+            pipeline += [f"func.func({linalg_lowering.value})"]
+        if lower_to_openmp:
+            pipeline += ["convert-scf-to-openmp", "func.func(lower-affine)"]
+        if lower_to_llvm:
+            pipeline += LOWER_TO_LLVM
+
+        pipeline_str = "builtin.module(" + ",".join(pipeline) + ")"
         run_pipeline_with_repro_report(
             module,
-            (
-                "builtin.module("
-                + ",".join(
-                    (BUFFERIZE if bufferize else [])
-                    + (
-                        [
-                            f"func.func({linalg_lowering.value})",
-                        ]
-                        if lower_loops
-                        else []
-                    )
-                    + (LOWER_TO_LLVM if lower_to_llvm else [])
-                )
-                + ")"
-            ),
+            pipeline_str,
             "Lowering Linalg-on-Tensors IR to LLVM with RefBackend",
+            enable_ir_printing=False,
         )
         return module
 

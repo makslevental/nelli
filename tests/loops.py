@@ -3,7 +3,11 @@ from textwrap import dedent
 from loopy.mlir import F64, Index, F32
 from loopy.mlir.arith import constant, ArithValue
 from loopy.mlir.func import mlir_func
-from loopy.mlir.affine import affine_range, affine_endfor, AffineMemRefValue as MemRef
+from loopy.mlir.affine import (
+    range as affine_range,
+    endfor as affine_endfor,
+    AffineMemRefValue as MemRef,
+)
 from loopy.mlir.scf import scf_if, scf_endif_branch, scf_endif
 from loopy.utils import mlir_mod_ctx
 from util import check_correct
