@@ -26,7 +26,7 @@ class LoadOp(memref.LoadOp):
         super().__init__(memref, indices)
 
 
-class StoreOp:
+class StoreOp(memref.StoreOp):
     """Specialization for the MemRef store operation."""
 
     def __init__(
@@ -72,12 +72,12 @@ def load(memref_, indices) -> ArithValue:
     return ArithValue(AffineLoadOp(memref_, indices).result)
 
 
-class MemRefValue(MemRefValue):
+class AffineMemRefValue(MemRefValue):
     most_recent_store: AffineStoreOp = None
 
     @staticmethod
     def alloca(dim_sizes: Union[list[int], tuple[int, ...]], el_type: Type):
-        return MemRefValue(AllocaOp(dim_sizes, el_type).memref)
+        return AffineMemRefValue(AllocaOp(dim_sizes, el_type).memref)
 
     def __class_getitem__(cls, t_args):
         assert all(
@@ -96,3 +96,29 @@ class MemRefValue(MemRefValue):
             indices = tuple([indices])
         # store op has no result...
         self.most_recent_store = AffineStoreOp(self, value, indices)
+
+
+class MemRefValue(MemRefValue):
+    most_recent_store: StoreOp = None
+
+    @staticmethod
+    def alloca(dim_sizes: Union[list[int], tuple[int, ...]], el_type: Type):
+        return MemRefValue(AllocaOp(dim_sizes, el_type).memref)
+
+    def __class_getitem__(cls, t_args):
+        assert all(
+            isinstance(t, int) for t in t_args[:-1]
+        ), f"wrong type T args for memref: {t_args}"
+        assert isinstance(t_args[-1], Type), f"wrong type T args for memref: {t_args}"
+        return MemRefType.get(t_args[:-1], t_args[-1])
+
+    def __getitem__(self, item):
+        if not isinstance(item, tuple):
+            item = tuple([item])
+        return ArithValue(LoadOp(self, item).result)
+
+    def __setitem__(self, indices, value):
+        if not isinstance(indices, tuple):
+            indices = tuple([indices])
+        # store op has no result...
+        self.most_recent_store = StoreOp(self, value, indices)

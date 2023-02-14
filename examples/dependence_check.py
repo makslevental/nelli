@@ -28,7 +28,7 @@ from loopy.mlir import F64, Index, I32, F32
 from loopy.poly.sympy_ import d0, d1, d2, d3, d4, d5, s0, s1
 from loopy.mlir.arith import constant
 from loopy.mlir.func import mlir_func
-from loopy.mlir.memref import MemRefValue as MemRef
+from loopy.mlir.memref import AffineMemRefValue as MemRef
 from loopy.utils import find_ops, mlir_mod_ctx, mlir_gc, reset_disambig_names
 
 

@@ -1,6 +1,7 @@
 from typing import Any, List
 from typing import Union
 
+# noinspection PyUnresolvedReferences
 from ..loopy_mlir._mlir_libs._loopy_mlir import ArithValue
 from ..loopy_mlir.dialects import arith as arith_dialect
 from ..loopy_mlir.dialects import math, arith

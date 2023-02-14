@@ -13,7 +13,7 @@ from loopy.loopy_mlir.dialects.linalg import (
 from loopy.loopy_mlir.ir import RankedTensorType, MemRefType
 from loopy.mlir import F32
 from loopy.mlir.func import mlir_func
-from loopy.mlir.memref import MemRefValue as MemRef, AllocaOp
+from loopy.mlir.memref import AffineMemRefValue as MemRef, AllocaOp
 from loopy.mlir.refbackend import LLVMJITBackend, LinalgLowering
 from loopy.utils import mlir_mod_ctx
 from util import check_correct

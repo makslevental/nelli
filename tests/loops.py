@@ -1,9 +1,9 @@
 from textwrap import dedent
 
-from loopy.mlir import F64, Index
+from loopy.mlir import F64, Index, F32
 from loopy.mlir.arith import constant, ArithValue
 from loopy.mlir.func import mlir_func
-from loopy.mlir.memref import MemRefValue as MemRef
+from loopy.mlir.memref import AffineMemRefValue as MemRef
 from loopy.mlir.affine import affine_range, affine_endfor
 from loopy.mlir.scf import scf_if, scf_endif_branch, scf_endif
 from loopy.utils import mlir_mod_ctx

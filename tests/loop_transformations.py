@@ -8,7 +8,7 @@ from loopy.loopy_mlir.runtime import get_ranked_memref_descriptor
 from loopy.mlir import F64, Index, F32
 from loopy.mlir.arith import constant
 from loopy.mlir.func import mlir_func
-from loopy.mlir.memref import MemRefValue as MemRef
+from loopy.mlir.memref import AffineMemRefValue as MemRef
 from loopy.mlir.refbackend import LLVMJITBackend
 from loopy.poly.affine import ForOp
 from loopy.utils import mlir_gc
