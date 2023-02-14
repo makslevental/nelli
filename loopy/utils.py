@@ -1,5 +1,6 @@
 import builtins
 import contextlib
+import platform
 from typing import Callable
 
 import sympy
@@ -68,3 +69,14 @@ def mlir_mod_ctx():
     module = Module.create()
     with InsertionPoint(module.body):
         yield module
+
+
+def shlib_ext():
+    if platform.system() == "Darwin":
+        shlib_ext = "dylib"
+    elif platform.system() == "Linux":
+        shlib_ext = "so"
+    else:
+        raise NotImplementedError(f"unknown platform {platform.system()}")
+
+    return shlib_ext

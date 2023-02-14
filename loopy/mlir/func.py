@@ -180,6 +180,7 @@ def mlir_func(f, rewrite_ast_=True, rewrite_bytecode_=True, affine_memref=True):
         args = list(args)
         for i, a in enumerate(args):
             logger.debug(f"{f.__name__} arg {i}: {a}")
+            # TODO(max): figure out a better way to do this (no flag to mlir_func)
             if MemRefType.isinstance(a.type):
                 if affine_memref:
                     args[i] = AffineMemRefValue(a)
