@@ -154,7 +154,7 @@ class StoreOp(affine.AffineStoreOp):
 _for_ip = None
 
 
-def affine_range(start, stop, step=1):
+def range(start, stop, step=1):
     global _for_ip
     for_op = AffineForOp(start, stop, step)
     _for_ip = InsertionPoint(for_op.body)
@@ -162,13 +162,13 @@ def affine_range(start, stop, step=1):
     return [for_op.induction_variable]
 
 
-def affine_endfor():
+def endfor():
     affine.AffineYieldOp([])
     global _for_ip
     _for_ip.__exit__(None, None, None)
 
 
-def affine_store(
+def store(
     store_value: Value,
     dst_memref: Value,
     indices: Union[tuple[Value], list[Value]],
@@ -176,7 +176,7 @@ def affine_store(
     return StoreOp(store_value, dst_memref, indices)
 
 
-def affine_load(
+def load(
     src_memref: Value,
     indices: Union[tuple[Value], list[Value]],
 ) -> Value:

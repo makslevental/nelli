@@ -283,13 +283,6 @@ PYBIND11_MODULE(_loopy_mlir, m) {
     }
   });
 
-  //  m.def("register_openmp_dialect_translation", [](const py::handle
-  //  dialectRegistryApiObject) {
-  //    auto dialectRegistry =
-  //    unwrap(mlirPythonCapsuleToDialectRegistry(dialectRegistryApiObject.ptr()));
-  //    mlir::registerOpenMPDialectTranslation(*dialectRegistry);
-  //  });
-
   m.def("register_openmp_dialect_translation", [](MlirContext &context) {
     auto ctx = unwrap(context);
     mlir::registerOpenMPDialectTranslation(*ctx);

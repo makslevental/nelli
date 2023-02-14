@@ -1,5 +1,6 @@
 import logging
 
+
 logger = logging.getLogger(__name__)
 
 import inspect
@@ -9,7 +10,7 @@ from types import FunctionType, CodeType
 
 from bytecode import ConcreteBytecode, ConcreteInstr
 
-from .affine import affine_endfor, affine_range
+from .affine import endfor as affine_endfor, range as affine_range
 from .scf import scf_endif_branch, scf_if, scf_else, scf_endif
 from .arith import ArithValue
 from ..loopy_mlir.dialects import func as func_dialect
@@ -29,11 +30,14 @@ def call(name, args=None):
     )
 
 
-class InsertAffineEndFors(ast.NodeTransformer):
+class InsertEndFors(ast.NodeTransformer):
+    def __init__(self, endfor):
+        self.endfor = endfor
+
     def visit_For(self, node):
         for i, b in enumerate(node.body):
             node.body[i] = self.visit(b)
-        node.body.append(ast.Expr(call(affine_endfor.__name__)))
+        node.body.append(ast.Expr(call(self.endfor.__name__)))
         return node
 
 
@@ -61,7 +65,7 @@ class InsertEndIfs(ast.NodeTransformer):
             node.orelse[i] = self.visit(b)
 
         node.test = wrap_if_test(node.test)
-        # every if branch needs an scf_endif_branch
+        # every if branch needs a scf_endif_branch
         node.body.append(ast.Expr(call(scf_endif_branch.__name__)))
         # no else, then need to end the whole if in the body of the true branch
         if not node.orelse:
@@ -75,12 +79,12 @@ class InsertEndIfs(ast.NodeTransformer):
         return node
 
 
-def rewrite_ast(f):
+def rewrite_ast(f, range_ctor, endfor):
     tree = ast.parse(dedent(inspect.getsource(f)))
     assert isinstance(
         tree.body[0], ast.FunctionDef
     ), f"unexpected ast node {tree.body[0]}"
-    tree = InsertAffineEndFors().visit(tree)
+    tree = InsertEndFors(endfor=endfor).visit(tree)
     tree = InsertEndIfs().visit(tree)
     tree.body[0].body.append(ast.Return(value=ast.Constant(value=None)))
 
@@ -103,8 +107,8 @@ def rewrite_ast(f):
                 fr: f.__closure__[i].cell_contents
                 for i, fr in enumerate(f.__code__.co_freevars)
             },
-            affine_endfor.__name__: affine_endfor,
-            "range": affine_range,
+            endfor.__name__: endfor,
+            "range": range_ctor,
             ArithValue.__name__: ArithValue,
             scf_else.__name__: scf_else,
             scf_if.__name__: scf_if,
@@ -167,13 +171,19 @@ def rewrite_bytecode(f):
 
 
 @doublewrap
-def mlir_func(f, rewrite_ast_=True, rewrite_bytecode_=True):
+def mlir_func(
+    f,
+    rewrite_ast_=True,
+    rewrite_bytecode_=True,
+    range_ctor=affine_range,
+    endfor=affine_endfor,
+):
     sig = inspect.signature(f)
     annots = [p.annotation for p in sig.parameters.values()]
     assert all(isinstance(a, (MLIRType, Annot)) for a in annots)
 
     if rewrite_ast_:
-        f = rewrite_ast(f)
+        f = rewrite_ast(f, range_ctor=range_ctor, endfor=endfor)
 
     if rewrite_bytecode_:
         f = rewrite_bytecode(f)

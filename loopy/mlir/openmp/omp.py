@@ -1,3 +1,5 @@
+import contextlib
+
 from . import _omp_ops_gen as omp
 
 from typing import Union, List, Optional
@@ -5,9 +7,7 @@ from typing import Union, List, Optional
 from ... import DefaultContext
 from ...mlir import I32
 from ..arith import constant
-from ...loopy_mlir.ir import (
-    Value,
-)
+from ...loopy_mlir.ir import Value, InsertionPoint
 
 # noinspection PyUnresolvedReferences
 from ...loopy_mlir._mlir_libs._loopy_mlir import register_openmp_dialect_translation
@@ -42,6 +42,14 @@ class ParallelOp(omp.ParallelOp):
     @property
     def body(self):
         return self.regions[0].blocks[0]
+
+
+@contextlib.contextmanager
+def parallel(num_threads=None):
+    p = ParallelOp(num_threads=num_threads)
+    with InsertionPoint.at_block_begin(p.body):
+        yield
+        omp.TerminatorOp()
 
 
 class WsLoopOp(omp.WsLoopOp):
@@ -88,3 +96,20 @@ class WsLoopOp(omp.WsLoopOp):
     @property
     def induction_variable(self):
         return self.body.arguments[0]
+
+
+_loop_ip = None
+
+
+def ws_loop(start, stop, step=1):
+    global _loop_ip
+    for_op = WsLoopOp([start], [stop], [step])
+    _loop_ip = InsertionPoint(for_op.body)
+    _loop_ip.__enter__()
+    return [for_op.induction_variable]
+
+
+def endfor():
+    omp.YieldOp([])
+    global _loop_ip
+    _loop_ip.__exit__(None, None, None)
