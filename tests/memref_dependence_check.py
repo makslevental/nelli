@@ -20,7 +20,7 @@ from loopy.mlir import F64, Index, F32, I32
 from loopy.poly.sympy_ import d0, d1, d2, s0, s1
 from loopy.mlir.arith import constant
 from loopy.mlir.func import mlir_func
-from loopy.mlir.memref import MemRefValue
+from loopy.mlir.memref import AffineMemRefValue
 from loopy.utils import (
     mlir_gc,
     mlir_mod_ctx,
@@ -36,7 +36,7 @@ class TestMemrefDependenceCheck:
             @mlir_func
             def dependent_loops():
 
-                m = MemRefValue.alloca([10], F32)
+                m = AffineMemRefValue.alloca([10], F32)
                 cst = constant(7.0, F32)
 
                 for i in range(0, 10):
@@ -65,7 +65,7 @@ class TestMemrefDependenceCheck:
                 @mlir_func
                 def zero_loops():
 
-                    m = MemRefValue.alloca([10], F32)
+                    m = AffineMemRefValue.alloca([10], F32)
                     cst = constant(7.0, F32)
 
                     for i in range(0, 10):
@@ -88,7 +88,7 @@ class TestMemrefDependenceCheck:
 
                 @mlir_func
                 def one_loop():
-                    m = MemRefValue.alloca([10], F32)
+                    m = AffineMemRefValue.alloca([10], F32)
                     cst = constant(7.0, F32)
 
                     for i in range(0, 10):
@@ -109,7 +109,7 @@ class TestMemrefDependenceCheck:
                 @mlir_func
                 def two_loops():
 
-                    m = MemRefValue.alloca([10], F32)
+                    m = AffineMemRefValue.alloca([10], F32)
                     cst = constant(7.0, F32)
 
                     for i in range(0, 10):
@@ -131,7 +131,7 @@ class TestMemrefDependenceCheck:
                 @mlir_func
                 def three_loops():
 
-                    m = MemRefValue.alloca([10], F32)
+                    m = AffineMemRefValue.alloca([10], F32)
                     cst = constant(7.0, F32)
 
                     for i in range(0, 10):
@@ -167,7 +167,7 @@ class TestMemrefDependenceCheck:
                 @mlir_func
                 def has_dep(M: Index, N: Index, K: Index):
 
-                    mem = MemRefValue.alloca([4, 4], F64)
+                    mem = AffineMemRefValue.alloca([4, 4], F64)
                     zero = constant(0.0)
                     for i in range(0, 100):
                         for j in range(0, 50):
@@ -231,7 +231,7 @@ class TestMemrefDependenceCheck:
 
                 @mlir_func
                 def mod_div_3d():
-                    M = MemRefValue.alloca([2, 2, 2], I32)
+                    M = AffineMemRefValue.alloca([2, 2, 2], I32)
                     c0 = constant(0, I32)
                     for i0 in range(0, 8):
                         for i1 in range(0, 8):

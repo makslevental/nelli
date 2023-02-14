@@ -25,6 +25,7 @@ declare_mlir_python_extension(LoopyPythonSources.Extension
         MLIRIR
         MLIRPresburger
         MLIRAffineAnalysis
+        MLIROpenMPToLLVMIRTranslation
         )
 
 get_target_property(mlir_python_sources MLIRPythonExtension.Core INTERFACE_SOURCES)

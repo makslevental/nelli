@@ -12,7 +12,7 @@ from loopy.mlir.func import mlir_func
 from loopy.mlir.refbackend import LLVMJITBackend
 from loopy.poly.affine import ForOp
 from loopy.utils import mlir_mod_ctx, find_ops
-from loopy.mlir.memref import MemRefValue as MemRef
+from loopy.mlir.memref import AffineMemRefValue as MemRef
 from loopy.mlir import F64, Index, I32, F32
 import numpy as np
 

@@ -14,7 +14,7 @@ from .scf import scf_endif_branch, scf_if, scf_else, scf_endif
 from .arith import ArithValue
 from ..loopy_mlir.dialects import func as func_dialect
 from ..loopy_mlir.ir import Type as MLIRType, MemRefType
-from .memref import MemRefValue
+from .memref import AffineMemRefValue, MemRefValue
 from .utils import doublewrap
 
 
@@ -165,7 +165,7 @@ def rewrite_bytecode(f):
 
 
 @doublewrap
-def mlir_func(f, rewrite_ast_=True, rewrite_bytecode_=True):
+def mlir_func(f, rewrite_ast_=True, rewrite_bytecode_=True, affine_memref=True):
     sig = inspect.signature(f)
     annots = [p.annotation for p in sig.parameters.values()]
     assert all(isinstance(a, MLIRType) for a in annots)
@@ -181,7 +181,11 @@ def mlir_func(f, rewrite_ast_=True, rewrite_bytecode_=True):
         for i, a in enumerate(args):
             logger.debug(f"{f.__name__} arg {i}: {a}")
             if MemRefType.isinstance(a.type):
-                args[i] = MemRefValue(a)
+                if affine_memref:
+                    args[i] = AffineMemRefValue(a)
+                else:
+                    args[i] = MemRefValue(a)
+
             else:
                 args[i] = ArithValue(a)
         return f(*args)

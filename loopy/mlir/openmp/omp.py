@@ -1,12 +1,19 @@
 from . import _omp_ops_gen as omp
 
-from typing import Union
+from typing import Union, List, Optional
 
+from ... import DefaultContext
 from ...mlir import I32
 from ..arith import constant
 from ...loopy_mlir.ir import (
     Value,
 )
+
+# noinspection PyUnresolvedReferences
+from ...loopy_mlir._mlir_libs._loopy_mlir import register_openmp_dialect_translation
+
+
+register_openmp_dialect_translation(DefaultContext)
 
 
 class ParallelOp(omp.ParallelOp):
@@ -35,3 +42,49 @@ class ParallelOp(omp.ParallelOp):
     @property
     def body(self):
         return self.regions[0].blocks[0]
+
+
+class WsLoopOp(omp.WsLoopOp):
+    def __init__(
+        self,
+        lower_bounds: List[Union[Value, int]],
+        upper_bounds: List[Union[Value, int]],
+        steps: Optional[List[Union[Value, int]]] = None,
+        *,
+        loc=None,
+        ip=None,
+    ):
+        num_bounds = len(lower_bounds)
+        assert num_bounds == len(upper_bounds)
+        if steps is None:
+            steps = [1] * num_bounds
+        else:
+            assert len(steps) == num_bounds
+
+        if isinstance(lower_bounds[0], int):
+            lower_bounds = [constant(l, type=I32) for l in lower_bounds]
+        if isinstance(upper_bounds[0], int):
+            upper_bounds = [constant(l, type=I32) for l in upper_bounds]
+        if isinstance(steps[0], int):
+            steps = [constant(l, type=I32) for l in steps]
+
+        linear_vars = linear_step_vars = reduction_vars = []
+        super().__init__(
+            lower_bounds,
+            upper_bounds,
+            steps,
+            linear_vars,
+            linear_step_vars,
+            reduction_vars,
+            loc=loc,
+            ip=ip,
+        )
+        self.regions[0].blocks.append(I32, *[])
+
+    @property
+    def body(self):
+        return self.regions[0].blocks[0]
+
+    @property
+    def induction_variable(self):
+        return self.body.arguments[0]
