@@ -1,6 +1,7 @@
 import os
 import platform
 import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -78,7 +79,7 @@ class CMakeBuild(build_ext):
             except ImportError:
                 pass
 
-        if sys.platform.startswith("darwin"):
+        if sys.platform.lower().startswith("darwin"):
             # Cross-compile support for macOS - respect ARCHFLAGS if set
             archs = re.findall(r"-arch (\S+)", os.environ.get("ARCHFLAGS", ""))
             if archs:
@@ -95,6 +96,13 @@ class CMakeBuild(build_ext):
         if not build_temp.exists():
             build_temp.mkdir(parents=True)
 
+        if platform.system() == "Darwin":
+            shlib_ext = "dylib"
+        elif platform.system() == "Linux":
+            shlib_ext = "so"
+        else:
+            raise NotImplementedError(f"unknown platform {platform.system()}")
+
         subprocess.run(
             ["cmake", ext.sourcedir] + cmake_args, cwd=build_temp, check=True
         )
@@ -103,6 +111,26 @@ class CMakeBuild(build_ext):
             cwd=build_temp,
             check=True,
         )
+
+        mlir_libs_dir = Path(
+            f"{ext_build_lib_dir}/{PACKAGE_NAME}/loopy_mlir/_mlir_libs"
+        )
+        for shlib in [
+            "LTO",
+            "MLIR-C",
+            "mlir_async_runtime",
+            "mlir_c_runner_utils",
+            "mlir_float16_utils",
+            "mlir_runner_utils",
+            "gomp",
+            "iomp5",
+            "omp",
+        ]:
+            shlib_name = f"lib{shlib}.{shlib_ext}"
+            llvm_install_dir = Path(".").parent / "llvm_install"
+            assert llvm_install_dir.exists()
+            llvm_install_fp = llvm_install_dir / "lib" / shlib_name
+            shutil.copyfile(llvm_install_fp, mlir_libs_dir / shlib_name)
 
 
 PACKAGE_NAME = "loopy"
