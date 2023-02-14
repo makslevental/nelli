@@ -7,7 +7,7 @@ from loopy.loopy_mlir.execution_engine import ExecutionEngine
 from loopy.mlir.func import mlir_func
 from loopy.mlir.refbackend import LLVMJITBackend
 from loopy.utils import mlir_mod_ctx
-from loopy.mlir.memref import AffineMemRefValue as MemRef
+from loopy.mlir.affine import AffineMemRefValue as MemRef
 from loopy.mlir import F64, Index, I32, F32
 import numpy as np
 

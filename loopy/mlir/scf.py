@@ -1,5 +1,5 @@
-from loopy.loopy_mlir.dialects import scf
 from .arith import ArithValue
+from ..loopy_mlir.dialects import scf
 from ..loopy_mlir.ir import (
     InsertionPoint,
 )

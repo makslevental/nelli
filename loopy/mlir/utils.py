@@ -1,11 +1,12 @@
 import os
 import sys
 import tempfile
+from dataclasses import dataclass
 from functools import wraps
 from io import StringIO
 
 from loopy.loopy_mlir.passmanager import PassManager
-from loopy.loopy_mlir.ir import StringAttr
+from loopy.loopy_mlir.ir import StringAttr, Type as MLIRType
 
 
 class LoopyMlirCompilerError(Exception):
@@ -87,3 +88,9 @@ def doublewrap(f):
             return lambda realf: f(realf, *args, **kwargs)
 
     return new_dec
+
+
+@dataclass
+class Annot:
+    py_type: type
+    mlir_type: MLIRType

@@ -20,7 +20,7 @@ from loopy.mlir import F64, Index, F32, I32
 from loopy.poly.sympy_ import d0, d1, d2, s0, s1
 from loopy.mlir.arith import constant
 from loopy.mlir.func import mlir_func
-from loopy.mlir.memref import AffineMemRefValue
+from loopy.mlir.affine import AffineMemRefValue
 from loopy.utils import (
     mlir_gc,
     mlir_mod_ctx,
