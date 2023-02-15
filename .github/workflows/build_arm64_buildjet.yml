@@ -1,0 +1,84 @@
+name: Build
+
+on:
+  workflow_dispatch:
+    branches:
+      - main
+
+jobs:
+
+  build:
+    
+    runs-on: buildjet-2vcpu-ubuntu-2204-arm
+
+    strategy:
+      fail-fast: false
+      matrix:
+        python_version: [ "3.10", "3.11" ]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python_version }}
+
+      - name: Build wheel
+        run: |
+          pip install wheel cmake ninja
+          pip install -r requirements.txt
+          pip install cibuildwheel
+          cibuildwheel --platform linux
+          mkdir -p ${{ github.sha }}
+          mv wheelhouse/loopy*.whl ${{ github.sha }}/
+
+      - name: Upload an artifact
+        uses: actions/upload-artifact@v3
+        if: github.event_name == 'workflow_dispatch'
+        with:
+          if-no-files-found: error
+          name: build_artifact
+          path: ${{ github.sha }}
+
+  upload-tarballs:
+
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    needs: [ build ]
+
+    if: github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: build_artifact
+          path: ${{ github.sha }}
+
+      - name: Set up a release page
+        id: setup_release
+        run: |
+          LOOPY_VERSION=$(python setup.py --version)
+          tag_name="$LOOPY_VERSION"
+          release_title="loopy $LOOPY_VERSION"
+          echo "loopy $LOOPY_VERSION created at $(date)" > body.md
+          echo "tag_name=${tag_name}" >> $GITHUB_OUTPUT
+          echo "release_title=${release_title}" >> $GITHUB_OUTPUT
+
+      - name: Upload tarballs
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: "${{ github.sha }}/*.whl"
+          bodyFile: body.md
+          token: "${{ secrets.GITHUB_TOKEN }}"
+          tag: "${{ steps.setup_release.outputs.tag_name }}"
+          name: "${{ steps.setup_release.outputs.release_title }}"
+          removeArtifacts: true
+          allowUpdates: true
+          replacesArtifacts: true
