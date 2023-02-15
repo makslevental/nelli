@@ -1,18 +1,15 @@
-import ctypes
+import numpy as np
 
-from loopy.loopy_mlir.runtime import get_ranked_memref_descriptor
-
-from loopy.loopy_mlir.execution_engine import ExecutionEngine
-
+from loopy.mlir import F32
+from loopy.mlir.affine import AffineMemRefValue as MemRef
 from loopy.mlir.func import mlir_func
 from loopy.mlir.refbackend import LLVMJITBackend
 from loopy.utils import mlir_mod_ctx
-from loopy.mlir.affine import AffineMemRefValue as MemRef
-from loopy.mlir import F64, Index, I32, F32
-import numpy as np
 
 
 class TestRuntime:
+    backend = LLVMJITBackend()
+
     def test_runtime(self):
 
         with mlir_mod_ctx() as module:
@@ -34,11 +31,5 @@ class TestRuntime:
         A = np.random.randint(low=0, high=10, size=(16, 16)).astype(np.float32)
         B = np.random.randint(low=0, high=10, size=(16, 16)).astype(np.float32)
         C = np.zeros_like(B).astype(np.float32)
-
-        A_ptr = ctypes.pointer(ctypes.pointer(get_ranked_memref_descriptor(A)))
-        B_ptr = ctypes.pointer(ctypes.pointer(get_ranked_memref_descriptor(B)))
-        C_ptr = ctypes.pointer(ctypes.pointer(get_ranked_memref_descriptor(C)))
-
-        execution_engine = ExecutionEngine(module)
-        execution_engine.invoke("matmul", A_ptr, B_ptr, C_ptr)
+        self.backend.load(module).matmul(A, B, C)
         assert np.allclose(A @ B, C)

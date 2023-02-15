@@ -9,3 +9,4 @@ wheel
 pytest
 bytecode
 cibuildwheel
+scipy
