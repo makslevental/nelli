@@ -1,4 +1,4 @@
-name: Build
+name: Build ARM RPI
 
 on:
   workflow_dispatch:
@@ -9,38 +9,33 @@ jobs:
 
   build:
     
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
 
     strategy:
       fail-fast: false
-      matrix:
-        os: [ ubuntu-latest, macos-latest ]
-        arch: [ x86_64 ]
-        python_version: [ "3.10", "3.11" ]
-        exclude:
-          - os: macos-latest
-            python_version: 3.11
 
     steps:
       - name: Checkout
         uses: actions/checkout@v2
 
-      - name: Setup Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: ${{ matrix.python_version }}
-
       - name: Build wheel
-        run: |
-          if [ x"${{ matrix.os }}" == x"ubuntu-latest" ]; then
-            CMAKE_GENERATOR=Ninja pip wheel . -w wheelhouse -v
-          else
+        uses: pguyot/arm-runner-action@v2
+        with:
+          base_image: https://downloads.raspberrypi.org/raspios_full_armhf/images/raspios_full_armhf-2022-09-26/2022-09-22-raspios-bullseye-armhf-full.img.xz
+          cpu: cortex-a7:cortex-a53
+          copy_repository_path: /loopy
+          copy_artifact_path: wheelhouse
+#          bind_mount_repository: true
+          commands: |
+            sudo apt-get update && sudo apt-get install -y python3-pip
             pip install cibuildwheel
-            cibuildwheel --platform macos
-          fi
-          
+            cd /loopy
+            cibuildwheel --platform linux
+
+      - name: Copy wheel
+        run: |
           mkdir -p ${{ github.sha }}
-          mv wheelhouse/loopy*.whl ${{ github.sha }}/
+          mv wheelhouse/loopy*manylinux*.whl ${{ github.sha }}/
 
       - name: Upload an artifact
         uses: actions/upload-artifact@v3

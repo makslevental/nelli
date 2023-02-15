@@ -1,4 +1,4 @@
-name: Build
+name: Build ARM QEMU
 
 on:
   workflow_dispatch:
@@ -8,39 +8,45 @@ on:
 jobs:
 
   build:
-    
-    runs-on: ${{ matrix.os }}
+
+    runs-on: ubuntu-latest
 
     strategy:
       fail-fast: false
       matrix:
-        os: [ ubuntu-latest, macos-latest ]
-        arch: [ x86_64 ]
         python_version: [ "3.10", "3.11" ]
-        exclude:
-          - os: macos-latest
-            python_version: 3.11
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-
-      - name: Setup Python
-        uses: actions/setup-python@v4
+      - uses: actions/checkout@v3
+      - uses: uraimo/run-on-arch-action@v2
+        name: Run commands
+        id: runcmd
         with:
-          python-version: ${{ matrix.python_version }}
+          arch: aarch64
+          distro: ubuntu20.04
+          githubToken: ${{ github.token }}
+          dockerRunArgs: |
+            --volume "${PWD}:/loopy"
+          install: |
+            apt-get update -y
+            apt-get install -y curl clang lld build-essential
+            curl -L -O https://github.com/conda-forge/miniforge/releases/latest/download/Mambaforge-$(uname)-$(uname -m).sh
+            sh Mambaforge-$(uname)-$(uname -m).sh -b -p $HOME/miniconda
+            eval "$($HOME/miniconda/bin/conda shell.bash hook)"
+            conda create -y -n build python=${{ matrix.python_version }}
+            conda activate build
+            pip install wagon[dist] numpy pybind11 PyYAML wheel cmake
 
-      - name: Build wheel
+          run: |
+            cd /loopy
+            eval "$($HOME/miniconda/bin/conda shell.bash hook)"
+            conda activate build
+            wagon create . -vvvv -a '--verbose --verbose --verbose --verbose'
+
+      - name: Copy wheel
         run: |
-          if [ x"${{ matrix.os }}" == x"ubuntu-latest" ]; then
-            CMAKE_GENERATOR=Ninja pip wheel . -w wheelhouse -v
-          else
-            pip install cibuildwheel
-            cibuildwheel --platform macos
-          fi
-          
           mkdir -p ${{ github.sha }}
-          mv wheelhouse/loopy*.whl ${{ github.sha }}/
+          mv loopy*.wgn ${{ github.sha }}/
 
       - name: Upload an artifact
         uses: actions/upload-artifact@v3
