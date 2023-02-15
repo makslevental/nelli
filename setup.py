@@ -96,13 +96,6 @@ class CMakeBuild(build_ext):
         if not build_temp.exists():
             build_temp.mkdir(parents=True)
 
-        if platform.system() == "Darwin":
-            shlib_ext = "dylib"
-        elif platform.system() == "Linux":
-            shlib_ext = "so"
-        else:
-            raise NotImplementedError(f"unknown platform {platform.system()}")
-
         subprocess.run(
             ["cmake", ext.sourcedir] + cmake_args, cwd=build_temp, check=True
         )
@@ -111,6 +104,13 @@ class CMakeBuild(build_ext):
             cwd=build_temp,
             check=True,
         )
+
+        if platform.system() == "Darwin":
+            shlib_ext = "dylib"
+        elif platform.system() == "Linux":
+            shlib_ext = "so"
+        else:
+            raise NotImplementedError(f"unknown platform {platform.system()}")
 
         mlir_libs_dir = Path(
             f"{ext_build_lib_dir}/{PACKAGE_NAME}/loopy_mlir/_mlir_libs"
@@ -130,7 +130,11 @@ class CMakeBuild(build_ext):
             llvm_install_dir = Path(".").parent / "llvm_install"
             assert llvm_install_dir.exists()
             llvm_install_fp = llvm_install_dir / "lib" / shlib_name
-            shutil.copyfile(llvm_install_fp, mlir_libs_dir / shlib_name)
+            assert llvm_install_fp.exists()
+            dst_path = mlir_libs_dir / shlib_name
+            shutil.copyfile(llvm_install_fp, dst_path)
+            # shutil.copyfile(llvm_install_fp, f"{dst_path}.16")
+            # os.symlink(dst_path, f"{dst_path}.16", target_is_directory=False)
 
 
 PACKAGE_NAME = "loopy"

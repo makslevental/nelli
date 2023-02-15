@@ -1,0 +1,103 @@
+name: Build ARM QEMU
+
+on:
+  workflow_dispatch:
+    branches:
+      - main
+
+jobs:
+
+  build:
+
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        python_version: [ "3.10", "3.11" ]
+
+    steps:
+      - uses: actions/checkout@v3
+      - uses: uraimo/run-on-arch-action@v2
+        name: Run commands
+        id: runcmd
+        with:
+          arch: aarch64
+          distro: ubuntu20.04
+          githubToken: ${{ github.token }}
+          dockerRunArgs: |
+            --volume "${PWD}:/loopy"
+          install: |
+            apt-get update -y
+            apt-get install -y curl clang lld build-essential ninja-build
+            curl -L -O https://github.com/conda-forge/miniforge/releases/latest/download/Mambaforge-$(uname)-$(uname -m).sh
+            sh Mambaforge-$(uname)-$(uname -m).sh -b -p $HOME/miniconda
+            eval "$($HOME/miniconda/bin/conda shell.bash hook)"
+            conda create -y -n build python=${{ matrix.python_version }}
+            conda activate build
+            pip install numpy pybind11 PyYAML wheel cmake ninja auditwheel patchelf pkginfo distro
+            # pip install git+https://github.com/makslevental/wagon.git@hack_support_args_auditwheel
+            pip install z3-solver
+
+          run: |
+            cd /loopy
+            eval "$($HOME/miniconda/bin/conda shell.bash hook)"
+            conda activate build
+            # wagon create . -vvvv -a '--verbose --verbose --verbose --verbose --no-build-isolation'
+            # wagon repair loopy-*.wgn -a '--plat manylinux_2_28_aarch64 --exclude libmlir_float16_utils.so.16' -vvvv
+            CMAKE_GENERATOR=Ninja pip wheel . -w wheelhouse -vvvv --no-build-isolation
+            mkdir auditedwheel
+            auditwheel repair -w auditedwheel --plat manylinux_2_28_aarch64 --exclude libmlir_float16_utils.so.16 wheelhouse/loopy*.whl
+
+      - name: Copy wheel
+        run: |
+          mkdir -p ${{ github.sha }}
+          mv auditedwheel/loopy*.whl ${{ github.sha }}/
+
+      - name: Upload an artifact
+        uses: actions/upload-artifact@v3
+        if: github.event_name == 'workflow_dispatch'
+        with:
+          if-no-files-found: error
+          name: build_artifact
+          path: ${{ github.sha }}
+
+  upload-tarballs:
+
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    needs: [ build ]
+
+    if: github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: build_artifact
+          path: ${{ github.sha }}
+
+      - name: Set up a release page
+        id: setup_release
+        run: |
+          LOOPY_VERSION=$(python setup.py --version)
+          tag_name="$LOOPY_VERSION"
+          release_title="loopy $LOOPY_VERSION"
+          echo "loopy $LOOPY_VERSION created at $(date)" > body.md
+          echo "tag_name=${tag_name}" >> $GITHUB_OUTPUT
+          echo "release_title=${release_title}" >> $GITHUB_OUTPUT
+
+      - name: Upload tarballs
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: "${{ github.sha }}/*.whl"
+          bodyFile: body.md
+          token: "${{ secrets.GITHUB_TOKEN }}"
+          tag: "${{ steps.setup_release.outputs.tag_name }}"
+          name: "${{ steps.setup_release.outputs.release_title }}"
+          allowUpdates: true
+          replacesArtifacts: true

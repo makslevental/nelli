@@ -3,7 +3,7 @@ sympy
 z3-solver
 symengine
 pybind11
-pycapi
+# pycapi
 PyYAML
 wheel
 pytest
