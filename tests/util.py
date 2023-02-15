@@ -8,8 +8,8 @@ def check_correct(correct, module):
     module = dedent(re.sub(r"[%#@]\w+", "%DONT_CARE", str(module)))
     diff = list(
         difflib.unified_diff(
-            module.splitlines(),
             correct.splitlines(),
+            module.splitlines(),
             lineterm="",
         )
     )

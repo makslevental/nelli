@@ -36,7 +36,7 @@ def matmul_mono(
 memref_module = dedent(
     """\
 module {
-  func.func @_matmul_mono(%arg0: memref<4x16xf32>, %arg1: memref<16x8xf32>) -> memref<4x8xf32> attributes {llvm.emit_c_interface} {
+  func.func @_matmul_mono(%arg0: memref<4x16xf32>, %arg1: memref<16x8xf32>) -> memref<4x8xf32> {
     %alloca = memref.alloca() : memref<4x8xf32>
     affine.for %arg2 = 0 to 4 {
       affine.for %arg3 = 0 to 8 {
@@ -84,7 +84,7 @@ class TestLinalg:
         correct = dedent(
             """\
         module {
-          func.func @_matmul_mono(%arg0: memref<4x16xf32>, %arg1: memref<16x8xf32>) -> memref<4x8xf32> attributes {llvm.emit_c_interface} {
+          func.func @_matmul_mono(%arg0: memref<4x16xf32>, %arg1: memref<16x8xf32>) -> memref<4x8xf32> {
             %alloc = memref.alloc() {alignment = 64 : i64} : memref<4x8xf32>
             %alloc_0 = memref.alloc() {alignment = 64 : i64} : memref<4x8xf32>
             memref.copy %alloc, %alloc_0 : memref<4x8xf32> to memref<4x8xf32>

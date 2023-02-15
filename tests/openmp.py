@@ -1,4 +1,9 @@
+import logging
+
+logger = logging.getLogger(__name__)
+
 import ctypes
+from scipy import signal
 from pathlib import Path
 from textwrap import dedent
 
@@ -8,7 +13,6 @@ from loopy.loopy_mlir import _mlir_libs
 from loopy.loopy_mlir.dialects import _arith_ops_gen as arith_dialect, linalg
 from loopy.loopy_mlir.execution_engine import ExecutionEngine
 from loopy.loopy_mlir.ir import InsertionPoint, Module
-from loopy.loopy_mlir.runtime import get_ranked_memref_descriptor
 from loopy.mlir import I32, Index, F32
 from loopy.mlir.arith import constant
 from loopy.mlir.func import mlir_func
@@ -21,13 +25,16 @@ from loopy.mlir.openmp.omp import (
     ws_loop as omp_range,
     endfor as omp_endfor,
 )
-from loopy.mlir.refbackend import LLVMJITBackend
+from loopy.mlir.refbackend import LLVMJITBackend, LinalgLowering
 from loopy.utils import mlir_mod_ctx, shlib_ext
 from util import check_correct
 
+omp_lib_path = Path(_mlir_libs.__file__).parent / f"libomp.{shlib_ext()}"
+assert omp_lib_path.exists()
+
 
 class TestOMP:
-    backend = LLVMJITBackend()
+    backend = LLVMJITBackend(shared_libs=[str(omp_lib_path)])
 
     def test_basic(self):
         with mlir_mod_ctx() as module:
@@ -179,19 +186,14 @@ class TestOMP:
                         mem[idx] = two
 
         module = self.backend.compile(module, kernel_name="ws_loop")
-        print(module)
-
-        lib_path = Path(_mlir_libs.__file__).parent / f"libomp.{shlib_ext()}"
-        assert lib_path.exists()
-        execution_engine = ExecutionEngine(module, shared_libs=[str(lib_path)])
+        invoker = self.backend.load(module)
         A = np.zeros(12).astype(np.int32)
-        A_ptr = ctypes.pointer(ctypes.pointer(get_ranked_memref_descriptor(A)))
         c_int_p = ctypes.c_int32 * 1
         one = c_int_p(1)
         ten = c_int_p(10)
         two = c_int_p(2)
 
-        execution_engine.invoke("ws_loop", one, ten, two, A_ptr)
+        invoker.ws_loop(one, ten, two, A)
         assert np.allclose(
             A, np.array([0, 2, 0, 2, 0, 2, 0, 2, 0, 2, 0, 0], dtype=np.int32)
         )
@@ -229,7 +231,7 @@ class TestOMP:
             lower_to_openmp=True,
             lower_to_llvm=True,
         )
-        print(module)
+        # print(module)
         lib_path = Path(_mlir_libs.__file__).parent / f"libomp.{shlib_ext()}"
         assert lib_path.exists()
         execution_engine = ExecutionEngine(module, shared_libs=[str(lib_path)])
@@ -277,13 +279,8 @@ class TestOMP:
             lower_to_openmp=True,
             lower_to_llvm=True,
         )
-        lib_path = Path(_mlir_libs.__file__).parent / f"libomp.{shlib_ext()}"
-        assert lib_path.exists()
-        execution_engine = ExecutionEngine(module, shared_libs=[str(lib_path)])
-
         input = np.zeros((2, 3, 10)).astype(np.float32)
-        input_ptr = ctypes.pointer(ctypes.pointer(get_ranked_memref_descriptor(input)))
-        execution_engine.invoke("ws_loop", input_ptr)
+        self.backend.load(module).ws_loop(input)
         correct = np.array(
             [
                 [
@@ -299,3 +296,92 @@ class TestOMP:
             ]
         )
         assert np.allclose(correct, input)
+
+    def test_linalg_lowering(self):
+        with mlir_mod_ctx() as module:
+
+            @mlir_func
+            def conv2d(
+                input: MemRef[1, 3, 32, 32, F32],
+                kernel: MemRef[3, 3, 3, 3, F32],
+                output: MemRef[1, 3, 30, 30, F32],
+            ):
+                linalg.conv_2d_nchw_fchw(input, kernel, outs=[output])
+                return None
+
+        module = self.backend.compile(
+            module,
+            kernel_name="conv2d",
+            lower_loops=True,
+            lower_to_openmp=True,
+            lower_to_llvm=False,
+            linalg_lowering=LinalgLowering.Parallel,
+        )
+        correct = dedent(
+            """\
+        module {
+          func.func @conv2d(%arg0: memref<1x3x32x32xf32>, %arg1: memref<3x3x3x3xf32>, %arg2: memref<1x3x30x30xf32>) {
+            %c0 = arith.constant 0 : index
+            %c1 = arith.constant 1 : index
+            %c3 = arith.constant 3 : index
+            %c30 = arith.constant 30 : index
+            %0 = llvm.mlir.constant(1 : i64) : i64
+            omp.parallel   {
+              omp.wsloop   for  (%arg3, %arg4, %arg5, %arg6) : index = (%c0, %c0, %c0, %c0) to (%c1, %c3, %c30, %c30) step (%c1, %c1, %c1, %c1) {
+                memref.alloca_scope  {
+                  scf.for %arg7 = %c0 to %c3 step %c1 {
+                    scf.for %arg8 = %c0 to %c3 step %c1 {
+                      scf.for %arg9 = %c0 to %c3 step %c1 {
+                        %1 = arith.addi %arg5, %arg8 : index
+                        %2 = arith.addi %arg6, %arg9 : index
+                        %3 = memref.load %arg0[%arg3, %arg7, %1, %2] : memref<1x3x32x32xf32>
+                        %4 = memref.load %arg1[%arg4, %arg7, %arg8, %arg9] : memref<3x3x3x3xf32>
+                        %5 = memref.load %arg2[%arg3, %arg4, %arg5, %arg6] : memref<1x3x30x30xf32>
+                        %6 = arith.mulf %3, %4 : f32
+                        %7 = arith.addf %5, %6 : f32
+                        memref.store %7, %arg2[%arg3, %arg4, %arg5, %arg6] : memref<1x3x30x30xf32>
+                      }
+                    }
+                  }
+                }
+                omp.yield
+              }
+              omp.terminator
+            }
+            return
+          }
+        }
+        """
+        )
+        check_correct(correct, module)
+
+    def test_linalg_running1(self):
+        h = w = 12
+        k = 3
+        with mlir_mod_ctx() as module:
+
+            @mlir_func
+            def conv2d(
+                input: MemRef[1, 1, h, w, F32],
+                kernel: MemRef[1, 1, k, k, F32],
+                output: MemRef[1, 1, h - 2, w - 2, F32],
+            ):
+                linalg.conv_2d_nchw_fchw(input, kernel, outs=[output])
+                return None
+
+        module = self.backend.compile(
+            module,
+            kernel_name="conv2d",
+            bufferize=True,
+            lower_loops=True,
+            lower_to_openmp=True,
+            lower_to_llvm=True,
+            linalg_lowering=LinalgLowering.Parallel,
+        )
+        invoker = self.backend.load(module)
+        input = np.random.randint(low=0, high=10, size=(1, 1, h, w)).astype(np.float32)
+        kernel = np.random.randint(low=0, high=4, size=(1, 1, 3, 3)).astype(np.float32)
+        output = np.zeros((1, 1, h - 2, w - 2)).astype(np.float32)
+        invoker.conv2d(input, kernel, output)
+        correct = signal.correlate(input.squeeze(), kernel.squeeze(), mode="valid")
+        assert np.allclose(output.squeeze(), correct)
