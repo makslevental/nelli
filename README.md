@@ -177,3 +177,11 @@ $LLVM_INSTALL_DIR/bin/mlir-tblgen -gen-python-op-bindings -bind-dialect=omp \
   OpenMPOps.td \
   -o _omp_ops_gen.py
 ```
+
+## ARM Docker
+
+```shell
+$ docker build . -t loopy --progress=plain -f scripts/Dockerfile
+```
+
+will build an `aarch64` wheel.
