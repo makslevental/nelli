@@ -1,7 +1,7 @@
 from textwrap import dedent
 
-from loopy.loopy_mlir.dialects import tensor, func, linalg
-from loopy.loopy_mlir.dialects.linalg import (
+from nelli.nelli_mlir.dialects import tensor, func, linalg
+from nelli.nelli_mlir.dialects.linalg import (
     TV,
     linalg_structured_op,
     TensorDef,
@@ -10,13 +10,13 @@ from loopy.loopy_mlir.dialects.linalg import (
     domain,
     D,
 )
-from loopy.loopy_mlir.ir import RankedTensorType, MemRefType
-from loopy.mlir import F32
-from loopy.mlir.func import mlir_func
-from loopy.mlir.memref import AllocaOp
-from loopy.mlir.memref import MemRefValue as MemRef
-from loopy.mlir.refbackend import LLVMJITBackend, LinalgLowering
-from loopy.utils import mlir_mod_ctx
+from nelli.nelli_mlir.ir import RankedTensorType, MemRefType
+from nelli.mlir import F32
+from nelli.mlir.func import mlir_func
+from nelli.mlir.memref import AllocaOp
+from nelli.mlir.memref import MemRefValue as MemRef
+from nelli.mlir.refbackend import LLVMJITBackend, LinalgLowering
+from nelli.utils import mlir_mod_ctx
 from util import check_correct
 
 T1 = TV.T1

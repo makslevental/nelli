@@ -7,13 +7,13 @@ from ..utils import Annot
 from ..memref import AllocaOp
 
 # noinspection PyUnresolvedReferences
-from ...loopy_mlir._mlir_libs._loopy_mlir import MemRefValue
-from ...loopy_mlir.dialects._ods_common import _cext
-from ...loopy_mlir.dialects._ods_common import (
+from ...nelli_mlir._mlir_libs._nelli_mlir import MemRefValue
+from ...nelli_mlir.dialects._ods_common import _cext
+from ...nelli_mlir.dialects._ods_common import (
     get_op_result_or_value,
     get_op_results_or_values,
 )
-from ...loopy_mlir.ir import (
+from ...nelli_mlir.ir import (
     AffineMap,
     AffineMapAttr,
     IndexType,

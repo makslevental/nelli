@@ -3,7 +3,7 @@ from typing import Union, List, Optional
 
 from . import _omp_ops_gen as omp
 from ..arith import constant
-from ...loopy_mlir.ir import Value, InsertionPoint
+from ...nelli_mlir.ir import Value, InsertionPoint
 from ...mlir import I32
 
 

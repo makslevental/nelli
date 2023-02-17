@@ -1,15 +1,15 @@
 from textwrap import dedent
 
-from loopy.mlir import F64, Index, F32
-from loopy.mlir.arith import constant, ArithValue
-from loopy.mlir.func import mlir_func
-from loopy.mlir.affine import (
+from nelli.mlir import F64, Index, F32
+from nelli.mlir.arith import constant, ArithValue
+from nelli.mlir.func import mlir_func
+from nelli.mlir.affine import (
     range as affine_range,
     endfor as affine_endfor,
     AffineMemRefValue as MemRef,
 )
-from loopy.mlir.scf import scf_if, scf_endif_branch, scf_endif
-from loopy.utils import mlir_mod_ctx
+from nelli.mlir.scf import scf_if, scf_endif_branch, scf_endif
+from nelli.utils import mlir_mod_ctx
 from util import check_correct
 
 

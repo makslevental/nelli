@@ -13,8 +13,8 @@ def dl_open_guard():
 
 with dl_open_guard():
     # noinspection PyUnresolvedReferences
-    from .loopy_mlir._mlir_libs import _mlir
-    from .loopy_mlir import ir
+    from .nelli_mlir._mlir_libs import _mlir
+    from .nelli_mlir import ir
 
 import atexit
 

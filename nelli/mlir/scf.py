@@ -1,6 +1,6 @@
 from .arith import ArithValue
-from ..loopy_mlir.dialects import scf
-from ..loopy_mlir.ir import (
+from ..nelli_mlir.dialects import scf
+from ..nelli_mlir.ir import (
     InsertionPoint,
 )
 

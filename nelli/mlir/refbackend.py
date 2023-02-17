@@ -11,13 +11,13 @@ import numpy as np
 
 from ..utils import find_ops
 
-from ..loopy_mlir.execution_engine import ExecutionEngine
+from ..nelli_mlir.execution_engine import ExecutionEngine
 
-from ..loopy_mlir.runtime import (
+from ..nelli_mlir.runtime import (
     UnrankedMemRefDescriptor,
     get_ranked_memref_descriptor,
 )
-from ..loopy_mlir.ir import Module, UnitAttr
+from ..nelli_mlir.ir import Module, UnitAttr
 
 from .utils import run_pipeline_with_repro_report
 

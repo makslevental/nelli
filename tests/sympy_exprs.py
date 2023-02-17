@@ -1,9 +1,9 @@
 from sympy import Eq
 from z3 import Int
 
-from loopy.mlir import arith
-from loopy.poly.sympy_ import SymPyVisitor, d0, d1, s0, s1
-from loopy.poly.z3_ import build_z3_access_constraints
+from nelli.mlir import arith
+from nelli.poly.sympy_ import SymPyVisitor, d0, d1, s0, s1
+from nelli.poly.z3_ import build_z3_access_constraints
 
 
 class TestSympyConversion:
@@ -28,7 +28,7 @@ class TestSympyConversion:
         print(cons)
 
     def test_affine(self):
-        from loopy import ir
+        from nelli import ir
 
         expr = 2 * d0 + 3 * d1 - 5 - s0 + 3 * s1
 
@@ -42,7 +42,7 @@ class TestSympyConversion:
         print(module)
 
     def test_mod_floordiv(self):
-        from loopy import ir
+        from nelli import ir
 
         expr = d0 % 2
         res = SymPyVisitor(symbol_factory=Int).visit(expr)

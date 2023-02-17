@@ -1,27 +1,27 @@
 import logging
 
-from loopy.mlir.affine._affine_ops_gen import AffineStoreOp, AffineLoadOp
+from nelli.mlir.affine._affine_ops_gen import AffineStoreOp, AffineLoadOp
 
 logger = logging.getLogger(__name__)
 
 # noinspection PyUnresolvedReferences
-from loopy.poly.affine import (
+from nelli.poly.affine import (
     StoreOp,
     LoadOp,
 )
-from loopy.poly.constraints import (
+from nelli.poly.constraints import (
     check_mem_dep,
     get_ordering_constraints,
     compute_dependence_direction_vector,
     build_constraint_system,
 )
 
-from loopy.mlir import F64, Index, F32, I32
-from loopy.poly.sympy_ import d0, d1, d2, s0, s1
-from loopy.mlir.arith import constant
-from loopy.mlir.func import mlir_func
-from loopy.mlir.affine import AffineMemRefValue
-from loopy.utils import (
+from nelli.mlir import F64, Index, F32, I32
+from nelli.poly.sympy_ import d0, d1, d2, s0, s1
+from nelli.mlir.arith import constant
+from nelli.mlir.func import mlir_func
+from nelli.mlir.affine import AffineMemRefValue
+from nelli.utils import (
     mlir_gc,
     mlir_mod_ctx,
     get_common_loops,

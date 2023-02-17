@@ -30,7 +30,7 @@ using namespace mlir;
 using namespace presburger;
 using namespace tabulate;
 
-namespace loopy {
+namespace nelli {
 
 /// Returns the closest surrounding block common to `opA` and `opB`. `opA` and
 /// `opB` should be in the same affine scope and thus such a block is guaranteed
@@ -485,4 +485,4 @@ void myCheckDependenceSrcDst(Operation *srcOpInst, Operation *dstOpInst) {
   checkDependenceSrcDst(srcOpInst, dstOpInst, myCheckMemrefAccessDependence);
 };
 
-} // namespace loopy
+} // namespace nelli

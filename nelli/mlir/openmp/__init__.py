@@ -1,8 +1,8 @@
 from . import _omp_ops_gen
-from ...loopy_mlir import ir
+from ...nelli_mlir import ir
 
 # noinspection PyUnresolvedReferences
-from ...loopy_mlir._mlir_libs._site_initialize_0 import register_openmp_dialect_translation
+from ...nelli_mlir._mlir_libs._site_initialize_0 import register_openmp_dialect_translation
 
 
 def register_dialect_translation(ctx):

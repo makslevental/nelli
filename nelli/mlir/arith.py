@@ -2,21 +2,21 @@ from typing import Any, List
 from typing import Union
 
 # noinspection PyUnresolvedReferences
-from ..loopy_mlir._mlir_libs._loopy_mlir import ArithValue
-from ..loopy_mlir.dialects import arith as arith_dialect
-from ..loopy_mlir.dialects import math, arith
-from ..loopy_mlir.dialects._ods_common import (
+from ..nelli_mlir._mlir_libs._nelli_mlir import ArithValue
+from ..nelli_mlir.dialects import arith as arith_dialect
+from ..nelli_mlir.dialects import math, arith
+from ..nelli_mlir.dialects._ods_common import (
     get_op_result_or_value,
     get_default_loc_context,
 )
-from ..loopy_mlir.dialects.linalg.opdsl.lang.emitter import (
+from ..nelli_mlir.dialects.linalg.opdsl.lang.emitter import (
     _is_integer_type,
     _is_floating_point_type,
     _is_index_type,
     _get_floating_point_width,
     _is_complex_type,
 )
-from ..loopy_mlir.ir import (
+from ..nelli_mlir.ir import (
     Type,
     Value,
     IntegerType,

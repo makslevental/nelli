@@ -1,4 +1,4 @@
-from ..loopy_mlir import ir
+from ..nelli_mlir import ir
 
 F32 = ir.F32Type.get()
 F64 = ir.F64Type.get()

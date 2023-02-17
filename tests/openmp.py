@@ -9,26 +9,26 @@ from textwrap import dedent
 
 import numpy as np
 
-from loopy.loopy_mlir.dialects import _arith_ops_gen as arith_dialect, linalg
-from loopy.loopy_mlir.execution_engine import ExecutionEngine
-from loopy.loopy_mlir.ir import InsertionPoint, Module
-from loopy.mlir import I32, Index, F32
-from loopy.mlir.arith import constant
-from loopy.mlir.func import mlir_func
-from loopy.mlir.memref import MemRefValue as MemRef
-from loopy.mlir.openmp._omp_ops_gen import TerminatorOp, YieldOp
-from loopy.mlir.openmp.omp import (
+from nelli.nelli_mlir.dialects import _arith_ops_gen as arith_dialect, linalg
+from nelli.nelli_mlir.execution_engine import ExecutionEngine
+from nelli.nelli_mlir.ir import InsertionPoint, Module
+from nelli.mlir import I32, Index, F32
+from nelli.mlir.arith import constant
+from nelli.mlir.func import mlir_func
+from nelli.mlir.memref import MemRefValue as MemRef
+from nelli.mlir.openmp._omp_ops_gen import TerminatorOp, YieldOp
+from nelli.mlir.openmp.omp import (
     ParallelOp,
     WsLoopOp,
     parallel,
     ws_loop as omp_range,
     endfor as omp_endfor,
 )
-from loopy.mlir.refbackend import LLVMJITBackend, LinalgLowering
-from loopy.utils import mlir_mod_ctx, shlib_ext
+from nelli.mlir.refbackend import LLVMJITBackend, LinalgLowering
+from nelli.utils import mlir_mod_ctx, shlib_ext
 from util import check_correct
 
-from loopy.loopy_mlir import _mlir_libs
+from nelli.nelli_mlir import _mlir_libs
 
 omp_lib_path = Path(_mlir_libs.__file__).parent / f"libomp.{shlib_ext()}"
 assert omp_lib_path.exists()

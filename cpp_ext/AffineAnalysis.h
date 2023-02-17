@@ -39,15 +39,15 @@
 
 #include "utils.h"
 
-#ifndef LOOPY_AFFINE_ANALYSIS_H
-#define LOOPY_AFFINE_ANALYSIS_H
+#ifndef NELLI_AFFINE_ANALYSIS_H
+#define NELLI_AFFINE_ANALYSIS_H
 
 using namespace llvm;
 using namespace mlir;
 using namespace presburger;
 using namespace tabulate;
 
-namespace loopy {
+namespace nelli {
 /// Returns the closest surrounding block common to `opA` and `opB`. `opA` and
 /// `opB` should be in the same affine scope and thus such a block is guaranteed
 /// to exist.
@@ -121,5 +121,5 @@ void sanityCheckDependenceSrcDst(Operation *srcOpInst, Operation *dstOpInst);
 
 void myCheckDependenceSrcDst(Operation *srcOpInst, Operation *dstOpInst);
 
-} // namespace loopy
-#endif // LOOPY_AFFINE_ANALYSIS_H
+} // namespace nelli
+#endif // NELLI_AFFINE_ANALYSIS_H

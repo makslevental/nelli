@@ -1,6 +1,6 @@
 from typing import Optional
 
-from ...loopy_mlir import ir
+from ...nelli_mlir import ir
 from ...mlir.affine import Apply
 from ...poly.sympy_ import SymPyVisitor
 

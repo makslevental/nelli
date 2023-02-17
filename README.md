@@ -1,9 +1,9 @@
-# Loopy
+# Nelli
 
 Loop analysis for the polyhedrally challenged.
 
-[![Test](https://github.com/makslevental/loopy/actions/workflows/test.yml/badge.svg)](https://github.com/makslevental/loopy/actions/workflows/test.yml)
-[![Build](https://github.com/makslevental/loopy/actions/workflows/build.yml/badge.svg)](https://github.com/makslevental/loopy/actions/workflows/build.yml)
+[![Test](https://github.com/makslevental/nelli/actions/workflows/test.yml/badge.svg)](https://github.com/makslevental/nelli/actions/workflows/test.yml)
+[![Build](https://github.com/makslevental/nelli/actions/workflows/build.yml/badge.svg)](https://github.com/makslevental/nelli/actions/workflows/build.yml)
 
 # Installing
 
@@ -169,7 +169,7 @@ include "mlir/Dialect/OpenMP/OpenMPOps.td"
 Then run 
 
 ```shell
-LLVM_INSTALL_DIR=/home/mlevental/dev_projects/loopy/llvm_install
+LLVM_INSTALL_DIR=/home/mlevental/dev_projects/nelli/llvm_install
 
 $LLVM_INSTALL_DIR/bin/mlir-tblgen -gen-python-op-bindings -bind-dialect=omp \
   -I $LLVM_INSTALL_DIR/include \
@@ -180,7 +180,7 @@ $LLVM_INSTALL_DIR/bin/mlir-tblgen -gen-python-op-bindings -bind-dialect=omp \
 If you're feeling adventurous you can dump raw JSON corresponding to the `.td`:
 
 ```shell
-LLVM_INSTALL_DIR=/Users/mlevental/dev_projects/loopy/llvm_install
+LLVM_INSTALL_DIR=/Users/mlevental/dev_projects/nelli/llvm_install
 
 $LLVM_INSTALL_DIR/bin/llvm-tblgen -dump-json \
   -I $LLVM_INSTALL_DIR/include \
@@ -191,14 +191,14 @@ $LLVM_INSTALL_DIR/bin/llvm-tblgen -dump-json \
 ## ARM Docker
 
 ```shell
-$ docker build -t loopy --build-arg PY_VERSION=3.11 -f scripts/Dockerfile --target loopy .
+$ docker build -t nelli --build-arg PY_VERSION=3.11 -f scripts/Dockerfile --target nelli .
 ```
 
 will build an `linux-aarch64` wheel (Note the trailing `.`) at `/repo/wheelhouse` within the container.
 Then 
 
 ```shell
-$ docker cp 134c40a817db /repo/wheelhouse/loopy-0.0.3-cp311-cp311-linux_aarch64.whl .
+$ docker cp 134c40a817db /repo/wheelhouse/nelli-0.0.3-cp311-cp311-linux_aarch64.whl .
 ```
 
 will copy that wheel out of the container.
@@ -208,7 +208,7 @@ will copy that wheel out of the container.
 If you have an existing conda environment with everything you need then
 
 ```shell
-$ conda run -n base_loopy python -m venv venv --system-site-packages && source venv/bin/activate
+$ conda run -n base_nelli python -m venv venv --system-site-packages && source venv/bin/activate
 ```
 
 will "clone" that environment. Note that further `pip install`ing will need a `-I` and also packages with command line scripts (like `pytest`) won't work, so they'll need to be reinstalled.
