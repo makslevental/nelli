@@ -13,8 +13,8 @@ from bytecode import ConcreteBytecode, ConcreteInstr
 from .affine import endfor as affine_endfor, range as affine_range
 from .scf import scf_endif_branch, scf_if, scf_else, scf_endif
 from .arith import ArithValue
-from ..loopy_mlir.dialects import func as func_dialect
-from ..loopy_mlir.ir import Type as MLIRType, MemRefType
+from ..mlir._mlir.dialects import func as func_dialect
+from ..mlir._mlir.ir import Type as MLIRType, MemRefType
 from .memref import MemRefValue
 from .affine import AffineMemRefValue
 from .utils import doublewrap, Annot

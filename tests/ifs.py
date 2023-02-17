@@ -1,11 +1,11 @@
 from textwrap import dedent
 
-from loopy.mlir import F64
-from loopy.mlir.arith import constant
-from loopy.mlir.func import mlir_func
-from loopy.mlir.affine import AffineMemRefValue as MemRef
-from loopy.mlir.scf import scf_if, scf_endif_branch, scf_else, scf_endif
-from loopy.utils import mlir_mod_ctx
+from nelli import F64
+from nelli.mlir.arith import constant
+from nelli.mlir.func import mlir_func
+from nelli.mlir.affine import AffineMemRefValue as MemRef
+from nelli.mlir.scf import scf_if, scf_endif_branch, scf_else, scf_endif
+from nelli.utils import mlir_mod_ctx
 from util import check_correct
 
 

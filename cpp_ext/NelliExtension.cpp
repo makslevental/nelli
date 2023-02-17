@@ -94,7 +94,7 @@ py::dict getBoundsFromRelation(const mlir::FlatAffineRelation &relation) {
 
 thread_local py::object annotator_;
 
-PYBIND11_MODULE(_loopy_mlir, m) {
+PYBIND11_MODULE(_nelli_mlir, m) {
   auto mod = py::module_::import(MAKE_MLIR_PYTHON_QUALNAME("ir"));
   PyArithValue::bind(m);
   PyMemRefValue::bind(m);
@@ -128,7 +128,7 @@ PYBIND11_MODULE(_loopy_mlir, m) {
   m.def("show_value_as_operand", [](const py::handle valueApiObject) {
     auto capsule = pybind11::detail::mlirApiObjectToCapsule(valueApiObject);
     MlirValue mlirValue = mlirPythonCapsuleToValue(capsule.ptr());
-    return loopy::showValueAsOperand(unwrap(mlirValue));
+    return nelli::showValueAsOperand(unwrap(mlirValue));
   });
   m.def("get_affine_value_map", [](const py::handle affineOpApiObject) {
     auto affineApplyOp = unwrapOpObject<mlir::AffineApplyOp>(affineOpApiObject);
@@ -167,16 +167,16 @@ PYBIND11_MODULE(_loopy_mlir, m) {
         [](const py::handle srcOpApiObject, const py::handle dstOpApiObject) {
           auto *srcOp = unwrapApiObject<mlir::Operation>(srcOpApiObject);
           auto *dstOp = unwrapApiObject<mlir::Operation>(dstOpApiObject);
-          loopy::myCheckDependenceSrcDst(srcOp, dstOp);
+          nelli::myCheckDependenceSrcDst(srcOp, dstOp);
         });
 
   m.def("show_sanity_check_access_relation",
         [](const py::handle srcOpApiObject, const py::handle dstOpApiObject) {
           auto *srcOp = unwrapApiObject<mlir::Operation>(srcOpApiObject);
           auto *dstOp = unwrapApiObject<mlir::Operation>(dstOpApiObject);
-          loopy::sanityCheckDependenceSrcDst(srcOp, dstOp);
+          nelli::sanityCheckDependenceSrcDst(srcOp, dstOp);
         });
-  m.def("reset_disambig_names", []() { loopy::seen.clear(); });
+  m.def("reset_disambig_names", []() { nelli::seen.clear(); });
 
   m.def("get_common_loops",
         [](const py::handle srcOpApiObject, const py::handle dstOpApiObject)
@@ -194,7 +194,7 @@ PYBIND11_MODULE(_loopy_mlir, m) {
           FlatAffineValueConstraints dstDomain = dstRel.getDomainSet();
           std::vector<py::object> resVec{};
           for (const AffineForOp &forOp :
-               loopy::getCommonLoops(srcDomain, dstDomain)) {
+               nelli::getCommonLoops(srcDomain, dstDomain)) {
             auto mlirForOp = wrap(forOp);
             resVec.emplace_back(getOpView(mlirForOp));
           }
@@ -248,7 +248,7 @@ PYBIND11_MODULE(_loopy_mlir, m) {
         srcAccess, dstAccess, toLoopDepth, &dependenceConstraints,
         &dependenceComponents, true);
     bool ret = hasDependence(result);
-    return loopy::getDirectionVectorStr(ret, numCommonLoops, toLoopDepth,
+    return nelli::getDirectionVectorStr(ret, numCommonLoops, toLoopDepth,
                                         dependenceComponents);
   });
 

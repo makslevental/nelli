@@ -8,7 +8,7 @@
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "llvm/Support/Debug.h"
 
-#define DEBUG_TYPE "loopy-loop-utils"
+#define DEBUG_TYPE "nelli-loop-utils"
 
 using namespace llvm;
 using namespace mlir;
@@ -76,7 +76,7 @@ static AffineForOp generateShiftedLoop(
 // asserts preservation of SSA dominance. A check for that as well as that for
 // memory-based dependence preservation check rests with the users of this
 // method.
-LogicalResult loopy::affineForOpBodySkew(AffineForOp forOp,
+LogicalResult nelli::affineForOpBodySkew(AffineForOp forOp,
                                          ArrayRef<uint64_t> shifts,
                                          bool unrollPrologueEpilogue) {
   assert(forOp.getBody()->getOperations().size() == shifts.size() &&

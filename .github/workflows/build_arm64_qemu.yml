@@ -20,6 +20,13 @@ jobs:
         ]
 
     steps:
+      - name: Setup cache
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.ccache
+          key: build_${{ matrix.base_image }}
+
       - uses: actions/checkout@v3
       - uses: uraimo/run-on-arch-action@v2.5.0
         name: Run commands
@@ -29,24 +36,37 @@ jobs:
           distro: none
           base_image: ${{ matrix.base_image }}
           githubToken: ${{ github.token }}
+          # Create cached/volume directories on host
+          setup: |
+            mkdir -p ~/.ccache
+
+          # Mount cached directories in the container for faster builds
           dockerRunArgs: |
-            --volume "${PWD}:/repo"
+            --volume "${HOME}/.ccache:/root/.ccache" --volume "${PWD}:/repo"
+
+          # Install ccache and gcc/g++ symlinks in the container
           install: |
-            apt-get install -y gcc
-            CMAKE_BUILD_PARALLEL_LEVEL=$(nproc) pip install z3-solver==4.12.1.0 cmake -vvvv
+            apt-get update -q -y
+            apt-get install build-essential ccache -q -y
+            /usr/sbin/update-ccache-symlinks
+            echo 'export PATH="/usr/lib/ccache:$PATH"' | tee -a ~/.bashrc
+            pip install cmake auditwheel patchelf wheel
+            echo 'CMAKE_BUILD_PARALLEL_LEVEL=$(nproc)' | tee -a ~/.bashrc
 
           run: |
             cd /repo
-            export CMAKE_BUILD_PARALLEL_LEVEL=$(nproc)
-            pip install -r requirements.txt -vvvv
-            pip wheel . --no-deps --no-build-isolation -vvvv -w wheelhouse && rm -rf loopy.egg-info
-            pip install wheelhouse/$(ls wheelhouse | head -1) --no-build-isolation
-            cd tests && pytest *.py
+            pip wheel z3-solver==4.12.1.0 -w wheelhouse -v
+            z3wheel=$(ls wheelhouse | head -1)
+            auditwheel repair --plat manylinux_2_35_aarch64 wheelhouse/$z3wheel
+            
+            pip install -r build-requirements.txt
+            pip wheel . --no-deps --no-build-isolation -v -w wheelhouse 
+            # rm -rf nelli.egg-info && pip install wheelhouse/* && cd tests && pytest *.py
 
       - name: Copy wheel
         run: |
           mkdir -p ${{ github.sha }}
-          mv wheelhouse/loopy*.whl ${{ github.sha }}/
+          cp wheelhouse/*.whl ${{ github.sha }}/
 
       - name: Upload an artifact
         uses: actions/upload-artifact@v3
@@ -78,10 +98,10 @@ jobs:
       - name: Set up a release page
         id: setup_release
         run: |
-          LOOPY_VERSION=$(python setup.py --version)
-          tag_name="$LOOPY_VERSION"
-          release_title="loopy $LOOPY_VERSION"
-          echo "loopy $LOOPY_VERSION created at $(date)" > body.md
+          NELLI_VERSION=$(python setup.py --version)
+          tag_name="$NELLI_VERSION"
+          release_title="nelli $NELLI_VERSION"
+          echo "nelli $NELLI_VERSION created at $(date)" > body.md
           echo "tag_name=${tag_name}" >> $GITHUB_OUTPUT
           echo "release_title=${release_title}" >> $GITHUB_OUTPUT
 

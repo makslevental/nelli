@@ -1,4 +1,4 @@
-from ..loopy_mlir.ir import Operation
+from ..mlir._mlir.ir import Operation
 
 
 class Op:

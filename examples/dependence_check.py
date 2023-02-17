@@ -2,34 +2,34 @@ import logging
 import time
 from itertools import product
 
-from loopy.mlir.affine._affine_ops_gen import AffineStoreOp, AffineLoadOp
+from nelli.mlir.affine._affine_ops_gen import AffineStoreOp, AffineLoadOp
 
 FORMAT = "[%(filename)s:%(funcName)s:%(lineno)d] %(message)s"
 logging.basicConfig(level=logging.DEBUG, format=FORMAT)
 logger = logging.getLogger(__name__)
 
-from loopy.poly.z3_ import opt_system
-from loopy.loopy_mlir._mlir_libs._loopy_mlir import (
+from nelli.poly.z3_ import opt_system
+from nelli.mlir._mlir._mlir_libs._nelli_mlir import (
     show_direction_vector,
 )
-from loopy.poly.affine import (
+from nelli.poly.affine import (
     StoreOp,
     LoadOp,
     make_mem_op,
 )
-from loopy.poly.constraints import (
+from nelli.poly.constraints import (
     show_sympy_constraints,
     check_mem_dep,
     compute_dependence_direction_vector,
     compose,
     build_constraint_system,
 )
-from loopy.mlir import F64, Index, I32, F32
-from loopy.poly.sympy_ import d0, d1, d2, d3, d4, d5, s0, s1
-from loopy.mlir.arith import constant
-from loopy.mlir.func import mlir_func
-from loopy.mlir.affine import AffineMemRefValue as MemRef
-from loopy.utils import find_ops, mlir_mod_ctx, mlir_gc, reset_disambig_names
+from nelli import F32, F64, I32, Index
+from nelli.poly.sympy_ import d0, d1, d2, d3, d4, d5, s0, s1
+from nelli.mlir.arith import constant
+from nelli.mlir.func import mlir_func
+from nelli.mlir.affine import AffineMemRefValue as MemRef
+from nelli.utils import find_ops, mlir_mod_ctx, mlir_gc, reset_disambig_names
 
 
 def has_dep():

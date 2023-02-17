@@ -2,14 +2,9 @@
 
 ARG PY_VERSION="3.11"
 
-FROM balenalib/raspberrypi4-64-ubuntu-python:${PY_VERSION}-jammy-build as loopy_base
+FROM balenalib/raspberrypi4-64-ubuntu-python:${PY_VERSION}-jammy-build as nelli_base
 
-# gdb --args something arg arg
 RUN apt-get update && apt-get install -y gcc rsync
-
-RUN CMAKE_BUILD_PARALLEL_LEVEL=$(nproc) pip install z3-solver==4.12.1.0 cmake -vvvv
-
-FROM loopy_base as loopy
 
 ARG WORKDIR="repo"
 
@@ -17,10 +12,12 @@ ADD . $WORKDIR
 
 WORKDIR $WORKDIR
 
-RUN pip install -r requirements.txt -vvvv
+RUN pip install -r build-requirements.txt && \
+    export CMAKE_BUILD_PARALLEL_LEVEL=$(nproc) && \
+    pip wheel z3-solver==4.12.1.0 -w wheelhouse -v
 
-RUN pip wheel . --no-deps --no-build-isolation -vvvv -w wheelhouse && rm -rf loopy.egg-info
+RUN z3wheel=$(ls wheelhouse | head -1) && \
+    auditwheel repair --plat manylinux_2_35_aarch64 wheelhouse/$z3wheel && \
+    rm wheelhouse/$z3wheel
 
-RUN pip install wheelhouse/$(ls wheelhouse | head -1) --no-build-isolation
-
-RUN cd tests && pytest *.py
+RUN pip wheel . --no-deps --no-build-isolation -v -w wheelhouse && rm -rf nelli.egg-info

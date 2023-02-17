@@ -1,10 +1,10 @@
 import numpy as np
 
-from loopy.mlir import F32
-from loopy.mlir.affine import AffineMemRefValue as MemRef
-from loopy.mlir.func import mlir_func
-from loopy.mlir.refbackend import LLVMJITBackend
-from loopy.utils import mlir_mod_ctx
+from nelli import F32
+from nelli.mlir.affine import AffineMemRefValue as MemRef
+from nelli.mlir.func import mlir_func
+from nelli.mlir.refbackend import LLVMJITBackend
+from nelli.utils import mlir_mod_ctx
 
 
 class TestRuntime:

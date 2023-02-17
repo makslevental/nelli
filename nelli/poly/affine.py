@@ -6,7 +6,7 @@ from typing import List
 from sympy import Eq, Symbol, Integer
 
 from .op import Op
-from ..loopy_mlir.ir import (
+from ..mlir._mlir.ir import (
     AffineAddExpr,
     AffineExpr,
     AffineBinaryExpr,
@@ -24,7 +24,7 @@ from .z3_ import (
 )
 
 # noinspection PyUnresolvedReferences
-from ..loopy_mlir._mlir_libs._loopy_mlir import (
+from ..mlir._mlir._mlir_libs._nelli_mlir import (
     get_affine_map_from_attr,
     get_access_relation,
     walk_affine_exprs,

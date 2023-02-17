@@ -56,7 +56,7 @@ class CMakeBuild(build_ext):
 
         cmake_generator = os.environ.get("CMAKE_GENERATOR", "")
         cmake_args = [
-            f"-DCMAKE_INSTALL_PREFIX={ext_build_lib_dir}/{PACKAGE_NAME}",
+            f"-DCMAKE_INSTALL_PREFIX={ext_build_lib_dir}/{PACKAGE_NAME}/mlir",
             f"-DPython3_EXECUTABLE={sys.executable}",
             f"-DCMAKE_BUILD_TYPE={cfg}",  # not used on MSVC, but no harm
         ]
@@ -113,7 +113,7 @@ class CMakeBuild(build_ext):
             raise NotImplementedError(f"unknown platform {platform.system()}")
 
         mlir_libs_dir = Path(
-            f"{ext_build_lib_dir}/{PACKAGE_NAME}/loopy_mlir/_mlir_libs"
+            f"{ext_build_lib_dir}/{PACKAGE_NAME}/mlir/_mlir/_mlir_libs"
         )
         for shlib in [
             "LTO",
@@ -137,7 +137,7 @@ class CMakeBuild(build_ext):
             # os.symlink(dst_path, f"{dst_path}.16", target_is_directory=False)
 
 
-PACKAGE_NAME = "loopy"
+PACKAGE_NAME = "nelli"
 
 packages = find_namespace_packages(
     include=[

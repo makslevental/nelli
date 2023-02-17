@@ -1,5 +1,5 @@
-from ...loopy_mlir.dialects._ods_common import _cext as _ods_cext
-from ...loopy_mlir.dialects._ods_common import (
+from ...mlir._mlir.dialects._ods_common import _cext as _ods_cext
+from ...mlir._mlir.dialects._ods_common import (
     extend_opview_class,
     get_op_result_or_value,
     get_op_results_or_values,

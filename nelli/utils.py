@@ -6,7 +6,7 @@ from typing import Callable
 import sympy
 
 # noinspection PyUnresolvedReferences
-from .loopy_mlir._mlir_libs._loopy_mlir import (
+from .mlir._mlir._mlir_libs._nelli_mlir import (
     get_common_loops,
     show_value_as_operand,
     reset_disambig_names as _reset_disambig_names,
@@ -14,7 +14,7 @@ from .loopy_mlir._mlir_libs._loopy_mlir import (
     show_sanity_check_access_relation,
     walk_operation,
 )
-from .loopy_mlir.ir import Value, Module, InsertionPoint, Operation
+from .mlir._mlir.ir import Value, Module, InsertionPoint, Operation
 
 seen_ambiguous_names = {}
 

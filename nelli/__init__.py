@@ -13,8 +13,8 @@ def dl_open_guard():
 
 with dl_open_guard():
     # noinspection PyUnresolvedReferences
-    from .loopy_mlir._mlir_libs import _mlir
-    from .loopy_mlir import ir
+    from .mlir._mlir._mlir_libs import _mlir
+    from .mlir._mlir import ir
 
 import atexit
 
@@ -39,3 +39,9 @@ def __exit_loc():
 
 
 from . import mlir
+
+F32 = ir.F32Type.get()
+F64 = ir.F64Type.get()
+I64 = ir.IntegerType.get_signless(64)
+I32 = ir.IntegerType.get_signless(32)
+Index = ir.IndexType.get()

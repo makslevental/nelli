@@ -1,13 +1,14 @@
 [build-system]
 requires = [
+    "PyYAML",
+    "cibuildwheel",
+    "cmake",
+    "ninja",
+    "numpy",
+    "pip",
+    "pybind11",
     "setuptools>=42",
     "wheel",
-    "numpy",
-    "PyYAML",
-    "pybind11",
-    "pip",
-    "cmake",
-    "ninja"
 ]
 build-backend = "setuptools.build_meta"
 
