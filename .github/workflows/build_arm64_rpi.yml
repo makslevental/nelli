@@ -23,19 +23,19 @@ jobs:
         with:
           base_image: https://downloads.raspberrypi.org/raspios_full_armhf/images/raspios_full_armhf-2022-09-26/2022-09-22-raspios-bullseye-armhf-full.img.xz
           cpu: cortex-a7:cortex-a53
-          copy_repository_path: /loopy
+          copy_repository_path: /nelli
           copy_artifact_path: wheelhouse
 #          bind_mount_repository: true
           commands: |
             sudo apt-get update && sudo apt-get install -y python3-pip
             pip install cibuildwheel
-            cd /loopy
+            cd /nelli
             cibuildwheel --platform linux
 
       - name: Copy wheel
         run: |
           mkdir -p ${{ github.sha }}
-          mv wheelhouse/loopy*manylinux*.whl ${{ github.sha }}/
+          mv wheelhouse/nelli*manylinux*.whl ${{ github.sha }}/
 
       - name: Upload an artifact
         uses: actions/upload-artifact@v3
@@ -67,10 +67,10 @@ jobs:
       - name: Set up a release page
         id: setup_release
         run: |
-          LOOPY_VERSION=$(python setup.py --version)
-          tag_name="$LOOPY_VERSION"
-          release_title="loopy $LOOPY_VERSION"
-          echo "loopy $LOOPY_VERSION created at $(date)" > body.md
+          NELLI_VERSION=$(python setup.py --version)
+          tag_name="$NELLI_VERSION"
+          release_title="nelli $NELLI_VERSION"
+          echo "nelli $NELLI_VERSION created at $(date)" > body.md
           echo "tag_name=${tag_name}" >> $GITHUB_OUTPUT
           echo "release_title=${release_title}" >> $GITHUB_OUTPUT
 

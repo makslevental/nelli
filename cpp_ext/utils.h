@@ -4,8 +4,8 @@
 
 #include <iostream>
 
-#ifndef LOOPY_UTILS_H
-#define LOOPY_UTILS_H
+#ifndef NELLI_UTILS_H
+#define NELLI_UTILS_H
 
 #define debug(...) logger(#__VA_ARGS__, __VA_ARGS__)
 template <typename... Args> void logger(std::string vars, Args &&...values) {
@@ -84,4 +84,4 @@ private:
   execution policy = always;
 };
 
-#endif // LOOPY_UTILS_H
+#endif // NELLI_UTILS_H

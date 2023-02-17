@@ -2,8 +2,8 @@
 // Created by maksim on 2/9/23.
 //
 
-#ifndef LOOPY_PYBINDADAPTORS_H
-#define LOOPY_PYBINDADAPTORS_H
+#ifndef NELLI_PYBINDADAPTORS_H
+#define NELLI_PYBINDADAPTORS_H
 
 #include "IRModule.h"
 #include "mlir/Bindings/Python/PybindAdaptors.h"
@@ -129,4 +129,4 @@ public:
 // if you create a Pybind.cpp then these concrete template classes get injected
 // into both the Pybind.o object file _and_ the LoopExtension.o object file?
 
-#endif // LOOPY_PYBINDADAPTORS_H
+#endif // NELLI_PYBINDADAPTORS_H

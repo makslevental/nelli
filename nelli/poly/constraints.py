@@ -16,7 +16,7 @@ from sympy.core.relational import Relational
 from z3 import Int, substitute, simplify, ExprRef
 
 # noinspection PyUnresolvedReferences
-from ..loopy_mlir._mlir_libs._loopy_mlir import (
+from ..mlir._mlir._mlir_libs._nelli_mlir import (
     get_common_loops,
     show_value_as_operand,
     show_direction_vector,

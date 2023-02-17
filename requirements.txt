@@ -1,12 +1,9 @@
+PyYAML
+# pycapi
+bytecode
 numpy
+pytest
+scipy
+symengine
 sympy
 z3-solver==4.12.1.0
-symengine
-pybind11
-# pycapi
-PyYAML
-wheel
-pytest
-bytecode
-cibuildwheel
-scipy

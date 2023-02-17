@@ -37,12 +37,12 @@
 #include <set>
 #include <string>
 
-#ifndef LOOPY_LOOPUTILS_H
-#define LOOPY_LOOPUTILS_H
+#ifndef NELLI_LOOPUTILS_H
+#define NELLI_LOOPUTILS_H
 
-namespace loopy {
+namespace nelli {
 mlir::LogicalResult affineForOpBodySkew(mlir::AffineForOp forOp,
                                         llvm::ArrayRef<uint64_t> shifts,
                                         bool unrollPrologueEpilogue = false);
 }
-#endif // LOOPY_LOOPUTILS_H
+#endif // NELLI_LOOPUTILS_H

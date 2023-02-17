@@ -5,11 +5,11 @@ from dataclasses import dataclass
 from functools import wraps
 from io import StringIO
 
-from loopy.loopy_mlir.passmanager import PassManager
-from loopy.loopy_mlir.ir import StringAttr, Type as MLIRType
+from ..mlir._mlir.passmanager import PassManager
+from ..mlir._mlir.ir import StringAttr, Type as MLIRType
 
 
-class LoopyMlirCompilerError(Exception):
+class NelliMlirCompilerError(Exception):
     def __init__(self, value: str):
         super().__init__()
         self.value = value
@@ -19,9 +19,9 @@ class LoopyMlirCompilerError(Exception):
 
 
 def get_module_name_for_debug_dump(module):
-    if not "loopy.debug_module_name" in module.operation.attributes:
+    if not "nelli.debug_module_name" in module.operation.attributes:
         return "UnnammedModule"
-    return StringAttr(module.operation.attributes["loopy.debug_module_name"]).value
+    return StringAttr(module.operation.attributes["nelli.debug_module_name"]).value
 
 
 def run_pipeline_with_repro_report(
@@ -69,7 +69,7 @@ def run_pipeline_with_repro_report(
             Add '{debug_options}' to get the IR dump for debugging purpose.
             """
         trimmed_message = "\n".join([m.lstrip() for m in message.split("\n")])
-        raise LoopyMlirCompilerError(trimmed_message) from None
+        raise NelliMlirCompilerError(trimmed_message) from None
     finally:
         sys.stderr = original_stderr
 

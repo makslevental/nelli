@@ -40,7 +40,7 @@ jobs:
           fi
           
           mkdir -p ${{ github.sha }}
-          mv wheelhouse/loopy*.whl ${{ github.sha }}/
+          mv wheelhouse/nelli*.whl ${{ github.sha }}/
 
       - name: Upload an artifact
         uses: actions/upload-artifact@v3
@@ -72,10 +72,10 @@ jobs:
       - name: Set up a release page
         id: setup_release
         run: |
-          LOOPY_VERSION=$(python setup.py --version)
-          tag_name="$LOOPY_VERSION"
-          release_title="loopy $LOOPY_VERSION"
-          echo "loopy $LOOPY_VERSION created at $(date)" > body.md
+          NELLI_VERSION=$(python setup.py --version)
+          tag_name="$NELLI_VERSION"
+          release_title="nelli $NELLI_VERSION"
+          echo "nelli $NELLI_VERSION created at $(date)" > body.md
           echo "tag_name=${tag_name}" >> $GITHUB_OUTPUT
           echo "release_title=${release_title}" >> $GITHUB_OUTPUT
 

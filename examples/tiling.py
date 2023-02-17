@@ -2,17 +2,16 @@ import ctypes
 
 import numpy as np
 
-from loopy import DefaultContext
-from loopy.loopy_mlir.execution_engine import ExecutionEngine
-from loopy.loopy_mlir.ir import _stringAttr
-from loopy.loopy_mlir.runtime import get_ranked_memref_descriptor
-from loopy.mlir import F64, Index, F32
-from loopy.mlir.affine import AffineMemRefValue as MemRef
-from loopy.mlir.arith import constant
-from loopy.mlir.func import mlir_func
-from loopy.mlir.refbackend import LLVMJITBackend
-from loopy.poly.affine import ForOp
-from loopy.utils import mlir_mod_ctx, find_ops
+from nelli import DefaultContext, F32, F64, Index
+from nelli.mlir._mlir.execution_engine import ExecutionEngine
+from nelli.mlir._mlir.ir import _stringAttr
+from nelli.mlir._mlir.runtime import get_ranked_memref_descriptor
+from nelli.mlir.affine import AffineMemRefValue as MemRef
+from nelli.mlir.arith import constant
+from nelli.mlir.func import mlir_func
+from nelli.mlir.refbackend import LLVMJITBackend
+from nelli.poly.affine import ForOp
+from nelli.utils import mlir_mod_ctx, find_ops
 
 
 def skewing():

@@ -34,9 +34,7 @@ jobs:
 
       - name: Install
         run: |
-          pip install wheel cmake ninja
-          pip install -r requirements.txt
-          CMAKE_GENERATOR=Ninja pip install . --no-build-isolation -vvvv
+          CMAKE_GENERATOR=Ninja pip install . -v
 
       - name: Test
         run: |

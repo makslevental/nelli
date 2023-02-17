@@ -10,13 +10,13 @@ from .arith import ArithValue
 from .utils import Annot
 
 # noinspection PyUnresolvedReferences
-from ..loopy_mlir._mlir_libs._loopy_mlir import MemRefValue
-from ..loopy_mlir.dialects import memref
-from ..loopy_mlir.dialects._ods_common import (
+from ..mlir._mlir._mlir_libs._nelli_mlir import MemRefValue
+from ..mlir._mlir.dialects import memref
+from ..mlir._mlir.dialects._ods_common import (
     get_op_result_or_value,
     get_op_results_or_values,
 )
-from ..loopy_mlir.ir import Type, Value, F64Type, Operation, OpView, MemRefType
+from ..mlir._mlir.ir import Type, Value, F64Type, Operation, OpView, MemRefType
 
 
 class LoadOp(memref.LoadOp):

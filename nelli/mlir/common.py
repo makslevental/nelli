@@ -1,12 +1,12 @@
 """Common utilities that are useful for all the benchmarks."""
 import numpy as np
 
-from ..loopy_mlir import ir
-from ..loopy_mlir.dialects import arith
-from ..loopy_mlir.dialects import func
-from ..loopy_mlir.dialects import memref
-from ..loopy_mlir.dialects import scf
-from ..loopy_mlir.passmanager import PassManager
+from ..mlir._mlir import ir
+from ..mlir._mlir.dialects import arith
+from ..mlir._mlir.dialects import func
+from ..mlir._mlir.dialects import memref
+from ..mlir._mlir.dialects import scf
+from ..mlir._mlir.passmanager import PassManager
 
 
 def setup_passes(mlir_module):
