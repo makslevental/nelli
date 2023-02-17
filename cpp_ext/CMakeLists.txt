@@ -20,13 +20,25 @@ declare_mlir_python_extension(LoopyPythonSources.Extension
         AffineAnalysis.cpp
 
         PRIVATE_LINK_LIBS
-        MLIRIR
         LLVMSupport
         MLIRIR
         MLIRPresburger
         MLIRAffineAnalysis
-        MLIROpenMPToLLVMIRTranslation
         )
+
+#add_subdirectory(openmp_translation)
+
+declare_mlir_python_extension(LoopyPythonSources.Dialects.OpenMP.Pybind
+        MODULE_NAME _site_initialize_0
+        ADD_TO_PARENT LoopyPythonSources
+        SOURCES
+        DialectOpenMP.cpp
+
+        PRIVATE_LINK_LIBS
+        LLVMSupport
+        MLIRIR
+        )
+target_link_libraries(LoopyPythonSources.Dialects.OpenMP.Pybind INTERFACE MLIROpenMPToLLVMIRTranslation)
 
 get_target_property(mlir_python_sources MLIRPythonExtension.Core INTERFACE_SOURCES)
 list(GET mlir_python_sources 0 HEADER)

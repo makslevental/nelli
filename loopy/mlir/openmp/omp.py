@@ -1,19 +1,10 @@
 import contextlib
-
-from . import _omp_ops_gen as omp
-
 from typing import Union, List, Optional
 
-from ... import DefaultContext
-from ...mlir import I32
+from . import _omp_ops_gen as omp
 from ..arith import constant
 from ...loopy_mlir.ir import Value, InsertionPoint
-
-# noinspection PyUnresolvedReferences
-from ...loopy_mlir._mlir_libs._loopy_mlir import register_openmp_dialect_translation
-
-
-register_openmp_dialect_translation(DefaultContext)
+from ...mlir import I32
 
 
 class ParallelOp(omp.ParallelOp):

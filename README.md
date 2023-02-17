@@ -155,9 +155,8 @@ Use this for CMake
 ## Generating MLIR Python bindings by hand
 
 Create a td file like this (note that inclusion of `Python/Attributes.td`):
-```
-// 
 
+```
 #ifndef PYTHON_BINDINGS_OPENMP_OPS
 #define PYTHON_BINDINGS_OPENMP_OPS
 
@@ -178,10 +177,38 @@ $LLVM_INSTALL_DIR/bin/mlir-tblgen -gen-python-op-bindings -bind-dialect=omp \
   -o _omp_ops_gen.py
 ```
 
+If you're feeling adventurous you can dump raw JSON corresponding to the `.td`:
+
+```shell
+LLVM_INSTALL_DIR=/Users/mlevental/dev_projects/loopy/llvm_install
+
+$LLVM_INSTALL_DIR/bin/llvm-tblgen -dump-json \
+  -I $LLVM_INSTALL_DIR/include \
+  OpenMPOps.td \
+  -o openmp.json
+```
+
 ## ARM Docker
 
 ```shell
-$ docker build . -t loopy --progress=plain -f scripts/Dockerfile
+$ docker build -t loopy --build-arg PY_VERSION=3.11 -f scripts/Dockerfile --target loopy .
 ```
 
-will build an `aarch64` wheel.
+will build an `linux-aarch64` wheel (Note the trailing `.`) at `/repo/wheelhouse` within the container.
+Then 
+
+```shell
+$ docker cp 134c40a817db /repo/wheelhouse/loopy-0.0.3-cp311-cp311-linux_aarch64.whl .
+```
+
+will copy that wheel out of the container.
+
+## Conda
+
+If you have an existing conda environment with everything you need then
+
+```shell
+$ conda run -n base_loopy python -m venv venv --system-site-packages && source venv/bin/activate
+```
+
+will "clone" that environment. Note that further `pip install`ing will need a `-I` and also packages with command line scripts (like `pytest`) won't work, so they'll need to be reinstalled.

@@ -21,7 +21,7 @@ import atexit
 # Push a default context onto the context stack at import time.
 DefaultContext = ir.Context()
 DefaultContext.__enter__()
-DefaultContext.allow_unregistered_dialects = True
+DefaultContext.allow_unregistered_dialects = False
 
 
 @atexit.register
