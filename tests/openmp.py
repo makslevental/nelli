@@ -9,7 +9,6 @@ from textwrap import dedent
 
 import numpy as np
 
-from loopy.loopy_mlir import _mlir_libs
 from loopy.loopy_mlir.dialects import _arith_ops_gen as arith_dialect, linalg
 from loopy.loopy_mlir.execution_engine import ExecutionEngine
 from loopy.loopy_mlir.ir import InsertionPoint, Module
@@ -28,6 +27,8 @@ from loopy.mlir.openmp.omp import (
 from loopy.mlir.refbackend import LLVMJITBackend, LinalgLowering
 from loopy.utils import mlir_mod_ctx, shlib_ext
 from util import check_correct
+
+from loopy.loopy_mlir import _mlir_libs
 
 omp_lib_path = Path(_mlir_libs.__file__).parent / f"libomp.{shlib_ext()}"
 assert omp_lib_path.exists()
@@ -385,3 +386,6 @@ class TestOMP:
         invoker.conv2d(input, kernel, output)
         correct = signal.correlate(input.squeeze(), kernel.squeeze(), mode="valid")
         assert np.allclose(output.squeeze(), correct)
+
+
+TestOMP().test_runtime()

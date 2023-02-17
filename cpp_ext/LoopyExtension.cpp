@@ -14,7 +14,6 @@
 #include "mlir/Dialect/Affine/IR/AffineValueMap.h"
 #include "mlir/IR/AffineExprVisitor.h"
 #include "mlir/IR/Operation.h"
-#include "mlir/Target/LLVMIR/Dialect/OpenMP/OpenMPToLLVMIRTranslation.h"
 #include "llvm/ExecutionEngine/Orc/JITTargetMachineBuilder.h"
 #include "llvm/Support/Error.h"
 #include <mlir/Dialect/Affine/LoopUtils.h>
@@ -281,10 +280,5 @@ PYBIND11_MODULE(_loopy_mlir, m) {
     if (failed(mlir::loopUnrollByFactor(forOp, unrollFactor, annotateFn))) {
       throw py::value_error("unroll by factor failed");
     }
-  });
-
-  m.def("register_openmp_dialect_translation", [](MlirContext &context) {
-    auto ctx = unwrap(context);
-    mlir::registerOpenMPDialectTranslation(*ctx);
   });
 }

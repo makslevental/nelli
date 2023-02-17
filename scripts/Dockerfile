@@ -1,46 +1,26 @@
-#FROM arm64v8/ubuntu:20.04
-FROM balenalib/raspberrypi4-64-ubuntu-python:3.10-focal-build
+# syntax=docker/dockerfile:1
 
-ENV PATH="/root/mambaforge/bin:${PATH}"
-ARG PATH="/root/mambaforge/bin:${PATH}"
-ARG PY_VERSION="3.10"
+ARG PY_VERSION="3.11"
+
+FROM balenalib/raspberrypi4-64-ubuntu-python:${PY_VERSION}-jammy-build as loopy_base
+
+# gdb --args something arg arg
+RUN apt-get update && apt-get install -y gcc rsync
+
+RUN CMAKE_BUILD_PARALLEL_LEVEL=$(nproc) pip install z3-solver==4.12.1.0 cmake -vvvv
+
+FROM loopy_base as loopy
+
 ARG WORKDIR="repo"
 
 ADD . $WORKDIR
 
 WORKDIR $WORKDIR
 
-ARG DEBIAN_FRONTEND=noninteractive
-ENV TZ=America/Chicago
-RUN apt-get update && apt-get install -y tzdata
+RUN pip install -r requirements.txt -vvvv
 
-RUN apt-get install -y git vim clang ninja-build llvm lldb gdb
-# gdb --args something arg arg
+RUN pip wheel . --no-deps --no-build-isolation -vvvv -w wheelhouse && rm -rf loopy.egg-info
 
-RUN curl -L -O https://github.com/conda-forge/miniforge/releases/latest/download/Mambaforge-$(uname)-$(uname -m).sh \
-    && mkdir /root/.conda \
-    && sh Mambaforge-$(uname)-$(uname -m).sh -b -p $HOME/mambaforge
-RUN conda --version
-RUN eval "$($HOME/mambaforge/bin/conda shell.bash hook)" \
-    && conda activate base \
-    && conda install python=${PY_VERSION}
+RUN pip install wheelhouse/$(ls wheelhouse | head -1) --no-build-isolation
 
-RUN eval "$($HOME/mambaforge/bin/conda shell.bash hook)" \
-    && conda activate base \
-    && CC=gcc CXX=g++ pip install z3-solver cmake -vvvv
-
-RUN eval "$($HOME/mambaforge/bin/conda shell.bash hook)" \
-    && conda activate base \
-    && pip install -r requirements.txt -vvvv
-
-RUN eval "$($HOME/mambaforge/bin/conda shell.bash hook)" \
-    && conda activate base \
-    && pip wheel . --no-build-isolation --no-deps -vvvv -w wheelhouse
-
-RUN eval "$($HOME/mambaforge/bin/conda shell.bash hook)" \
-    && conda activate base \
-    && pip install loopy-0.0.3-cp310-cp310-linux_aarch64.whl
-
-RUN eval "$($HOME/mambaforge/bin/conda shell.bash hook)" \
-    && conda activate base \
-    && pytest tests/*.py \
+RUN cd tests && pytest *.py

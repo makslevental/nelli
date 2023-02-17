@@ -30,10 +30,10 @@ jobs:
           conda create -y -n build python=${{ matrix.python_version }}
           
           conda activate build
-          pip install wagon[dist] numpy pybind11 PyYAML wheel cmake
-          wagon create . -vvvv -a '--verbose --verbose --verbose --verbose'
+          pip install -r requirements.txt -vvvv
+          CMAKE_BUILD_PARALLEL_LEVEL=$(nproc) pip wheel . --no-build-isolation -vvvv -w wheelhouse
           mkdir -p ${{ github.sha }}
-          mv loopy*.wgn ${{ github.sha }}/
+          mv wheelhouse/loopy*.whl ${{ github.sha }}/
 
       - name: Upload an artifact
         uses: actions/upload-artifact@v3

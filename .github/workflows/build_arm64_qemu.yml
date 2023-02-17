@@ -14,45 +14,39 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python_version: [ "3.10", "3.11" ]
+        base_image: [
+          "balenalib/raspberrypi4-64-ubuntu-python:3.10-jammy-build",
+          "balenalib/raspberrypi4-64-ubuntu-python:3.11-jammy-build"
+        ]
 
     steps:
       - uses: actions/checkout@v3
-      - uses: uraimo/run-on-arch-action@v2
+      - uses: uraimo/run-on-arch-action@v2.5.0
         name: Run commands
         id: runcmd
         with:
           arch: aarch64
-          distro: ubuntu20.04
+          distro: none
+          base_image: ${{ matrix.base_image }}
           githubToken: ${{ github.token }}
           dockerRunArgs: |
-            --volume "${PWD}:/loopy"
+            --volume "${PWD}:/repo"
           install: |
-            apt-get update -y
-            apt-get install -y curl clang lld build-essential ninja-build
-            curl -L -O https://github.com/conda-forge/miniforge/releases/latest/download/Mambaforge-$(uname)-$(uname -m).sh
-            sh Mambaforge-$(uname)-$(uname -m).sh -b -p $HOME/miniconda
-            eval "$($HOME/miniconda/bin/conda shell.bash hook)"
-            conda create -y -n build python=${{ matrix.python_version }}
-            conda activate build
-            pip install numpy pybind11 PyYAML wheel cmake ninja auditwheel patchelf pkginfo distro
-            # pip install git+https://github.com/makslevental/wagon.git@hack_support_args_auditwheel
-            pip install z3-solver
+            apt-get install -y gcc
+            CMAKE_BUILD_PARALLEL_LEVEL=$(nproc) pip install z3-solver==4.12.1.0 cmake -vvvv
 
           run: |
-            cd /loopy
-            eval "$($HOME/miniconda/bin/conda shell.bash hook)"
-            conda activate build
-            # wagon create . -vvvv -a '--verbose --verbose --verbose --verbose --no-build-isolation'
-            # wagon repair loopy-*.wgn -a '--plat manylinux_2_28_aarch64 --exclude libmlir_float16_utils.so.16' -vvvv
-            CMAKE_GENERATOR=Ninja pip wheel . -w wheelhouse -vvvv --no-build-isolation
-            mkdir auditedwheel
-            auditwheel repair -w auditedwheel --plat manylinux_2_28_aarch64 --exclude libmlir_float16_utils.so.16 wheelhouse/loopy*.whl
+            cd /repo
+            export CMAKE_BUILD_PARALLEL_LEVEL=$(nproc)
+            pip install -r requirements.txt -vvvv
+            pip wheel . --no-deps --no-build-isolation -vvvv -w wheelhouse && rm -rf loopy.egg-info
+            pip install wheelhouse/$(ls wheelhouse | head -1) --no-build-isolation
+            cd tests && pytest *.py
 
       - name: Copy wheel
         run: |
           mkdir -p ${{ github.sha }}
-          mv auditedwheel/loopy*.whl ${{ github.sha }}/
+          mv wheelhouse/loopy*.whl ${{ github.sha }}/
 
       - name: Upload an artifact
         uses: actions/upload-artifact@v3

@@ -1,6 +1,6 @@
 numpy
 sympy
-z3-solver
+z3-solver==4.12.1.0
 symengine
 pybind11
 # pycapi
