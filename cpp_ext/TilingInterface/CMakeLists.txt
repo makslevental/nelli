@@ -1,0 +1,16 @@
+add_mlir_library(TilingInterfacePasses
+        TilingInterface.cpp
+
+        DISABLE_INSTALL
+
+        LINK_LIBS PUBLIC
+        MLIRAffineDialect
+        MLIRArithDialect
+        MLIRLinalgDialect
+        MLIRLinalgTransforms
+        MLIRMemRefDialect
+        MLIRSCFDialect
+        MLIRSCFTransforms
+        MLIRTensorDialect
+        MLIRTensorTilingInterfaceImpl
+        )
