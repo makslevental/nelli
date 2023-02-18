@@ -1,6 +1,5 @@
 import logging
 
-
 logger = logging.getLogger(__name__)
 
 import inspect
@@ -14,9 +13,10 @@ from .affine import endfor as affine_endfor, range as affine_range
 from .scf import scf_endif_branch, scf_if, scf_else, scf_endif
 from .arith import ArithValue
 from ..mlir._mlir.dialects import func as func_dialect
-from ..mlir._mlir.ir import Type as MLIRType, MemRefType
+from ..mlir._mlir.ir import Type as MLIRType, MemRefType, RankedTensorType
 from .memref import MemRefValue
 from .affine import AffineMemRefValue
+from .tensor import TensorValue
 from .utils import doublewrap, Annot
 
 
@@ -180,7 +180,9 @@ def mlir_func(
 ):
     sig = inspect.signature(f)
     annots = [p.annotation for p in sig.parameters.values()]
-    assert all(isinstance(a, (MLIRType, Annot)) for a in annots)
+    assert all(
+        isinstance(a, (MLIRType, Annot)) for a in annots
+    ), f"wrong func args {annots}"
 
     if rewrite_ast_:
         f = rewrite_ast(f, range_ctor=range_ctor, endfor=endfor)
@@ -192,13 +194,11 @@ def mlir_func(
         args = list(args)
         for i, (annot, arg) in enumerate(zip(annots, args)):
             logger.debug(f"{f.__name__} arg {i}: {arg}")
-            if MemRefType.isinstance(arg.type):
-                if annot.py_type is AffineMemRefValue:
-                    args[i] = AffineMemRefValue(arg)
-                elif annot.py_type is MemRefValue:
-                    args[i] = MemRefValue(arg)
+            if MemRefType.isinstance(arg.type) or RankedTensorType.isinstance(arg.type):
+                if annot.py_type in {AffineMemRefValue, MemRefValue, TensorValue}:
+                    args[i] = annot.py_type(arg)
                 else:
-                    raise RuntimeError(f"unknown memref annotation: {annot.py_type}")
+                    raise RuntimeError(f"unknown annotation: {annot.py_type}")
             else:
                 args[i] = ArithValue(arg)
         return f(*args)

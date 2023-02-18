@@ -167,7 +167,7 @@ class TestLoops:
             @mlir_func(rewrite_ast_=True)
             def double_loop(M: Index, N: Index):
                 two = constant(1.0)
-                mem = MemRef.alloca([10, 10], F64)
+                mem = MemRef.alloca((10, 10), F64)
                 for i in range(1, 10, 1):
                     for j in range(1, 10, 1):
                         if i < j:
@@ -210,7 +210,7 @@ class TestLoops:
             @mlir_func(rewrite_ast_=True)
             def double_loop(M: Index, N: Index):
                 two = constant(1.0)
-                mem = MemRef.alloca([10, 10], F64)
+                mem = MemRef.alloca((10, 10), F64)
                 for i in range(1, 10, 1):
                     for j in range(1, 10, 1):
                         if M < N:
@@ -253,7 +253,7 @@ class TestLoops:
             @mlir_func(rewrite_ast_=True)
             def double_loop(M: Index, N: Index):
                 two = constant(1.0)
-                mem = MemRef.alloca([10, 10], F64)
+                mem = MemRef.alloca((10, 10), F64)
                 if M < N:
                     for i in range(1, 10, 1):
                         for j in range(1, 10, 1):
@@ -292,7 +292,7 @@ class TestLoops:
             def double_loop(M: Index, N: Index):
                 two = constant(1.0)
                 for _ in range(2):
-                    mem = MemRef.alloca([10, 10], F64)
+                    mem = MemRef.alloca((10, 10), F64)
                 for _ in range(2):
                     for i in affine_range(1, 10, 1):
                         for j in affine_range(1, 10, 1):

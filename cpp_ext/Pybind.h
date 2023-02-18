@@ -118,7 +118,6 @@ public:
 // TODO(max): make this correct
 bool isMemRefValue(MlirValue value) { return true; }
 
-/// Python wrapper for value from arith.*
 class PyMemRefValue : public PyConcreteValue<PyMemRefValue> {
 public:
   static constexpr IsAFunctionTy isaFunction = isMemRefValue;
@@ -128,5 +127,14 @@ public:
 
 // if you create a Pybind.cpp then these concrete template classes get injected
 // into both the Pybind.o object file _and_ the LoopExtension.o object file?
+
+bool isTensorValue(MlirValue value) { return true; }
+
+class PyTensorValue : public PyConcreteValue<PyTensorValue> {
+public:
+  static constexpr IsAFunctionTy isaFunction = isTensorValue;
+  static constexpr const char *pyClassName = "TensorValue";
+  using PyConcreteValue::PyConcreteValue;
+};
 
 #endif // NELLI_PYBINDADAPTORS_H

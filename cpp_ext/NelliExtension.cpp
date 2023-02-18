@@ -98,6 +98,7 @@ PYBIND11_MODULE(_nelli_mlir, m) {
   auto mod = py::module_::import(MAKE_MLIR_PYTHON_QUALNAME("ir"));
   PyArithValue::bind(m);
   PyMemRefValue::bind(m);
+  PyTensorValue::bind(m);
 
   m.def("walk_affine_exprs",
         [](PyAffineMap &self,

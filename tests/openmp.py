@@ -98,7 +98,7 @@ class TestOMP:
         with mlir_mod_ctx() as module:
 
             @mlir_func(rewrite_ast_=False, rewrite_bytecode_=False)
-            def ws_loop(one: I32, ten: I32, two: I32, mem: MemRef[12, I32]):
+            def ws_loop(one: I32, ten: I32, two: I32, mem: MemRef[(12,), I32]):
                 p = ParallelOp(num_threads=12)
                 with InsertionPoint.at_block_begin(p.body):
                     ws_loop = WsLoopOp([one], [ten], [two])
@@ -141,7 +141,7 @@ class TestOMP:
                 range_ctor=omp_range,
                 endfor=omp_endfor,
             )
-            def ws_loop(one: I32, ten: I32, two: I32, mem: MemRef[12, I32]):
+            def ws_loop(one: I32, ten: I32, two: I32, mem: MemRef[(12,), I32]):
                 with parallel(num_threads=12):
                     for i in range(one, ten, two):
                         two = constant(2, type=I32)
@@ -179,7 +179,7 @@ class TestOMP:
                 range_ctor=omp_range,
                 endfor=omp_endfor,
             )
-            def ws_loop(one: I32, ten: I32, two: I32, mem: MemRef[12, I32]):
+            def ws_loop(one: I32, ten: I32, two: I32, mem: MemRef[(12,), I32]):
                 with parallel(num_threads=12):
                     for i in range(one, ten, two):
                         two = constant(2, type=I32)
@@ -303,9 +303,9 @@ class TestOMP:
 
             @mlir_func
             def conv2d(
-                input: MemRef[1, 3, 32, 32, F32],
-                kernel: MemRef[3, 3, 3, 3, F32],
-                output: MemRef[1, 3, 30, 30, F32],
+                input: MemRef[(1, 3, 32, 32), F32],
+                kernel: MemRef[(3, 3, 3, 3), F32],
+                output: MemRef[(1, 3, 30, 30), F32],
             ):
                 linalg.conv_2d_nchw_fchw(input, kernel, outs=[output])
                 return None
@@ -363,9 +363,9 @@ class TestOMP:
 
             @mlir_func
             def conv2d(
-                input: MemRef[1, 1, h, w, F32],
-                kernel: MemRef[1, 1, k, k, F32],
-                output: MemRef[1, 1, h - 2, w - 2, F32],
+                input: MemRef[(1, 1, h, w), F32],
+                kernel: MemRef[(1, 1, k, k), F32],
+                output: MemRef[(1, 1, h - 2, w - 2), F32],
             ):
                 linalg.conv_2d_nchw_fchw(input, kernel, outs=[output])
                 return None
