@@ -16,9 +16,9 @@ class TestRuntime:
 
             @mlir_func
             def matmul(
-                A: MemRef[16, 16, F32],
-                B: MemRef[16, 16, F32],
-                C: MemRef[16, 16, F32],
+                A: MemRef[(16, 16), F32],
+                B: MemRef[(16, 16), F32],
+                C: MemRef[(16, 16), F32],
             ):
                 for i in range(0, 16):
                     for j in range(0, 16):

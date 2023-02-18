@@ -1,4 +1,4 @@
-from typing import Optional, Union, Sequence
+from typing import Optional, Union, Sequence, Tuple
 
 from . import _affine_ops_gen as affine
 from ._affine_ops_gen import _Dialect
@@ -197,12 +197,18 @@ class AffineMemRefValue(MemRefValue):
     def alloca(dim_sizes: Union[list[int], tuple[int, ...]], el_type: Type):
         return AffineMemRefValue(AllocaOp(dim_sizes, el_type).memref)
 
-    def __class_getitem__(cls, t_args):
+    def __class_getitem__(
+            cls, dim_sizes_el_type: Tuple[Union[list[int], tuple[int, ...]], Type]
+    ):
+        assert (
+                len(dim_sizes_el_type) == 2
+        ), f"wrong dim_sizes_el_type: {dim_sizes_el_type}"
+        dim_sizes, el_type = dim_sizes_el_type
         assert all(
-            isinstance(t, int) for t in t_args[:-1]
-        ), f"wrong type T args for memref: {t_args}"
-        assert isinstance(t_args[-1], Type), f"wrong type T args for memref: {t_args}"
-        return Annot(cls, MemRefType.get(t_args[:-1], t_args[-1]))
+            isinstance(t, int) for t in dim_sizes[:-1]
+        ), f"wrong type T args for tensor: {dim_sizes}"
+        assert isinstance(el_type, Type), f"wrong type T args for tensor: {el_type}"
+        return Annot(cls, MemRefType.get(dim_sizes, el_type))
 
     def __getitem__(self, item):
         if not isinstance(item, tuple):

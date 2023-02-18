@@ -9,6 +9,8 @@ logging.basicConfig(level=logging.DEBUG, format=FORMAT)
 logger = logging.getLogger(__name__)
 
 from nelli.poly.z3_ import opt_system
+
+# noinspection PyUnresolvedReferences
 from nelli.mlir._mlir._mlir_libs._nelli_mlir import (
     show_direction_vector,
 )
@@ -210,7 +212,7 @@ def collapsing_memref():
     with mlir_mod_ctx() as module:
 
         @mlir_func
-        def collapsing_memref(A: MemRef[31, 31, 31, F64]):
+        def collapsing_memref(A: MemRef[(31, 31, 31), F64]):
             B = MemRef.alloca([3, 4, 5], F64)
             for i in range(0, 31):
                 for j in range(0, 31):
@@ -259,7 +261,7 @@ def matmul():
     with mlir_mod_ctx() as module:
 
         @mlir_func
-        def matmul(A: MemRef[16, 16, 16, F64], B: MemRef[16, 16, 16, F64]):
+        def matmul(A: MemRef[(16, 16, 16), F64], B: MemRef[(16, 16, 16), F64]):
             C = MemRef.alloca([16, 16, 16], F64)
             for i in range(0, 16):
                 for j in range(0, 16):

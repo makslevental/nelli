@@ -128,8 +128,8 @@ class TestLinalg:
 
             @mlir_func
             def matmul(
-                A: MemRef[4, 16, F32],
-                B: MemRef[16, 8, F32],
+                A: MemRef[(4, 16), F32],
+                B: MemRef[(16, 8), F32],
             ):
                 C = MemRef.alloca([4, 8], F32)
                 matmul_mono(A, B, outs=[C])
@@ -143,8 +143,8 @@ class TestLinalg:
 
             @mlir_func
             def matmul(
-                A: MemRef[4, 16, F32],
-                B: MemRef[16, 8, F32],
+                A: MemRef[(4, 16), F32],
+                B: MemRef[(16, 8), F32],
             ):
                 C = MemRef.alloca([4, 8], F32)
                 linalg.matmul(A, B, outs=[C])
