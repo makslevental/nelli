@@ -15,7 +15,7 @@ jobs:
       fail-fast: false
       matrix:
         base_image: [
-          "balenalib/raspberrypi4-64-ubuntu-python:3.10-jammy-build",
+          "ghcr.io/makslevental/nelli/run-on-arch-makslevental-nelli-build-arm-qemu-aarch64-none",
           "balenalib/raspberrypi4-64-ubuntu-python:3.11-jammy-build"
         ]
 
