@@ -35,16 +35,19 @@ jobs:
             apt-get install -y gcc
             pip install cmake auditwheel patchelf wheel
             export CMAKE_BUILD_PARALLEL_LEVEL=$(nproc)
-            pip wheel z3-solver==4.12.1.0 -w wheelhouse -v
-            z3wheel=$(ls wheelhouse | head -1)
-            auditwheel repair --plat manylinux_2_35_aarch64 wheelhouse/$z3wheel
+            
 
           run: |
             cd /repo
-            
             pip install -r build-requirements.txt
             pip wheel . --no-deps --no-build-isolation -v -w wheelhouse 
-            cp /wheelhouse/* wheelhouse/
+            
+            pip wheel z3-solver==4.12.1.0 -w wheelhouse -v
+
+            z3wheel=$(ls wheelhouse | head -1)
+
+            auditwheel repair --plat manylinux_2_35_aarch64 wheelhouse/$z3wheel
+            # cp /wheelhouse/* wheelhouse/
             # rm -rf nelli.egg-info && pip install wheelhouse/* && cd tests && pytest *.py
 
       - name: Copy wheel
