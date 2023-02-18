@@ -24,6 +24,7 @@ declare_mlir_python_extension(NelliPythonSources.Extension
         MLIRIR
         MLIRPresburger
         MLIRAffineAnalysis
+        TilingInterfacePasses
         )
 
 #add_subdirectory(openmp_translation)
@@ -81,3 +82,5 @@ file(WRITE "${MLIR_INCLUDE_DIRS}/mlir/Bindings/Python/PybindAdaptors.h.bkup" "${
 string(REPLACE "template <typename T>
 struct type_caster<llvm::Optional<T>> : optional_caster<llvm::Optional<T>> {}" "// typecaster" output "${filedata}")
 file(WRITE "${MLIR_INCLUDE_DIRS}/mlir/Bindings/Python/PybindAdaptors.h" "${output}")
+
+add_subdirectory(TilingInterface)
