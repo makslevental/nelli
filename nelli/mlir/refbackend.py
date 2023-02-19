@@ -160,7 +160,7 @@ LOWER_TO_LLVM = [
     "convert-math-to-libm",
     "convert-linalg-to-llvm",
     "expand-strided-metadata",
-    "convert-memref-to-llvm",
+    "finalize-memref-to-llvm",
     "convert-scf-to-cf",
     "convert-cf-to-llvm",
     "cse",

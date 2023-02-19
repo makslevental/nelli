@@ -171,7 +171,8 @@ LogicalResult nelli::affineForOpBodySkew(AffineForOp forOp,
         RewritePatternSet patterns(res.getContext());
         AffineForOp::getCanonicalizationPatterns(patterns, res.getContext());
         bool erased;
-        (void)applyOpPatternsAndFold(res, std::move(patterns), &erased);
+        (void)applyOpPatternsAndFold({res}, std::move(patterns), /*config*/ {},
+                                     /*changed*/ nullptr, &erased);
 
         if (!erased && !prologue)
           prologue = res;

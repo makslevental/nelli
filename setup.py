@@ -28,7 +28,7 @@ def get_llvm_url():
     if LIB_ARCH == "aarch64":
         LIB_ARCH = "arm64"
     # print(f"ARCH {LIB_ARCH}")
-    LLVM_RELEASE_VERSION = os.environ.get("LLVM_RELEASE_VERSION", "16.0.0")
+    LLVM_RELEASE_VERSION = os.environ.get("LLVM_RELEASE_VERSION", "17.0.0")
     assert LLVM_RELEASE_VERSION, "empty LLVM_RELEASE_VERSION"
     # print(f"ARCH {LIB_ARCH}")
     name = f"llvm+mlir+openmp-{sys.version_info.major}.{sys.version_info.minor}-{LLVM_RELEASE_VERSION}-{LIB_ARCH}-{system_suffix}-release"
@@ -146,7 +146,7 @@ packages = find_namespace_packages(
     ],
 )
 
-VERSION = "0.0.3"
+VERSION = "0.0.4"
 
 if len(sys.argv) > 1 and sys.argv[1] == "--version":
     print(VERSION)
