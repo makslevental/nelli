@@ -4,11 +4,6 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-# noinspection PyUnresolvedReferences
-from ..mlir._mlir._mlir_libs._nelli_mlir import munge_calling_convention
-from ..mlir._mlir.ir import Module
-
-
 passes = [
     "arith-bufferize",
     "arith-expand",
@@ -188,6 +183,10 @@ class Pipeline:
         self._add_pass("lower-affine")
         return self
 
+    def refbackend_munge_calling_conventions(self):
+        self._add_pass("refback-munge-calling-conventions")
+        return self
+
     def reconcile_unrealized_casts(self):
         self._add_pass("reconcile-unrealized-casts")
         return self
@@ -198,6 +197,12 @@ class Pipeline:
 
     def tensor_bufferize(self):
         self._add_pass("tensor-bufferize")
+        return self
+
+    def tiling_interface(self, strategy: str, tile_sizes: list[int], filter_name: str):
+        self._add_pass(
+            f"tiling-interface{{strategy={strategy} tile-sizes={','.join(map(str, tile_sizes))} filter-name={filter_name}}}"
+        )
         return self
 
     def bufferize(self):
@@ -243,9 +248,3 @@ class Pipeline:
 
     def lower_to_openmp(self):
         return self.convert_scf_to_openmp().func().lower_affine().cnuf()
-
-    @staticmethod
-    def munge_calling_convention(module):
-        assert isinstance(module, Module)
-        munge_calling_convention(module.operation)
-        return module

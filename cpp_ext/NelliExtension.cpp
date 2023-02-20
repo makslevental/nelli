@@ -24,7 +24,7 @@
 #include "AffineAnalysis.h"
 #include "LoopUtils.h"
 #include "Pybind.h"
-#include "RefBackend.h"
+#include "RefBackend/RefBackend.h"
 #include "TilingInterface/TilingInterface.h"
 #include "utils.h"
 
@@ -286,39 +286,6 @@ PYBIND11_MODULE(_nelli_mlir, m) {
     }
   });
 
-  m.def("munge_calling_convention", [](const py::handle moduleOpApiObject) {
-    auto module = unwrapOpObject<mlir::ModuleOp>(moduleOpApiObject);
-    OpBuilder b(module.getBodyRegion());
-    std::map<std::string, std::vector<mlir::Type>>
-        invokedConsumeFuncReturnFuncs;
-    for (auto func : module.getOps<func::FuncOp>()) {
-      if (failed(nelli::mungeFunction(func, invokedConsumeFuncReturnFuncs)))
-        throw py::value_error("munging failed");
-    }
-
-    // Create FuncOp for consumeFuncReturnFuncs that are used.
-    for (auto &p : invokedConsumeFuncReturnFuncs) {
-      auto consumeFuncReturnFunc = b.create<func::FuncOp>(
-          module.getLoc(), p.first,
-          mlir::FunctionType::get(module.getContext(), p.second, {}));
-
-      consumeFuncReturnFunc.setPrivate();
-      nelli::addEmitCInterfaceAttr(consumeFuncReturnFunc);
-    }
-  });
-
-  m.def("tile", [](MlirContext &context, const py::handle funcOpApiObject,
-                   const std::string &filterName,
-                   const std::vector<int64_t> &tileSizes,
-                   const std::vector<int64_t> &interchange) {
-    auto funcOp = unwrapOpObject<mlir::func::FuncOp>(funcOpApiObject);
-    auto context_ = unwrap(context);
-    RewritePatternSet tilingPatterns(context_);
-    nelli::addPatternForTiling(context_, tilingPatterns, filterName, tileSizes,
-                               interchange);
-    GreedyRewriteConfig config{};
-    config.enableRegionSimplification = false;
-    if (failed(applyPatternsAndFoldGreedily(funcOp, std::move(tilingPatterns))))
-      throw py::value_error("tiling failed");
-  });
+  nelli::registerTilingInterfacePass();
+  nelli::registerMungeCallingConventionPass();
 }
