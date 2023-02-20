@@ -1,24 +1,17 @@
 import logging
 
-from nelli.mlir._mlir.dialects.linalg import BinaryFn, TypeFn
-
 logger = logging.getLogger(__name__)
 
-import ctypes
-from scipy import signal
 from pathlib import Path
 from textwrap import dedent
 
-import numpy as np
-
-from nelli.mlir._mlir.dialects import _arith_ops_gen as arith_dialect, linalg
-from nelli.mlir._mlir.execution_engine import ExecutionEngine
-from nelli.mlir._mlir.ir import InsertionPoint, Module
-from nelli import F32, I32, Index
+from nelli.mlir._mlir.dialects.linalg import BinaryFn, TypeFn
+from nelli.mlir._mlir.dialects import linalg
+from nelli import F32
 from nelli.mlir.arith import constant
 from nelli.mlir.tensor import TensorValue as Tensor
 from nelli.mlir.func import mlir_func
-from nelli.mlir.refbackend import LLVMJITBackend, LinalgLowering
+from nelli.mlir.refbackend import LLVMJITBackend
 from nelli.utils import mlir_mod_ctx, shlib_ext
 from util import check_correct
 

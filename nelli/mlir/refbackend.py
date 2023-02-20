@@ -3,9 +3,15 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 # Also available under a BSD-style license. See LICENSE.
 
+from __future__ import annotations
+import logging
+
+from .passes import Pipeline
+
+logger = logging.getLogger(__name__)
+
 import ctypes
-from enum import Enum
-from typing import Optional
+from typing import Optional, Callable
 
 import numpy as np
 
@@ -16,6 +22,7 @@ from ..mlir._mlir.execution_engine import ExecutionEngine
 from ..mlir._mlir.runtime import (
     UnrankedMemRefDescriptor,
     get_ranked_memref_descriptor,
+    get_unranked_memref_descriptor,
 )
 from ..mlir._mlir.ir import Module, UnitAttr
 
@@ -91,34 +98,25 @@ CData = ctypes._SimpleCData.__mro__[-2]
 
 
 class LLVMJITBackendInvoker:
-    def __init__(self, module, opt_level=2, shared_libs=None):
+    return_func: Optional[Callable] = None
+
+    def __init__(self, module, consume_return_func=None, opt_level=2, shared_libs=None):
         if shared_libs is None:
             shared_libs = []
         self.ee = ExecutionEngine(module, opt_level=opt_level, shared_libs=shared_libs)
-        self.result = None
-
-        # return_funcs = get_return_funcs(module)
-        #
-        # for ret_func in return_funcs:
-        #     ctype_wrapper, ret_types = get_ctype_func(ret_func)
-        #
-        #     def consume_return_funcs(*args):
-        #         self.result = tuple(
-        #             [
-        #                 arg
-        #                 if type in elemental_type_to_ctype
-        #                 else unranked_memref_to_numpy(
-        #                     arg, memref_type_to_np_dtype[type]
-        #                 )
-        #                 for arg, type in zip(args, ret_types)
-        #             ]
-        #         )
-        #         if len(self.result) == 1:
-        #             self.result = self.result[0]
-        #
-        #     self.ee.register_runtime(ret_func, ctype_wrapper(consume_return_funcs))
+        if consume_return_func is not None:
+            return_funcs = get_return_funcs(module)
+            assert len(return_funcs) == 1, f"multiple return funcs not supported"
+            self.return_func = return_funcs[0]
+            ctype_wrapper, ret_types = get_ctype_func(self.return_func)
+            self.ret_types = ret_types
+            self.ee.register_runtime(
+                self.return_func, ctype_wrapper(consume_return_func)
+            )
 
     def __getattr__(self, function_name: str):
+        _get = super().__getattribute__
+
         def invoke(*args):
             ffi_args = []
             for arg in args:
@@ -128,58 +126,18 @@ class LLVMJITBackendInvoker:
                     assert_arg_type_is_supported(arg.dtype)
                     ffi_args.append(
                         ctypes.pointer(
-                            ctypes.pointer(get_ranked_memref_descriptor(arg))
+                            # TODO(max): this is a hack to handle refbackend
+                            # in principle this has nothing to do with anything
+                            # refbackend related
+                            ctypes.pointer(get_unranked_memref_descriptor(arg))
+                            if _get("return_func") is not None
+                            else ctypes.pointer(get_ranked_memref_descriptor(arg))
                         )
                     )
 
             self.ee.invoke(function_name, *ffi_args)
-            # result = self.result
-            # assert result is not None, "Invocation didn't produce a result"
-            # self.result = None
-            # return result
 
         return invoke
-
-
-BUFFERIZE = [
-    "func.func(scf-bufferize)",
-    "func.func(empty-tensor-to-alloc-tensor)",
-    "func.func(linalg-bufferize)",
-    "func-bufferize",
-    "arith-bufferize",
-    "func.func(tensor-bufferize)",
-    "func.func(finalizing-bufferize)",
-    "func.func(buffer-deallocation)",
-]
-
-LOWER_TO_LLVM = [
-    "cse",
-    "func.func(lower-affine)",
-    "func.func(arith-expand)",
-    "func.func(convert-math-to-llvm)",
-    "convert-math-to-libm",
-    "convert-linalg-to-llvm",
-    "expand-strided-metadata",
-    "finalize-memref-to-llvm",
-    "convert-scf-to-cf",
-    "convert-cf-to-llvm",
-    "cse",
-    "lower-affine",
-    "func.func(convert-arith-to-llvm)",
-    "convert-func-to-llvm",
-    "canonicalize",
-    "convert-openmp-to-llvm",
-    "cse",
-    "reconcile-unrealized-casts",
-]
-
-
-class LinalgLowering(Enum):
-    # scf.for
-    Loops = "convert-linalg-to-loops"
-    Affine = "convert-linalg-to-affine-loops"
-    # scf.parallel
-    Parallel = "convert-linalg-to-parallel-loops"
 
 
 class LLVMJITBackend:
@@ -194,12 +152,9 @@ class LLVMJITBackend:
     def compile(
         self,
         module: Module,
+        pipeline: Pipeline,
         kernel_name="main",
-        bufferize=True,
-        lower_loops=True,
-        lower_to_openmp=False,
-        lower_to_llvm=True,
-        linalg_lowering=LinalgLowering.Loops,
+        enable_ir_printing=False,
     ):
         def cb(op):
             try:
@@ -207,27 +162,25 @@ class LLVMJITBackend:
             except:
                 return False
 
-        pipeline = []
-        if bufferize:
-            pipeline += BUFFERIZE
-        if lower_loops:
-            pipeline += [f"func.func({linalg_lowering.value})"]
-        if lower_to_openmp:
-            pipeline += ["convert-scf-to-openmp", "func.func(lower-affine)"]
-        if lower_to_llvm:
+        if pipeline.lower_to_llvm_():
             kernel_func = find_ops(module, cb)
             assert len(kernel_func) == 1, f"kernel func {kernel_func} not found"
             kernel_func[0].attributes["llvm.emit_c_interface"] = UnitAttr.get()
-            pipeline += LOWER_TO_LLVM
 
-        pipeline_str = "builtin.module(" + ",".join(pipeline) + ")"
         run_pipeline_with_repro_report(
             module,
-            pipeline_str,
-            "Lowering Linalg-on-Tensors IR to LLVM with RefBackend",
-            enable_ir_printing=False,
+            pipeline=pipeline.materialize(),
+            description="Lowering IR",
+            enable_ir_printing=enable_ir_printing,
         )
         return module
 
-    def load(self, module, opt_level=2) -> LLVMJITBackendInvoker:
-        return LLVMJITBackendInvoker(module, opt_level, self.shared_libs)
+    def load(
+        self, module, consume_return_func=None, opt_level=2
+    ) -> LLVMJITBackendInvoker:
+        return LLVMJITBackendInvoker(
+            module,
+            opt_level=opt_level,
+            shared_libs=self.shared_libs,
+            consume_return_func=consume_return_func,
+        )

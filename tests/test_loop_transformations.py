@@ -9,7 +9,7 @@ from nelli import F32, F64, Index
 from nelli.mlir.arith import constant
 from nelli.mlir.func import mlir_func
 from nelli.mlir.affine import AffineMemRefValue as MemRef
-from nelli.mlir.refbackend import LLVMJITBackend
+from nelli.mlir.refbackend import LLVMJITBackend, Pipeline
 from nelli.poly.affine import ForOp
 from nelli.utils import mlir_gc
 from nelli.utils import mlir_mod_ctx, find_ops
@@ -244,7 +244,11 @@ class TestLoops:
         check_correct(correct, module)
 
         backend = LLVMJITBackend()
-        module = backend.compile(module, kernel_name="matmul")
+        module = backend.compile(
+            module,
+            kernel_name="matmul",
+            pipeline=Pipeline().bufferize().lower_to_llvm(),
+        )
 
         A = np.random.randint(low=0, high=10, size=(16, 16)).astype(np.float32)
         B = np.random.randint(low=0, high=10, size=(16, 16)).astype(np.float32)

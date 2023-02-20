@@ -15,7 +15,8 @@ from nelli import F32
 from nelli.mlir.func import mlir_func
 from nelli.mlir.memref import AllocaOp
 from nelli.mlir.memref import MemRefValue as MemRef
-from nelli.mlir.refbackend import LLVMJITBackend, LinalgLowering
+from nelli.mlir.refbackend import LLVMJITBackend
+from nelli.mlir.passes import Pipeline
 from nelli.utils import mlir_mod_ctx
 from util import check_correct
 
@@ -63,10 +64,8 @@ class TestLinalg:
     def lower(self, module, kernel_name):
         module = self.backend.compile(
             module,
+            Pipeline().bufferize().func().convert_linalg_to_affine_loops().cnuf(),
             kernel_name=kernel_name,
-            lower_loops=True,
-            lower_to_llvm=False,
-            linalg_lowering=LinalgLowering.Affine,
         )
         return module
 
@@ -81,6 +80,7 @@ class TestLinalg:
                 return matmul_mono(lhs, rhs, outs=[init_result.result])
 
         module = self.lower(module, kernel_name="_matmul_mono")
+        # print(module)
         correct = dedent(
             """\
         module {

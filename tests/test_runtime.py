@@ -4,6 +4,7 @@ from nelli import F32
 from nelli.mlir.affine import AffineMemRefValue as MemRef
 from nelli.mlir.func import mlir_func
 from nelli.mlir.refbackend import LLVMJITBackend
+from nelli.mlir.passes import Pipeline
 from nelli.utils import mlir_mod_ctx
 
 
@@ -26,7 +27,16 @@ class TestRuntime:
                             C[i, j] += A[i, k] * B[k, j]
 
         backend = LLVMJITBackend()
-        module = backend.compile(module, kernel_name="matmul")
+        module = backend.compile(
+            module,
+            kernel_name="matmul",
+            pipeline=Pipeline()
+            .bufferize()
+            .func()
+            .convert_linalg_to_loops()
+            .cnuf()
+            .lower_to_llvm(),
+        )
 
         A = np.random.randint(low=0, high=10, size=(16, 16)).astype(np.float32)
         B = np.random.randint(low=0, high=10, size=(16, 16)).astype(np.float32)

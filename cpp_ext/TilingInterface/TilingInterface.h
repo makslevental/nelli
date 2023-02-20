@@ -1,61 +1,37 @@
 //
 // Created by maksim on 2/17/23.
 //
+#include "mlir/Dialect/Affine/IR/AffineOps.h"
+#include "mlir/Dialect/Linalg/IR/Linalg.h"
+#include "mlir/Dialect/Linalg/Transforms/TilingInterfaceImpl.h"
+#include "mlir/Dialect/Linalg/Transforms/Transforms.h"
+#include "mlir/Dialect/MemRef/IR/MemRef.h"
+#include "mlir/Dialect/Tensor/IR/Tensor.h"
+#include "mlir/Dialect/Tensor/IR/TensorTilingInterfaceImpl.h"
 
 #ifndef NELLI_TILINGINTERFACE_H
 #define NELLI_TILINGINTERFACE_H
 
-namespace mlir::nelli {
+using namespace mlir;
 
-///  pass for ing the use of `TilingInterface`.
-struct TilingInterfacePass
-    : public PassWrapper<TilingInterfacePass, OperationPass<func::FuncOp>> {
-  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(TilingInterfacePass)
-
-  TilingInterfacePass() = default;
-  TilingInterfacePass(const TilingInterfacePass &pass) : PassWrapper(pass) {}
-  void getDependentDialects(DialectRegistry &registry) const override {
-    registry.insert<AffineDialect, linalg::LinalgDialect, memref::MemRefDialect,
-                    scf::SCFDialect, tensor::TensorDialect>();
-    linalg::registerTilingInterfaceExternalModels(registry);
-    tensor::registerTilingInterfaceExternalModels(registry);
-  }
-  StringRef getArgument() const final { return "-tiling-interface"; }
-  StringRef getDescription() const final {
-    return "tiling using TilingInterface";
-  }
-
-  Option<bool> tiling{
-      *this, "tile-using-scf-for",
-      llvm::cl::desc("tiling using TilingInterface with scf.for operations"),
-      llvm::cl::init(false)};
-
-  Option<bool> tileConsumerFuseAndYieldProducer{
-      *this, "tile-consumer-fuse-and-yield-producer-using-scf-for",
-      llvm::cl::desc(
-          "tile and fuse transformation while yielding fused producer "
-          "replacements using TilingInterface with scf.for operations"),
-      llvm::cl::init(false)};
-
-  Option<bool> tileConsumerAndFuseProducer{
-      *this, "tile-consumer-and-fuse-producer-using-scf-for",
-      llvm::cl::desc("tile and fuse transformation using TilingInterface "
-                     "with scf.for operations"),
-      llvm::cl::init(false)};
-
-  Option<bool> loweringToScalar{
-      *this, "lower-to-scalar-using-scf-for",
-      llvm::cl::desc("lowering to scalar implementation using "
-                     "TilingInterface with scf.for operations"),
-      llvm::cl::init(false)};
-
-  void runOnOperation() override;
-
-private:
-  void addPatterns(MLIRContext *context, RewritePatternSet &patterns);
-};
+namespace nelli {
 
 void registerTilingInterface();
-} // namespace mlir::nelli
+
+void addPatternForTiling(MLIRContext *context, RewritePatternSet &patterns,
+                         StringRef filterName, ArrayRef<int64_t> tileSizes,
+                         ArrayRef<int64_t> interchange = {});
+
+void addPatternForTileFuseAndYield(MLIRContext *context,
+                                   RewritePatternSet &patterns,
+                                   StringRef filterName,
+                                   ArrayRef<int64_t> tileSizes,
+                                   ArrayRef<int64_t> interchange = {});
+
+void addPatternForTileAndFuse(MLIRContext *context, RewritePatternSet &patterns,
+                              StringRef filterName, ArrayRef<int64_t> tileSizes,
+                              ArrayRef<int64_t> interchange = {});
+
+} // namespace nelli
 
 #endif // NELLI_TILINGINTERFACE_H

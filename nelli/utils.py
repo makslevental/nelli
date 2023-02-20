@@ -5,6 +5,8 @@ from typing import Callable
 
 import sympy
 
+from . import DefaultContext
+
 # noinspection PyUnresolvedReferences
 from .mlir._mlir._mlir_libs._nelli_mlir import (
     get_common_loops,
@@ -14,7 +16,14 @@ from .mlir._mlir._mlir_libs._nelli_mlir import (
     show_sanity_check_access_relation,
     walk_operation,
 )
-from .mlir._mlir.ir import Value, Module, InsertionPoint, Operation
+from .mlir._mlir.ir import (
+    Value,
+    Module,
+    InsertionPoint,
+    Operation,
+    _stringAttr,
+    _i32Attr,
+)
 
 seen_ambiguous_names = {}
 
@@ -80,3 +89,14 @@ def shlib_ext():
         raise NotImplementedError(f"unknown platform {platform.system()}")
 
     return shlib_ext
+
+
+def add_named_attr(op, name, val):
+    if isinstance(val, str):
+        op.attributes[name] = _stringAttr(val, DefaultContext)
+    elif isinstance(val, int):
+        op.attributes[name] = _i32Attr(val, DefaultContext)
+    else:
+        raise NotImplementedError(f"{val=} unsupported")
+
+    return op
