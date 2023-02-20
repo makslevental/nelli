@@ -4,8 +4,8 @@ from textwrap import dedent
 
 
 def check_correct(correct, module):
-    correct = dedent(re.sub(r"[%#@]\w+", "%DONT_CARE", correct))
-    module = dedent(re.sub(r"[%#@]\w+", "%DONT_CARE", str(module)))
+    correct = dedent(re.sub(r"([%#@]\w+)|(\^bb\d+)", "%DONT_CARE", correct))
+    module = dedent(re.sub(r"([%#@]\w+)|(\^bb\d+)", "%DONT_CARE", str(module)))
     diff = list(
         difflib.unified_diff(
             correct.splitlines(),

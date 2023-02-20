@@ -1,4 +1,4 @@
-from .arith import ArithValue
+from .arith import ArithValue, constant
 from ..mlir._mlir.dialects import scf
 from ..mlir._mlir.ir import (
     InsertionPoint,
@@ -44,3 +44,26 @@ def scf_endif_branch():
 def scf_endif():
     global _current_if_op
     _current_if_op.pop()
+
+
+_for_ip = None
+
+
+def range(start, stop, step=1):
+    global _for_ip
+    if isinstance(start, int):
+        start = constant(start, index=True)
+    if isinstance(stop, int):
+        stop = constant(stop, index=True)
+    if isinstance(step, int):
+        step = constant(step, index=True)
+    for_op = scf.ForOp(start, stop, step)
+    _for_ip = InsertionPoint(for_op.body)
+    _for_ip.__enter__()
+    return [for_op.induction_variable]
+
+
+def endfor():
+    scf.YieldOp([])
+    global _for_ip
+    _for_ip.__exit__(None, None, None)

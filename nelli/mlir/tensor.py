@@ -12,6 +12,11 @@ from ..mlir._mlir.dialects import tensor as tensor_dialect
 from ..mlir._mlir.ir import (
     Type,
     RankedTensorType,
+    UnrankedTensorType,
+    InsertionPoint,
+    Value,
+    Operation,
+    IndexType,
 )
 
 
@@ -56,3 +61,40 @@ def extract(tensor, dims: list):
             dims[i] = constant(d, index=True)
 
     return tensor_dialect.ExtractOp(tensor, dims).result
+
+
+# TODO(max): this needs to be a tensor pad ext
+def pad(source, low, high, pad_value):
+    assert all(
+        isinstance(l, int) for l in low
+    ), f"only literal pad values supported: {low=}"
+    assert all(
+        isinstance(l, int) for l in high
+    ), f"only literal pad values supported: {high=}"
+
+    if RankedTensorType.isinstance(source.type):
+        source_type = RankedTensorType(source.type)
+    elif UnrankedTensorType.isinstance(source.type):
+        source_type = UnrankedTensorType(source.type)
+    else:
+        raise RuntimeError(f"source is not a tensor type: {source.type=}")
+
+    if not isinstance(pad_value, (Value, Operation)):
+        pad_value = constant(pad_value, type=source_type.element_type)
+
+    if isinstance(source_type, RankedTensorType):
+        dim_sizes = []
+        for dim in range(source_type.rank):
+            dim_sizes.append(source_type.get_dim_size(dim) + low[dim] + high[dim])
+        result_type = RankedTensorType.get(dim_sizes, source_type.element_type)
+    else:
+        result_type = source_type
+
+    pad_op = tensor_dialect.PadOp(
+        result_type, source, [], [], static_low=low, static_high=high
+    )
+    block = pad_op.regions[0].blocks.append(*[IndexType.get()] * source_type.rank)
+    with InsertionPoint.at_block_begin(block):
+        tensor_dialect.YieldOp(pad_value)
+
+    return pad_op.result

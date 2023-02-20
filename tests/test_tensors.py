@@ -9,7 +9,7 @@ from nelli.mlir._mlir.dialects.linalg import BinaryFn, TypeFn
 from nelli.mlir._mlir.dialects import linalg
 from nelli import F32
 from nelli.mlir.arith import constant
-from nelli.mlir.tensor import TensorValue as Tensor
+from nelli.mlir.tensor import TensorValue as Tensor, pad
 from nelli.mlir.func import mlir_func
 from nelli.mlir.refbackend import LLVMJITBackend
 from nelli.utils import mlir_mod_ctx, shlib_ext
@@ -77,6 +77,28 @@ class TestTensor:
             %1 = linalg.elemwise_unary {cast = #linalg.type_fn<cast_signed>, fun = #linalg.unary_fn<exp>} ins(%arg0 : tensor<4x8xf32>) outs(%0 : tensor<4x8xf32>) -> tensor<4x8xf32>
             %2 = linalg.elemwise_binary {cast = #linalg.type_fn<cast_unsigned>, fun = #linalg.binary_fn<mul>} ins(%arg0, %arg1 : tensor<4x8xf32>, tensor<4x8xf32>) outs(%0 : tensor<4x8xf32>) -> tensor<4x8xf32>
             return %1, %2 : tensor<4x8xf32>, tensor<4x8xf32>
+          }
+        }
+        """
+        )
+        check_correct(correct, module)
+
+    def test_pad(self):
+        with mlir_mod_ctx() as module:
+
+            @mlir_func
+            def pad_tensor_3_4(input_tensor: Tensor[(4, 16), F32], pad_value: F32):
+                pad(input_tensor, [3, 4], [5, 3], pad_value)
+
+        correct = dedent(
+            """\
+        module {
+          func.func @pad_tensor_3_4(%arg0: tensor<4x16xf32>, %arg1: f32) {
+            %padded = tensor.pad %arg0 low[3, 4] high[5, 3] {
+            ^bb0(%arg2: index, %arg3: index):
+              tensor.yield %arg1 : f32
+            } : tensor<4x16xf32> to tensor<12x23xf32>
+            return
           }
         }
         """

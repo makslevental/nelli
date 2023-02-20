@@ -212,14 +212,6 @@ def add(lhs, rhs) -> OpView:
         return arith.AddFOp(lhs, rhs)
     # TODO(max): type promotion isn't right
     if _is_integer_type(lhs.type) or _is_index_type(lhs.type):
-        if _is_index_type(lhs.type):
-            lhs = cast_to_integer(
-                IntegerType.get_signed(64), lhs, is_unsigned_cast=True
-            )
-        if _is_index_type(rhs.type):
-            rhs = cast_to_integer(
-                IntegerType.get_signed(64), rhs, is_unsigned_cast=True
-            )
         return arith.AddIOp(lhs, rhs)
     if _is_complex_type(lhs.type):
         return complex.AddOp(lhs, rhs)
