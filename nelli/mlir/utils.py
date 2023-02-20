@@ -4,10 +4,16 @@ import tempfile
 from dataclasses import dataclass
 from functools import wraps
 from io import StringIO
-from typing import Optional
+from typing import Optional, Sequence
 
 from ..mlir._mlir.passmanager import PassManager
-from ..mlir._mlir.ir import StringAttr, Type as MLIRType
+from ..mlir._mlir.ir import (
+    StringAttr,
+    Type as MLIRType,
+    register_attribute_builder,
+    DenseI64ArrayAttr,
+    Context
+)
 
 
 class NelliMlirCompilerError(Exception):
@@ -99,3 +105,13 @@ def doublewrap(f):
 class Annot:
     py_type: type
     mlir_type: MLIRType
+
+
+@register_attribute_builder("DenseI64ArrayAttr")
+def get_dense_int64_array_attr(values: Sequence[int], context: Optional[Context] = None) -> DenseI64ArrayAttr:
+    from .. import DefaultContext
+    if context is None:
+        context = DefaultContext
+    if values is None:
+        return DenseI64ArrayAttr.get([], context)
+    return DenseI64ArrayAttr.get(values, context)

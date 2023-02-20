@@ -261,7 +261,7 @@ class TestLoops:
                             w = v * two
                             mem[i, j] = w
 
-        print(module)
+        # print(module)
         correct = dedent(
             """\
         module {

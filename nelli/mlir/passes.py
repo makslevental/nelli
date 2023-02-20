@@ -205,6 +205,14 @@ class Pipeline:
         )
         return self
 
+    def transform_dialect_interpreter(self):
+        self._add_pass("transform-dialect-interpreter")
+        return self
+
+    def transform_dialect_erase_schedule(self):
+        self._add_pass("transform-dialect-erase-schedule")
+        return self
+
     def bufferize(self):
         return (
             self.func()

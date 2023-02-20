@@ -438,8 +438,8 @@ struct TilingInterfacePass
   void getDependentDialects(DialectRegistry &registry) const override {
     registry.insert<AffineDialect, linalg::LinalgDialect, memref::MemRefDialect,
                     scf::SCFDialect, tensor::TensorDialect>();
-    linalg::registerTilingInterfaceExternalModels(registry);
-    tensor::registerTilingInterfaceExternalModels(registry);
+//    linalg::registerTilingInterfaceExternalModels(registry);
+//    tensor::registerTilingInterfaceExternalModels(registry);
   }
   [[nodiscard]] StringRef getArgument() const final {
     return "tiling-interface";

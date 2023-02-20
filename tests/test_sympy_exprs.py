@@ -10,12 +10,12 @@ class TestSympyConversion:
     def test_expr(self):
         expr = 2 * d0 + 3 * d1 - 5 - s0 + 3 * s1
         res = SymPyVisitor(symbol_factory=Int).visit(expr)
-        print(res)
+        # print(res)
 
     def test_rel(self):
         expr = 2 * d0 + 3 * d1 - 5 - s0 + 3 * s1 <= 5
         res = SymPyVisitor(symbol_factory=Int).visit(expr)
-        print(res)
+        # print(res)
 
     def test_constraints(self):
         cons = build_z3_access_constraints(
@@ -25,7 +25,7 @@ class TestSympyConversion:
                 2 * d0 + 3 * d1 >= 5,
             ]
         )
-        print(cons)
+        # print(cons)
 
     def test_affine(self):
         from nelli import ir
@@ -39,7 +39,7 @@ class TestSympyConversion:
             k = arith.constant(3, index=True)
             l = arith.constant(4, index=True)
             res = expr @ (i, j, k, l)
-        print(module)
+        # print(module)
 
     def test_mod_floordiv(self):
         from nelli import ir

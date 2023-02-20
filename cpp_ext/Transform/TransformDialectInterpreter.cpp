@@ -39,6 +39,13 @@ public:
       const TransformDialectInterpreterPass &pass)
       : TransformInterpreterPassBase(pass) {}
 
+//  void getDependentDialects(DialectRegistry &registry) const override {
+//    registry.insert<AffineDialect, linalg::LinalgDialect, memref::MemRefDialect,
+//                    scf::SCFDialect, tensor::TensorDialect>();
+//    linalg::registerTilingInterfaceExternalModels(registry);
+//    tensor::registerTilingInterfaceExternalModels(registry);
+//  }
+//
   StringRef getArgument() const override {
     return "transform-dialect-interpreter";
   }
@@ -176,7 +183,6 @@ struct TransformDialectEraseSchedulePass
   void runOnOperation() override {
     getOperation()->walk<WalkOrder::PreOrder>([&](Operation *nestedOp) {
       if (isa<transform::TransformOpInterface>(nestedOp)) {
-        nestedOp->dump();
         nestedOp->erase();
         return WalkResult::skip();
       }
