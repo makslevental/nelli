@@ -13,6 +13,7 @@ declare_mlir_python_sources(NelliPythonSources)
 #get_property(MLIR_T_LIBS GLOBAL PROPERTY MLIR_TRANSLATION_LIBS)
 add_subdirectory(TilingInterface)
 add_subdirectory(RefBackend)
+add_subdirectory(Transform)
 declare_mlir_python_extension(NelliPythonSources.Extension
         MODULE_NAME _nelli_mlir
         ADD_TO_PARENT NelliPythonSources
@@ -28,6 +29,7 @@ declare_mlir_python_extension(NelliPythonSources.Extension
         MLIRAffineAnalysis
         TilingInterfacePasses
         RefBackend
+        TransformDialectInterpreter
         )
 
 #add_subdirectory(openmp_translation)
