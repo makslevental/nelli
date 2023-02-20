@@ -4,6 +4,7 @@ import tempfile
 from dataclasses import dataclass
 from functools import wraps
 from io import StringIO
+from typing import Optional
 
 from ..mlir._mlir.passmanager import PassManager
 from ..mlir._mlir.ir import StringAttr, Type as MLIRType
@@ -27,7 +28,7 @@ def get_module_name_for_debug_dump(module):
 def run_pipeline_with_repro_report(
     module,
     pipeline: str,
-    description: str,
+    description: Optional[str] = None,
     enable_ir_printing=False,
     print_pipeline=False,
 ):
