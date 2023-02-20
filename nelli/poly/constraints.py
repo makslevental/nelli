@@ -1,6 +1,5 @@
 import logging
 from functools import reduce
-import itertools
 
 logger = logging.getLogger(__name__)
 from typing import Tuple, List
@@ -11,7 +10,7 @@ from .z3_ import show_z3_constraints, opt_system, elim_vars
 
 
 # from symengine import Eq, Symbol, Integer
-from sympy import Eq, pretty
+from sympy import pretty
 from sympy.core.relational import Relational
 from z3 import Int, substitute, simplify, ExprRef
 

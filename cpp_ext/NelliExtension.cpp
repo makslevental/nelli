@@ -14,6 +14,7 @@
 #include "mlir/Dialect/Affine/IR/AffineValueMap.h"
 #include "mlir/IR/AffineExprVisitor.h"
 #include "mlir/IR/Operation.h"
+#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "llvm/ExecutionEngine/Orc/JITTargetMachineBuilder.h"
 #include "llvm/Support/Error.h"
 #include <mlir/Dialect/Affine/LoopUtils.h>
@@ -23,6 +24,8 @@
 #include "AffineAnalysis.h"
 #include "LoopUtils.h"
 #include "Pybind.h"
+#include "RefBackend.h"
+#include "TilingInterface/TilingInterface.h"
 #include "utils.h"
 
 namespace py = pybind11;
@@ -157,7 +160,7 @@ PYBIND11_MODULE(_nelli_mlir, m) {
       indices[py::cast<>(pos_idx.index())] = py::cast<>(wrap(pos_idx.value()));
     }
     mlir::FlatAffineValueConstraints domain;
-    getOpIndexSet(op, &domain);
+    (void)getOpIndexSet(op, &domain);
     mlir::FlatAffineRelation domainRel(domain.getNumDimVars(),
                                        /*numRangeDims=*/0, domain);
     auto bounds = getBoundsFromRelation(domainRel);
@@ -207,10 +210,10 @@ PYBIND11_MODULE(_nelli_mlir, m) {
 
     mlir::FlatAffineRelation lowerRel;
     auto lowerMap = affForOp.getLowerBoundMap();
-    getRelationFromMap(lowerMap, lowerRel);
+    (void)getRelationFromMap(lowerMap, lowerRel);
     mlir::FlatAffineRelation upperRel;
     auto upperMap = affForOp.getUpperBoundMap();
-    getRelationFromMap(upperMap, upperRel);
+    (void)getRelationFromMap(upperMap, upperRel);
     py::dict bounds;
     py::dict bound;
     auto LB =
@@ -281,5 +284,41 @@ PYBIND11_MODULE(_nelli_mlir, m) {
     if (failed(mlir::loopUnrollByFactor(forOp, unrollFactor, annotateFn))) {
       throw py::value_error("unroll by factor failed");
     }
+  });
+
+  m.def("munge_calling_convention", [](const py::handle moduleOpApiObject) {
+    auto module = unwrapOpObject<mlir::ModuleOp>(moduleOpApiObject);
+    OpBuilder b(module.getBodyRegion());
+    std::map<std::string, std::vector<mlir::Type>>
+        invokedConsumeFuncReturnFuncs;
+    for (auto func : module.getOps<func::FuncOp>()) {
+      if (failed(nelli::mungeFunction(func, invokedConsumeFuncReturnFuncs)))
+        throw py::value_error("munging failed");
+    }
+
+    // Create FuncOp for consumeFuncReturnFuncs that are used.
+    for (auto &p : invokedConsumeFuncReturnFuncs) {
+      auto consumeFuncReturnFunc = b.create<func::FuncOp>(
+          module.getLoc(), p.first,
+          mlir::FunctionType::get(module.getContext(), p.second, {}));
+
+      consumeFuncReturnFunc.setPrivate();
+      nelli::addEmitCInterfaceAttr(consumeFuncReturnFunc);
+    }
+  });
+
+  m.def("tile", [](MlirContext &context, const py::handle funcOpApiObject,
+                   const std::string &filterName,
+                   const std::vector<int64_t> &tileSizes,
+                   const std::vector<int64_t> &interchange) {
+    auto funcOp = unwrapOpObject<mlir::func::FuncOp>(funcOpApiObject);
+    auto context_ = unwrap(context);
+    RewritePatternSet tilingPatterns(context_);
+    nelli::addPatternForTiling(context_, tilingPatterns, filterName, tileSizes,
+                               interchange);
+    GreedyRewriteConfig config{};
+    config.enableRegionSimplification = false;
+    if (failed(applyPatternsAndFoldGreedily(funcOp, std::move(tilingPatterns))))
+      throw py::value_error("tiling failed");
   });
 }

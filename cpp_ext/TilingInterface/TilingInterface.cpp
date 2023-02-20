@@ -9,19 +9,12 @@
 #include <optional>
 #include <utility>
 
-#include "mlir/Dialect/Affine/IR/AffineOps.h"
-#include "mlir/Dialect/Func/IR/FuncOps.h"
-#include "mlir/Dialect/Linalg/IR/Linalg.h"
-#include "mlir/Dialect/Linalg/Transforms/TilingInterfaceImpl.h"
-#include "mlir/Dialect/Linalg/Transforms/Transforms.h"
-#include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/SCF/Transforms/TileUsingInterface.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/Dialect/Tensor/IR/TensorTilingInterfaceImpl.h"
 #include "mlir/Interfaces/TilingInterface.h"
 #include "mlir/Pass/Pass.h"
-#include "mlir/Pass/PassManager.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "llvm/ADT/TypeSwitch.h"
 
@@ -139,8 +132,7 @@ void LinalgTransformationFilter::replaceLinalgTransformationFilter(
 /// Pattern for `TileUsingSCFForOp` pattern (that tiles operations using
 /// the `TilingInterface` with `scf.for` ops for iterating over the tiles) while
 /// using a `filter` to avoid recursive application.
-struct TileUsingSCFForOp
-    : public OpInterfaceRewritePattern<TilingInterface> {
+struct TileUsingSCFForOp : public OpInterfaceRewritePattern<TilingInterface> {
   TileUsingSCFForOp(
       MLIRContext *context, scf::SCFTilingOptions options,
       LinalgTransformationFilter filter = LinalgTransformationFilter(),
@@ -388,11 +380,11 @@ struct LowerToLoopsUsingSCFForOp
 
 } // namespace
 
-static void addPatternForTiling(MLIRContext *context,
+void nelli::addPatternForTiling(MLIRContext *context,
                                 RewritePatternSet &patterns,
                                 StringRef filterName,
                                 ArrayRef<int64_t> tileSizes,
-                                ArrayRef<int64_t> interchange = {}) {
+                                ArrayRef<int64_t> interchange) {
   scf::SCFTilingOptions tilingOptions;
   tilingOptions.setTileSizes(tileSizes).setInterchange(interchange);
   LinalgTransformationFilter filter(StringAttr::get(context, filterName),
@@ -400,11 +392,11 @@ static void addPatternForTiling(MLIRContext *context,
   patterns.add<TileUsingSCFForOp>(context, tilingOptions, filter);
 }
 
-static void addPatternForTileFuseAndYield(MLIRContext *context,
+void nelli::addPatternForTileFuseAndYield(MLIRContext *context,
                                           RewritePatternSet &patterns,
                                           StringRef filterName,
                                           ArrayRef<int64_t> tileSizes,
-                                          ArrayRef<int64_t> interchange = {}) {
+                                          ArrayRef<int64_t> interchange) {
   scf::SCFTilingOptions tilingOptions;
   tilingOptions.setTileSizes(tileSizes).setInterchange(interchange);
   LinalgTransformationFilter filter(StringAttr::get(context, filterName),
@@ -413,11 +405,11 @@ static void addPatternForTileFuseAndYield(MLIRContext *context,
       context, tilingOptions, filter);
 }
 
-static void addPatternForTileAndFuse(MLIRContext *context,
+void nelli::addPatternForTileAndFuse(MLIRContext *context,
                                      RewritePatternSet &patterns,
                                      StringRef filterName,
                                      ArrayRef<int64_t> tileSizes,
-                                     ArrayRef<int64_t> interchange = {}) {
+                                     ArrayRef<int64_t> interchange) {
   scf::SCFTileAndFuseOptions tileAndFuseOptions;
   tileAndFuseOptions.tilingOptions.setTileSizes(tileSizes).setInterchange(
       interchange);
@@ -426,77 +418,3 @@ static void addPatternForTileAndFuse(MLIRContext *context,
   patterns.add<TileConsumerAndFuseProducersGreedilyUsingSCFForOp>(
       context, tileAndFuseOptions, filter);
 }
-
-void mlir::nelli::TilingInterfacePass::addPatterns(
-    MLIRContext *context, RewritePatternSet &patterns) {
-  if (tiling) {
-    // 1. Tiling M and N dims of `linalg.matmul` on tensors.
-    addPatternForTiling(context, patterns, "simple_gemm", {10, 20});
-    // 2. Tiling M, N and K of `linalg.matmul` on buffers.
-    addPatternForTiling(context, patterns, "simple_gemm_memref", {10, 20, 30});
-    // 3. Tiling 3D parallel generic op which implements a transpose
-    addPatternForTiling(context, patterns, "parallel_generic_transpose",
-                        {10, 0, 20});
-    // 4. Tiling 2D conv op.
-    addPatternForTiling(context, patterns, "simple_conv",
-                        {0, 0, 0, 0, 10, 20, 30});
-    // 5. Tiling a simple op with `linalg.index` inside.
-    addPatternForTiling(context, patterns, "indexed_semantics", {10, 20});
-    // 6. Tiling + interchange of an operation
-    addPatternForTiling(context, patterns, "gemm_interchange", {10, 20, 30},
-                        {1, 2, 0});
-    // 7. Tiling for 2D pad tensor operations.
-    addPatternForTiling(context, patterns, "pad_2dtiling", {2, 3});
-    // 8. Tiling inner dimension of 2d pad tensor operations.
-    addPatternForTiling(context, patterns, "pad_inner_tiling", {0, 3});
-    // 9. Tiling inner dimension of 2d pad tensor operations.
-    addPatternForTiling(context, patterns, "pad_outer_tiling", {2, 3});
-
-    return;
-  }
-  if (tileConsumerAndFuseProducer) {
-    // 1. Tile and fuse of gemm with fill producer and bias-add consumer.
-    addPatternForTileAndFuse(context, patterns, "fusion", {10, 20});
-    // 2. Tile and fuse sequence of GEMMs, by fusing only along M.
-    addPatternForTileAndFuse(context, patterns, "gemm_fusion", {10});
-    // 3. Tile and fuse gemm with consumer + interchange of tiled loops.
-    addPatternForTileAndFuse(context, patterns, "gemm_interchange_fusion",
-                             {10, 20}, {1, 0});
-    // 4. Tile and fuse matmul + transpose(matmul). Will introduce redundant
-    // computations.
-    addPatternForTileAndFuse(context, patterns, "gemm_plus_gemm_fusion",
-                             {10, 20});
-    // 5. Tile and fuse a sequence of GEMMs by tiling and fusing only along M
-    // dimension.
-    addPatternForTileAndFuse(context, patterns, "gemm_sequence_fusion", {10});
-    // 6. Fusion of back-to-back-reduction ops
-    addPatternForTileAndFuse(context, patterns, "reduction_sequence_fusion",
-                             {10});
-    return;
-  }
-  if (tileConsumerFuseAndYieldProducer) {
-    // 1. Fusion of back-to-back-reduction ops
-    addPatternForTileFuseAndYield(context, patterns,
-                                  "gemm_sequence_fusion_and_yield", {10});
-    return;
-  }
-  if (loweringToScalar) {
-    patterns.add<LowerToLoopsUsingSCFForOp>(context);
-  }
-}
-
-void mlir::nelli::TilingInterfacePass::runOnOperation() {
-  MLIRContext *context = &getContext();
-
-  RewritePatternSet tilingPatterns(context);
-  addPatterns(context, tilingPatterns);
-  if (failed(applyPatternsAndFoldGreedily(getOperation(),
-                                          std::move(tilingPatterns))))
-    return signalPassFailure();
-}
-
-namespace mlir {
-namespace nelli {
-void registerTilingInterface() { PassRegistration<TilingInterfacePass>(); }
-} // namespace nelli
-} // namespace mlir

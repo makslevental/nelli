@@ -18,6 +18,7 @@ declare_mlir_python_extension(NelliPythonSources.Extension
         NelliExtension.cpp
         LoopUtils.cpp
         AffineAnalysis.cpp
+        RefBackend.cpp
 
         PRIVATE_LINK_LIBS
         LLVMSupport

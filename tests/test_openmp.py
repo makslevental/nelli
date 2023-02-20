@@ -24,7 +24,8 @@ from nelli.mlir.openmp.omp import (
     ws_loop as omp_range,
     endfor as omp_endfor,
 )
-from nelli.mlir.refbackend import LLVMJITBackend, LinalgLowering
+from nelli.mlir.refbackend import LLVMJITBackend
+from nelli.mlir.passes import Pipeline
 from nelli.utils import mlir_mod_ctx, shlib_ext
 from util import check_correct
 
@@ -186,7 +187,11 @@ class TestOMP:
                         idx = arith_dialect.IndexCastOp(Index, i)
                         mem[idx] = two
 
-        module = self.backend.compile(module, kernel_name="ws_loop")
+        module = self.backend.compile(
+            module,
+            kernel_name="ws_loop",
+            pipeline=Pipeline().bufferize().lower_to_llvm(),
+        )
         invoker = self.backend.load(module)
         A = np.zeros(12).astype(np.int32)
         c_int_p = ctypes.c_int32 * 1
@@ -227,10 +232,13 @@ class TestOMP:
         module = self.backend.compile(
             module,
             kernel_name="reduction3",
-            bufferize=True,
-            lower_loops=True,
-            lower_to_openmp=True,
-            lower_to_llvm=True,
+            pipeline=Pipeline()
+            .bufferize()
+            .func()
+            .convert_linalg_to_loops()
+            .cnuf()
+            .lower_to_openmp()
+            .lower_to_llvm(),
         )
         # print(module)
         lib_path = Path(_mlir_libs.__file__).parent / f"libomp.{shlib_ext()}"
@@ -275,10 +283,13 @@ class TestOMP:
         module = self.backend.compile(
             module,
             kernel_name="ws_loop",
-            bufferize=True,
-            lower_loops=True,
-            lower_to_openmp=True,
-            lower_to_llvm=True,
+            pipeline=Pipeline()
+            .bufferize()
+            .func()
+            .convert_linalg_to_loops()
+            .cnuf()
+            .lower_to_openmp()
+            .lower_to_llvm(),
         )
         input = np.zeros((2, 3, 10)).astype(np.float32)
         self.backend.load(module).ws_loop(input)
@@ -313,10 +324,12 @@ class TestOMP:
         module = self.backend.compile(
             module,
             kernel_name="conv2d",
-            lower_loops=True,
-            lower_to_openmp=True,
-            lower_to_llvm=False,
-            linalg_lowering=LinalgLowering.Parallel,
+            pipeline=Pipeline()
+            .bufferize()
+            .func()
+            .convert_linalg_to_parallel_loops()
+            .cnuf()
+            .lower_to_openmp(),
         )
         correct = dedent(
             """\
@@ -373,11 +386,13 @@ class TestOMP:
         module = self.backend.compile(
             module,
             kernel_name="conv2d",
-            bufferize=True,
-            lower_loops=True,
-            lower_to_openmp=True,
-            lower_to_llvm=True,
-            linalg_lowering=LinalgLowering.Parallel,
+            pipeline=Pipeline()
+            .bufferize()
+            .func()
+            .convert_linalg_to_parallel_loops()
+            .cnuf()
+            .lower_to_openmp()
+            .lower_to_llvm(),
         )
         invoker = self.backend.load(module)
         input = np.random.randint(low=0, high=10, size=(1, 1, h, w)).astype(np.float32)
@@ -386,6 +401,3 @@ class TestOMP:
         invoker.conv2d(input, kernel, output)
         correct = signal.correlate(input.squeeze(), kernel.squeeze(), mode="valid")
         assert np.allclose(output.squeeze(), correct)
-
-
-TestOMP().test_runtime()

@@ -1,36 +1,24 @@
 from typing import (
-    List,
     Union,
-    Optional,
-    Sequence,
     Tuple,
 )
 
-from .arith import ArithValue
+from .arith import constant
 from .utils import Annot
 
 # noinspection PyUnresolvedReferences
 from ..mlir._mlir._mlir_libs._nelli_mlir import TensorValue
-from ..mlir._mlir.dialects import tensor
-from ..mlir._mlir.dialects._ods_common import (
-    get_op_result_or_value,
-    get_op_results_or_values,
-)
+from ..mlir._mlir.dialects import tensor as tensor_dialect
 from ..mlir._mlir.ir import (
     Type,
-    Value,
-    F64Type,
-    Operation,
-    OpView,
     RankedTensorType,
-    UnrankedTensorType,
 )
 
 
 class TensorValue(TensorValue):
     @staticmethod
     def empty(dim_sizes: Union[list[int], tuple[int, ...]], el_type: Type):
-        return TensorValue(tensor.EmptyOp(dim_sizes, el_type).result)
+        return TensorValue(tensor_dialect.EmptyOp(dim_sizes, el_type).result)
 
     def __class_getitem__(
         cls, dim_sizes_el_type: Tuple[Union[list[int], tuple[int, ...]], Type]
@@ -55,3 +43,16 @@ class TensorValue(TensorValue):
     #         indices = tuple([indices])
     #     # store op has no result...
     #     self.most_recent_store = StoreOp(self, value, indices)
+
+
+def dim(tensor, dim):
+    dim = constant(dim, index=True)
+    return tensor_dialect.DimOp(tensor, dim).result
+
+
+def extract(tensor, dims: list):
+    for i, d in enumerate(dims):
+        if isinstance(d, int):
+            dims[i] = constant(d, index=True)
+
+    return tensor_dialect.ExtractOp(tensor, dims).result
