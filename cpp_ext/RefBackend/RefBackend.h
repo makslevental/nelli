@@ -11,10 +11,7 @@
 #include <vector>
 
 namespace nelli {
-mlir::LogicalResult mungeFunction(mlir::func::FuncOp func,
-                                  std::map<std::string, std::vector<mlir::Type>>
-                                      &invokedConsumeFuncReturnFuncs);
-void addEmitCInterfaceAttr(mlir::func::FuncOp func);
+void registerMungeCallingConventionPass();
 } // namespace nelli
 
 #endif // NELLI_REFBACKEND_H

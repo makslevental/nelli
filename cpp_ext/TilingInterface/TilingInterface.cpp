@@ -6,9 +6,11 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include <iostream>
 #include <optional>
 #include <utility>
 
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/SCF/Transforms/TileUsingInterface.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
@@ -380,41 +382,122 @@ struct LowerToLoopsUsingSCFForOp
 
 } // namespace
 
-void nelli::addPatternForTiling(MLIRContext *context,
-                                RewritePatternSet &patterns,
-                                StringRef filterName,
-                                ArrayRef<int64_t> tileSizes,
-                                ArrayRef<int64_t> interchange) {
+void addPatternForTiling(MLIRContext *context, RewritePatternSet &patterns,
+                         ArrayRef<int64_t> tileSizes,
+                         ArrayRef<int64_t> interchange,
+                         mlir::Pass::Option<std::string> &filterName) {
   scf::SCFTilingOptions tilingOptions;
   tilingOptions.setTileSizes(tileSizes).setInterchange(interchange);
-  LinalgTransformationFilter filter(StringAttr::get(context, filterName),
-                                    StringAttr::get(context, "tiled"));
-  patterns.add<TileUsingSCFForOp>(context, tilingOptions, filter);
+  if (!filterName.empty()) {
+    LinalgTransformationFilter filter(StringAttr::get(context, filterName),
+                                      StringAttr::get(context, "tiled"));
+    patterns.add<TileUsingSCFForOp>(context, tilingOptions, filter);
+  } else
+    patterns.add<TileUsingSCFForOp>(context, tilingOptions);
 }
 
-void nelli::addPatternForTileFuseAndYield(MLIRContext *context,
-                                          RewritePatternSet &patterns,
-                                          StringRef filterName,
-                                          ArrayRef<int64_t> tileSizes,
-                                          ArrayRef<int64_t> interchange) {
+void addPatternForTileFuseAndYield(
+    MLIRContext *context, RewritePatternSet &patterns,
+    ArrayRef<int64_t> tileSizes, ArrayRef<int64_t> interchange,
+    mlir::Pass::Option<std::string> &filterName) {
   scf::SCFTilingOptions tilingOptions;
   tilingOptions.setTileSizes(tileSizes).setInterchange(interchange);
-  LinalgTransformationFilter filter(StringAttr::get(context, filterName),
-                                    StringAttr::get(context, "tiled"));
-  patterns.add<TileConsumerFuseAndYieldProducerUsingSCFForOp>(
-      context, tilingOptions, filter);
+  if (!filterName.empty()) {
+    LinalgTransformationFilter filter(StringAttr::get(context, filterName),
+                                      StringAttr::get(context, "tiled"));
+    patterns.add<TileConsumerFuseAndYieldProducerUsingSCFForOp>(
+        context, tilingOptions, filter);
+  } else
+    patterns.add<TileConsumerFuseAndYieldProducerUsingSCFForOp>(context,
+                                                                tilingOptions);
 }
 
-void nelli::addPatternForTileAndFuse(MLIRContext *context,
-                                     RewritePatternSet &patterns,
-                                     StringRef filterName,
-                                     ArrayRef<int64_t> tileSizes,
-                                     ArrayRef<int64_t> interchange) {
+void addPatternForTileAndFuse(MLIRContext *context, RewritePatternSet &patterns,
+                              ArrayRef<int64_t> tileSizes,
+                              ArrayRef<int64_t> interchange,
+                              mlir::Pass::Option<std::string> &filterName) {
   scf::SCFTileAndFuseOptions tileAndFuseOptions;
   tileAndFuseOptions.tilingOptions.setTileSizes(tileSizes).setInterchange(
       interchange);
-  LinalgTransformationFilter filter(StringAttr::get(context, filterName),
-                                    StringAttr::get(context, "tiled"));
-  patterns.add<TileConsumerAndFuseProducersGreedilyUsingSCFForOp>(
-      context, tileAndFuseOptions, filter);
+  if (!filterName.empty()) {
+    LinalgTransformationFilter filter(StringAttr::get(context, filterName),
+                                      StringAttr::get(context, "tiled"));
+    patterns.add<TileConsumerAndFuseProducersGreedilyUsingSCFForOp>(
+        context, tileAndFuseOptions, filter);
+  } else
+    patterns.add<TileConsumerAndFuseProducersGreedilyUsingSCFForOp>(
+        context, tileAndFuseOptions);
 }
+
+struct TilingInterfacePass
+    : public PassWrapper<TilingInterfacePass, OperationPass<func::FuncOp>> {
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(TilingInterfacePass)
+
+  TilingInterfacePass() = default;
+  TilingInterfacePass(const TilingInterfacePass &pass) : PassWrapper(pass) {}
+  void getDependentDialects(DialectRegistry &registry) const override {
+    registry.insert<AffineDialect, linalg::LinalgDialect, memref::MemRefDialect,
+                    scf::SCFDialect, tensor::TensorDialect>();
+    linalg::registerTilingInterfaceExternalModels(registry);
+    tensor::registerTilingInterfaceExternalModels(registry);
+  }
+  [[nodiscard]] StringRef getArgument() const final {
+    return "tiling-interface";
+  }
+  [[nodiscard]] StringRef getDescription() const final {
+    return "Tile using TilingInterface";
+  }
+
+  Option<std::string> strategy{*this, "strategy",
+                               llvm::cl::desc("An example list option"),
+                               llvm::cl::Required};
+
+  Option<std::string> filterName{
+      *this,
+      "filter-name",
+      llvm::cl::desc("Kernel to apply to"),
+  };
+  ListOption<int64_t> tileSizes{*this, "tile-sizes",
+                                llvm::cl::desc("Factors to tile loops by"),
+                                llvm::cl::Required};
+
+  ListOption<int64_t> interchange{*this, "interchange",
+                                  llvm::cl::desc("Loops to interchange"),
+                                  llvm::cl::Required};
+
+  void runOnOperation() override {
+    MLIRContext *context = &getContext();
+    auto op = getOperation();
+    if (!strategy.hasValue()) {
+      op.emitError() << "missing strategy value";
+      return signalPassFailure();
+    }
+    if (!tileSizes.hasValue()) {
+      op.emitError() << "missing tile sizes";
+      return signalPassFailure();
+    }
+
+    RewritePatternSet tilingPatterns(context);
+    auto strategy_ = strategy.getValue();
+    if (strategy_ == "tile") {
+      addPatternForTiling(context, tilingPatterns, tileSizes, interchange,
+                          filterName);
+    } else if (strategy_ == "tile-consumer-fuse-and-yield-producer") {
+      addPatternForTileFuseAndYield(context, tilingPatterns, tileSizes,
+                                    interchange, filterName);
+    } else if (strategy_ == "tile-consumer-and-fuse-producer") {
+      addPatternForTileAndFuse(context, tilingPatterns, tileSizes, interchange,
+                               filterName);
+    } else {
+      op.emitError() << "unsupported strategy_ " << strategy_;
+      return signalPassFailure();
+    }
+
+    if (failed(applyPatternsAndFoldGreedily(op, std::move(tilingPatterns))))
+      return signalPassFailure();
+  }
+};
+
+namespace nelli {
+void registerTilingInterfacePass() { PassRegistration<TilingInterfacePass>(); }
+} // namespace nelli

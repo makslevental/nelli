@@ -16,21 +16,7 @@ using namespace mlir;
 
 namespace nelli {
 
-void registerTilingInterface();
-
-void addPatternForTiling(MLIRContext *context, RewritePatternSet &patterns,
-                         StringRef filterName, ArrayRef<int64_t> tileSizes,
-                         ArrayRef<int64_t> interchange = {});
-
-void addPatternForTileFuseAndYield(MLIRContext *context,
-                                   RewritePatternSet &patterns,
-                                   StringRef filterName,
-                                   ArrayRef<int64_t> tileSizes,
-                                   ArrayRef<int64_t> interchange = {});
-
-void addPatternForTileAndFuse(MLIRContext *context, RewritePatternSet &patterns,
-                              StringRef filterName, ArrayRef<int64_t> tileSizes,
-                              ArrayRef<int64_t> interchange = {});
+void registerTilingInterfacePass();
 
 } // namespace nelli
 

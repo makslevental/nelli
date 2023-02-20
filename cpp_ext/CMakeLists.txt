@@ -11,6 +11,8 @@ declare_mlir_python_sources(NelliPythonSources)
 #get_property(MLIR_D_LIBS GLOBAL PROPERTY MLIR_DIALECT_LIBS)
 #get_property(MLIR_C_LIBS GLOBAL PROPERTY MLIR_CONVERSION_LIBS)
 #get_property(MLIR_T_LIBS GLOBAL PROPERTY MLIR_TRANSLATION_LIBS)
+add_subdirectory(TilingInterface)
+add_subdirectory(RefBackend)
 declare_mlir_python_extension(NelliPythonSources.Extension
         MODULE_NAME _nelli_mlir
         ADD_TO_PARENT NelliPythonSources
@@ -18,7 +20,6 @@ declare_mlir_python_extension(NelliPythonSources.Extension
         NelliExtension.cpp
         LoopUtils.cpp
         AffineAnalysis.cpp
-        RefBackend.cpp
 
         PRIVATE_LINK_LIBS
         LLVMSupport
@@ -26,6 +27,7 @@ declare_mlir_python_extension(NelliPythonSources.Extension
         MLIRPresburger
         MLIRAffineAnalysis
         TilingInterfacePasses
+        RefBackend
         )
 
 #add_subdirectory(openmp_translation)
@@ -83,5 +85,3 @@ file(WRITE "${MLIR_INCLUDE_DIRS}/mlir/Bindings/Python/PybindAdaptors.h.bkup" "${
 string(REPLACE "template <typename T>
 struct type_caster<llvm::Optional<T>> : optional_caster<llvm::Optional<T>> {}" "// typecaster" output "${filedata}")
 file(WRITE "${MLIR_INCLUDE_DIRS}/mlir/Bindings/Python/PybindAdaptors.h" "${output}")
-
-add_subdirectory(TilingInterface)

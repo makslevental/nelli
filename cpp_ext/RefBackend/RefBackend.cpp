@@ -10,6 +10,10 @@
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/IR/Operation.h"
+#include "mlir/Pass/Pass.h"
+#include "mlir/Pass/PassManager.h"
+#include "mlir/Pass/PassRegistry.h"
+#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/Value.h"
 #include <numeric>
@@ -53,7 +57,7 @@ static std::string getTypeToken(mlir::Type type) {
       "Type token should handle all types: memref, float and int type");
 }
 
-void nelli::addEmitCInterfaceAttr(func::FuncOp func) {
+void addEmitCInterfaceAttr(func::FuncOp func) {
   func->setAttr("llvm.emit_c_interface", UnitAttr::get(func.getContext()));
 }
 
@@ -85,10 +89,9 @@ static void replaceReturnWithCall(mlir::OpBuilder b, mlir::func::ReturnOp op,
   toErase.push_back(op);
 }
 
-LogicalResult
-nelli::mungeFunction(func::FuncOp func,
-                     std::map<std::string, std::vector<mlir::Type>>
-                         &invokedConsumeFuncReturnFuncs) {
+LogicalResult mungeFunction(func::FuncOp func,
+                            std::map<std::string, std::vector<mlir::Type>>
+                                &invokedConsumeFuncReturnFuncs) {
   // Only need to call mungeFunction for functions callable from outside of the
   // module.
   if (func.isPrivate())
@@ -155,3 +158,47 @@ nelli::mungeFunction(func::FuncOp func,
     op->erase();
   return success();
 }
+
+namespace {
+struct MungeCallingConventionsPass
+    : public PassWrapper<MungeCallingConventionsPass,
+                         OperationPass<mlir::ModuleOp>> {
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(MungeCallingConventionsPass)
+
+  MungeCallingConventionsPass() = default;
+  MungeCallingConventionsPass(const MungeCallingConventionsPass &pass)
+      : PassWrapper(pass) {}
+  void getDependentDialects(DialectRegistry &registry) const override {
+    registry.insert<memref::MemRefDialect>();
+  }
+  [[nodiscard]] StringRef getArgument() const final {
+    return "refback-munge-calling-conventions";
+  }
+
+  void runOnOperation() override {
+    auto module = getOperation();
+    OpBuilder b(module.getBodyRegion());
+    std::map<std::string, std::vector<mlir::Type>>
+        invokedConsumeFuncReturnFuncs;
+    for (auto func : module.getOps<func::FuncOp>()) {
+      if (failed(mungeFunction(func, invokedConsumeFuncReturnFuncs)))
+        return signalPassFailure();
+    }
+
+    // Create FuncOp for consumeFuncReturnFuncs that are used.
+    for (auto &p : invokedConsumeFuncReturnFuncs) {
+      auto consumeFuncReturnFunc = b.create<func::FuncOp>(
+          module.getLoc(), p.first,
+          FunctionType::get(module.getContext(), p.second, {}));
+      consumeFuncReturnFunc.setPrivate();
+      addEmitCInterfaceAttr(consumeFuncReturnFunc);
+    }
+  }
+};
+} // namespace
+
+namespace nelli {
+void registerMungeCallingConventionPass() {
+  PassRegistration<MungeCallingConventionsPass>();
+}
+} // namespace nelli
