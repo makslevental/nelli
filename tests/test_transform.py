@@ -386,21 +386,21 @@ class TestTiling:
             .bufferize()
             .transform_dialect_interpreter()
             .transform_dialect_erase_schedule()
-            .func()
+            .FUNC()
             .convert_linalg_to_loops()
             .linalg_bufferize()
             .convert_scf_to_cf()
             .convert_linalg_to_loops()
             .linalg_bufferize()
-            .cnuf()
+            .CNUF()
             .arith_bufferize()
-            .func()
+            .FUNC()
             .tensor_bufferize()
-            .cnuf()
+            .CNUF()
             .func_bufferize()
-            .func()
+            .FUNC()
             .finalizing_bufferize()
-            .cnuf()
+            .CNUF()
             .refbackend_munge_calling_conventions()
             .convert_linalg_to_llvm()
             .expand_strided_metadata()
@@ -624,3 +624,97 @@ class TestTiling:
         """
         )
         check_correct(correct, module)
+
+    def test_contraction_matmul(self):
+        with mlir_mod_ctx() as module:
+            module = module.parse(
+                dedent(
+                    """\
+            func.func @contraction_matmul(%A: memref<10x10xf32>, %B: memref<10x10xf32>, %C: memref<10x10xf32>) {
+              linalg.matmul ins(%A, %B: memref<10x10xf32>, memref<10x10xf32>)
+                        outs(%C: memref<10x10xf32>)
+              return
+            }
+
+            transform.sequence failures(propagate) {
+            ^bb1(%arg1: !pdl.operation):
+              %0 = transform.structured.match ops{["linalg.matmul"]} in %arg1 : (!pdl.operation) -> !pdl.operation
+              %1 = get_closest_isolated_parent %0 : (!pdl.operation) -> !pdl.operation
+              %2 = transform.structured.vectorize %1  { disable_multi_reduction_to_contract_patterns }
+            } 
+            """
+                )
+            )
+        run_pipeline_with_repro_report(
+            module,
+            Pipeline()
+            .transform_dialect_interpreter()
+            .transform_dialect_erase_schedule()
+            .materialize(),
+        )
+
+        correct = dedent(
+            """\
+        module {
+          func.func @contraction_matmul(%arg0: memref<10x10xf32>, %arg1: memref<10x10xf32>, %arg2: memref<10x10xf32>) {
+            %c0 = arith.constant 0 : index
+            %cst = arith.constant 0.000000e+00 : f32
+            %0 = vector.transfer_read %arg0[%c0, %c0], %cst {in_bounds = [true, true]} : memref<10x10xf32>, vector<10x10xf32>
+            %1 = vector.broadcast %0 : vector<10x10xf32> to vector<10x10x10xf32>
+            %2 = vector.transpose %1, [1, 0, 2] : vector<10x10x10xf32> to vector<10x10x10xf32>
+            %3 = vector.transfer_read %arg1[%c0, %c0], %cst {in_bounds = [true, true]} : memref<10x10xf32>, vector<10x10xf32>
+            %4 = vector.broadcast %3 : vector<10x10xf32> to vector<10x10x10xf32>
+            %5 = vector.transpose %4, [0, 2, 1] : vector<10x10x10xf32> to vector<10x10x10xf32>
+            %6 = vector.transfer_read %arg2[%c0, %c0], %cst {in_bounds = [true, true]} : memref<10x10xf32>, vector<10x10xf32>
+            %7 = arith.mulf %2, %5 : vector<10x10x10xf32>
+            %8 = vector.multi_reduction <add>, %7, %6 [2] : vector<10x10x10xf32> to vector<10x10xf32>
+            vector.transfer_write %8, %arg2[%c0, %c0] {in_bounds = [true, true]} : vector<10x10xf32>, memref<10x10xf32>
+            return
+          }
+        }
+        """
+        )
+        check_correct(correct, module)
+
+    def test_contraction_matmul_runtime(self):
+        with mlir_mod_ctx() as module:
+            module = module.parse(
+                dedent(
+                    """\
+            func.func @contraction_matmul(%A: memref<10x10xf32>, %B: memref<10x10xf32>, %C: memref<10x10xf32>) {
+              linalg.matmul ins(%A, %B: memref<10x10xf32>, memref<10x10xf32>)
+                        outs(%C: memref<10x10xf32>)
+              return
+            }
+
+            transform.sequence failures(propagate) {
+            ^bb1(%arg1: !pdl.operation):
+              %0 = transform.structured.match ops{["linalg.matmul"]} in %arg1 : (!pdl.operation) -> !pdl.operation
+              %1 = get_closest_isolated_parent %0 : (!pdl.operation) -> !pdl.operation
+              %2 = transform.structured.vectorize %1
+            } 
+            """
+                )
+            )
+
+        module = self.backend.compile(
+            module,
+            kernel_name="contraction_matmul",
+            pipeline=Pipeline()
+            .transform_dialect_interpreter()
+            .transform_dialect_erase_schedule()
+            .bufferize()
+            .FUNC()
+            .convert_vector_to_scf(full_unroll=True)
+            .CNUF()
+            .convert_vector_to_llvm()
+            .finalize_memref_to_llvm()
+            .lower_to_llvm(),
+        )
+
+        invoker = self.backend.load(module)
+        A = np.random.randint(low=0, high=10, size=(10, 10)).astype(np.float32)
+        B = np.random.randint(low=0, high=4, size=(10, 10)).astype(np.float32)
+        C = np.zeros((10, 10)).astype(np.float32)
+        invoker.contraction_matmul(A, B, C)
+        assert np.allclose(A @ B, C)

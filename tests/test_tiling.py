@@ -48,13 +48,13 @@ class TestTiling:
             kernel_name="matmul",
             pipeline=Pipeline()
             .arith_bufferize()
-            .func()
+            .FUNC()
             .tensor_bufferize()
-            .cnuf()
+            .CNUF()
             .func_bufferize()
-            .func()
+            .FUNC()
             .finalizing_bufferize()
-            .cnuf()
+            .CNUF()
             .refbackend_munge_calling_conventions(),
         )
 
@@ -128,7 +128,7 @@ class TestTiling:
             module,
             kernel_name="matmul",
             pipeline=Pipeline()
-            .func()
+            .FUNC()
             .tiling_interface(
                 strategy="tile", tile_sizes=[10, 20], filter_name="simple_gemm"
             ),
@@ -187,7 +187,7 @@ class TestTiling:
             kernel_name="matmul",
             pipeline=Pipeline()
             .bufferize()
-            .func()
+            .FUNC()
             .tiling_interface(
                 strategy="tile", tile_sizes=[10, 20], filter_name="simple_gemm"
             )
@@ -196,15 +196,15 @@ class TestTiling:
             .convert_scf_to_cf()
             .convert_linalg_to_loops()
             .linalg_bufferize()
-            .cnuf()
+            .CNUF()
             .arith_bufferize()
-            .func()
+            .FUNC()
             .tensor_bufferize()
-            .cnuf()
+            .CNUF()
             .func_bufferize()
-            .func()
+            .FUNC()
             .finalizing_bufferize()
-            .cnuf()
+            .CNUF()
             .refbackend_munge_calling_conventions()
             .convert_linalg_to_llvm()
             .expand_strided_metadata()

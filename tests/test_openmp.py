@@ -234,9 +234,9 @@ class TestOMP:
             kernel_name="reduction3",
             pipeline=Pipeline()
             .bufferize()
-            .func()
+            .FUNC()
             .convert_linalg_to_loops()
-            .cnuf()
+            .CNUF()
             .lower_to_openmp()
             .lower_to_llvm(),
         )
@@ -283,9 +283,9 @@ class TestOMP:
             kernel_name="ws_loop",
             pipeline=Pipeline()
             .bufferize()
-            .func()
+            .FUNC()
             .convert_linalg_to_loops()
-            .cnuf()
+            .CNUF()
             .lower_to_openmp()
             .lower_to_llvm(),
         )
@@ -324,9 +324,9 @@ class TestOMP:
             kernel_name="conv2d",
             pipeline=Pipeline()
             .bufferize()
-            .func()
+            .FUNC()
             .convert_linalg_to_parallel_loops()
-            .cnuf()
+            .CNUF()
             .lower_to_openmp(),
         )
         correct = dedent(
@@ -386,9 +386,9 @@ class TestOMP:
             kernel_name="conv2d",
             pipeline=Pipeline()
             .bufferize()
-            .func()
+            .FUNC()
             .convert_linalg_to_parallel_loops()
-            .cnuf()
+            .CNUF()
             .lower_to_openmp()
             .lower_to_llvm(),
         )

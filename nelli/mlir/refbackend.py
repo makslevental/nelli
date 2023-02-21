@@ -11,7 +11,7 @@ from .passes import Pipeline
 logger = logging.getLogger(__name__)
 
 import ctypes
-from typing import Optional, Callable
+from typing import Optional, Callable, Union
 
 import numpy as np
 
@@ -152,7 +152,7 @@ class LLVMJITBackend:
     def compile(
         self,
         module: Module,
-        pipeline: Pipeline,
+        pipeline: Union[Pipeline, str],
         kernel_name="main",
         enable_ir_printing=False,
     ):
@@ -162,14 +162,23 @@ class LLVMJITBackend:
             except:
                 return False
 
-        if pipeline.lower_to_llvm_():
+        needs_cface = False
+        if isinstance(pipeline, Pipeline):
+            if pipeline.lower_to_llvm_():
+                needs_cface = True
+            pipeline_str = pipeline.materialize()
+        elif isinstance(pipeline, str):
+            needs_cface = "to-llvm" in pipeline
+            pipeline_str = pipeline
+
+        if needs_cface:
             kernel_func = find_ops(module, cb)
             assert len(kernel_func) == 1, f"kernel func {kernel_func} not found"
             kernel_func[0].attributes["llvm.emit_c_interface"] = UnitAttr.get()
 
         run_pipeline_with_repro_report(
             module,
-            pipeline=pipeline.materialize(),
+            pipeline=pipeline_str,
             description="Lowering IR",
             enable_ir_printing=enable_ir_printing,
         )

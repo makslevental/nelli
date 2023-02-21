@@ -27,6 +27,7 @@
 #include "RefBackend/RefBackend.h"
 #include "TilingInterface/TilingInterface.h"
 #include "Transform/TransformDialectInterpreter.h"
+#include "LinalgTransforms/LinalgTransforms.h"
 #include "utils.h"
 
 namespace py = pybind11;
@@ -291,4 +292,5 @@ PYBIND11_MODULE(_nelli_mlir, m) {
   nelli::registerMungeCallingConventionPass();
   nelli::registerTransformDialectInterpreterPass();
   nelli::registerTransformDialectEraseSchedulePass();
+  nelli::registerLinalgTransforms();
 }
