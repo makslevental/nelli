@@ -1,0 +1,316 @@
+affine-data-copy-generate:
+ - fast-mem-capacity=<ulong>
+ - fast-mem-space=<uint>
+ - generate-dma
+ - min-dma-transfer=<int>
+ - skip-non-unit-stride-loops
+ - slow-mem-space=<uint>
+ - tag-mem-space=<uint>
+affine-expand-index-ops:
+affine-loop-coalescing:
+affine-loop-fusion:
+ - fusion-compute-tolerance=<number>
+ - fusion-fast-mem-space=<uint>
+ - fusion-local-buf-threshold=<ulong>
+ - fusion-maximal
+ - mode=<value>:
+     - greedy
+     - producer
+     - sibling
+affine-loop-invariant-code-motion:
+affine-loop-normalize:
+ - promote-single-iter
+affine-loop-tile:
+ - cache-size=<ulong>
+ - separate
+ - tile-size=<uint>
+ - tile-sizes=<uint>
+affine-loop-unroll:
+ - cleanup-unroll
+ - unroll-factor=<uint>
+ - unroll-full
+ - unroll-full-threshold=<uint>
+ - unroll-num-reps=<uint>
+ - unroll-up-to-factor
+affine-loop-unroll-jam:
+ - unroll-jam-factor=<uint>
+affine-parallelize:
+ - max-nested=<uint>
+ - parallel-reductions
+affine-pipeline-data-transfer:
+affine-scalrep:
+affine-simplify-structures:
+affine-super-vectorize:
+ - test-fastest-varying=<long>
+ - vectorize-reductions
+ - virtual-vector-size=<long>
+arith-bufferize:
+ - alignment=<uint>
+arith-emulate-wide-int:
+ - widest-int-supported=<uint>
+arith-expand:
+arith-unsigned-when-equivalent:
+arm-neon-2d-to-intr:
+async-func-to-async-runtime:
+async-parallel-for:
+ - async-dispatch
+ - min-task-size=<int>
+ - num-workers=<int>
+async-runtime-policy-based-ref-counting:
+async-runtime-ref-counting:
+async-runtime-ref-counting-opt:
+async-to-async-runtime:
+buffer-deallocation:
+buffer-hoisting:
+buffer-loop-hoisting:
+buffer-results-to-out-params:
+bufferization-bufferize:
+canonicalize:
+ - disable-patterns=<string>
+ - enable-patterns=<string>
+ - max-iterations=<long>
+ - max-num-rewrites=<long>
+ - region-simplify
+ - test-convergence
+ - top-down
+control-flow-sink:
+convert-affine-for-to-gpu:
+ - gpu-block-dims=<uint>
+ - gpu-thread-dims=<uint>
+convert-amdgpu-to-rocdl:
+ - chipset=<string>
+convert-arith-to-llvm:
+ - index-bitwidth=<uint>
+convert-arith-to-spirv:
+ - emulate-lt-32-bit-scalar-types
+ - enable-fast-math
+convert-async-to-llvm:
+convert-bufferization-to-memref:
+convert-cf-to-llvm:
+ - index-bitwidth=<uint>
+convert-cf-to-spirv:
+ - emulate-lt-32-bit-scalar-types
+convert-complex-to-libm:
+convert-complex-to-llvm:
+convert-complex-to-standard:
+convert-elementwise-to-linalg:
+convert-func-to-llvm:
+ - data-layout=<string>
+ - index-bitwidth=<uint>
+ - use-bare-ptr-memref-call-conv
+convert-func-to-spirv:
+ - emulate-lt-32-bit-scalar-types
+convert-gpu-launch-to-vulkan-launch:
+convert-gpu-to-nvvm:
+ - has-redux
+ - index-bitwidth=<uint>
+convert-gpu-to-rocdl:
+ - chipset=<string>
+ - index-bitwidth=<uint>
+ - runtime=<value>:
+     - unknown
+     - HIP
+     - OpenCL
+ - use-bare-ptr-memref-call-conv
+convert-gpu-to-spirv:
+convert-index-to-llvm:
+ - index-bitwidth=<uint>
+convert-linalg-to-affine-loops:
+convert-linalg-to-llvm:
+convert-linalg-to-loops:
+convert-linalg-to-parallel-loops:
+convert-linalg-to-std:
+convert-math-to-funcs:
+ - min-width-of-fpowi-exponent=<uint>
+convert-math-to-libm:
+convert-math-to-llvm:
+convert-math-to-spirv:
+convert-memref-to-spirv:
+ - bool-num-bits=<int>
+convert-nvgpu-to-nvvm:
+convert-openacc-to-llvm:
+convert-openacc-to-scf:
+convert-openmp-to-llvm:
+convert-parallel-loops-to-gpu:
+convert-pdl-to-pdl-interp:
+convert-scf-to-cf:
+convert-scf-to-openmp:
+convert-scf-to-spirv:
+convert-shape-constraints:
+convert-shape-to-std:
+convert-spirv-to-llvm:
+convert-tensor-to-linalg:
+convert-tensor-to-spirv:
+ - emulate-lt-32-bit-scalar-types
+convert-vector-to-gpu:
+ - use-nvgpu
+convert-vector-to-llvm:
+ - enable-amx
+ - enable-arm-neon
+ - enable-arm-sve
+ - enable-x86vector
+ - force-32bit-vector-indices
+ - reassociate-fp-reductions
+convert-vector-to-scf:
+ - full-unroll
+ - lower-tensors
+ - target-rank=<uint>
+convert-vector-to-spirv:
+cse:
+decorate-spirv-composite-type-layout:
+drop-equivalent-buffer-results:
+eliminate-empty-tensors:
+empty-tensor-to-alloc-tensor:
+expand-strided-metadata:
+finalize-memref-to-llvm:
+ - index-bitwidth=<uint>
+ - use-aligned-alloc
+ - use-generic-functions
+finalizing-bufferize:
+fold-memref-alias-ops:
+func-bufferize:
+generate-runtime-verification:
+gpu-async-region:
+gpu-kernel-outlining:
+ - data-layout-str=<string>
+gpu-launch-sink-index-computations:
+gpu-lower-memory-space-attributes:
+ - global=<uint>
+ - private=<uint>
+ - workgroup=<uint>
+gpu-map-parallel-loops:
+gpu-to-llvm:
+ - gpu-binary-annotation=<string>
+ - use-bare-pointers-for-kernels
+inline:
+ - default-pipeline=<string>
+ - max-iterations=<uint>
+int-range-optimizations:
+launch-func-to-vulkan:
+linalg-bufferize:
+linalg-detensorize:
+ - aggressive-mode
+linalg-fold-unit-extent-dims:
+ - fold-one-trip-loops-only
+ - use-rank-reducing-slices
+linalg-fuse-elementwise-ops:
+linalg-generalize-named-ops:
+linalg-inline-scalar-operands:
+linalg-named-op-conversion:
+llvm-legalize-for-export:
+llvm-optimize-for-nvvm-target:
+llvm-request-c-wrappers:
+loop-invariant-code-motion:
+lower-affine:
+lower-host-to-llvm:
+lower-vector-mask:
+map-memref-spirv-storage-class:
+ - client-api=<string>
+memref-emulate-wide-int:
+ - widest-int-supported=<uint>
+memref-expand:
+normalize-memrefs:
+nvgpu-optimize-shared-memory:
+one-shot-bufferize:
+ - allow-return-allocs
+ - allow-unknown-ops
+ - analysis-fuzzer-seed=<uint>
+ - analysis-heuristic=<string>
+ - bufferize-function-boundaries
+ - copy-before-write
+ - create-deallocs
+ - dialect-filter=<string>
+ - function-boundary-type-conversion=<string>
+ - must-infer-memory-space
+ - no-analysis-func-filter=<string>
+ - print-conflicts
+ - test-analysis-only
+ - unknown-type-conversion=<string>
+outline-shape-computation:
+post-sparsification-rewrite:
+ - enable-convert
+ - enable-foreach
+ - enable-runtime-library
+pre-sparsification-rewrite:
+print-op-stats:
+ - json
+promote-buffers-to-stack:
+ - max-alloc-size-in-bytes=<uint>
+ - max-rank-of-allocated-memref=<uint>
+reconcile-unrealized-casts:
+remove-shape-constraints:
+resolve-ranked-shaped-type-result-dims:
+resolve-shaped-type-result-dims:
+sccp:
+scf-bufferize:
+scf-for-loop-canonicalization:
+scf-for-loop-peeling:
+ - skip-partial
+scf-for-loop-range-folding:
+scf-for-loop-specialization:
+scf-for-to-while:
+scf-parallel-loop-collapsing:
+ - collapsed-indices-0=<uint>
+ - collapsed-indices-1=<uint>
+ - collapsed-indices-2=<uint>
+scf-parallel-loop-fusion:
+scf-parallel-loop-specialization:
+scf-parallel-loop-tiling:
+ - no-min-max-bounds
+ - parallel-loop-tile-sizes=<long>
+shape-bufferize:
+shape-to-shape-lowering:
+snapshot-op-locations:
+ - filename=<string>
+ - tag=<string>
+sparse-buffer-rewrite:
+ - enable-buffer-initialization
+sparse-storage-specifier-to-llvm:
+sparse-tensor-codegen:
+ - enable-buffer-initialization
+sparse-tensor-conversion:
+ - s2s-strategy=<int>
+sparse-vectorization:
+ - enable-simd-index32
+ - enable-vla-vectorization
+ - vl=<int>
+sparsification:
+ - parallelization-strategy=<value>:
+     - none
+     - dense-outer-loop
+     - any-storage-outer-loop
+     - dense-any-loop
+     - any-storage-any-loop
+spirv-canonicalize-gl:
+spirv-lower-abi-attrs:
+spirv-rewrite-inserts:
+spirv-unify-aliased-resource:
+spirv-update-vce:
+spirv-webgpu-prepare:
+strip-debuginfo:
+symbol-dce:
+symbol-privatize:
+ - exclude=<string>
+tensor-bufferize:
+topological-sort:
+tosa-infer-shapes:
+tosa-layerwise-constant-fold:
+tosa-make-broadcastable:
+tosa-optional-decompositions:
+tosa-to-arith:
+ - include-apply-rescale
+ - use-32-bit
+tosa-to-linalg:
+tosa-to-linalg-named:
+tosa-to-scf:
+tosa-to-tensor:
+tosa-validate:
+ - profile=<string>
+transform-dialect-check-uses:
+vector-bufferize:
+view-op-graph:
+ - max-label-len=<uint>
+ - print-attrs
+ - print-control-flow-edges
+ - print-data-flow-edges
+ - print-result-types
