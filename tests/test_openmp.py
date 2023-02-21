@@ -241,9 +241,7 @@ class TestOMP:
             .lower_to_llvm(),
         )
         # print(module)
-        lib_path = Path(_mlir_libs.__file__).parent / f"libomp.{shlib_ext()}"
-        assert lib_path.exists()
-        execution_engine = ExecutionEngine(module, shared_libs=[str(lib_path)])
+        execution_engine = ExecutionEngine(module, shared_libs=[str(omp_lib_path)])
         c_int_p = ctypes.c_int64 * 1
         one = c_int_p(1)
         two = c_int_p(2)

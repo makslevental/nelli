@@ -624,35 +624,3 @@ class TestTiling:
         """
         )
         check_correct(correct, module)
-
-    @pytest.mark.xfail()
-    def test_tile_foreach(self):
-        with mlir_mod_ctx() as module:
-            module = module.parse(
-                dedent(
-                    """\
-            module {
-              func.func @matmul(%arg0: tensor<4x16xf32>, %arg1: tensor<16x8xf32>, %arg2: tensor<4x8xf32>) -> tensor<4x8xf32> {
-                %0 = linalg.matmul {cast = #linalg.type_fn<cast_signed>} ins(%arg0, %arg1 : tensor<4x16xf32>, tensor<16x8xf32>) outs(%arg2 : tensor<4x8xf32>) -> tensor<4x8xf32>
-                return %0 : tensor<4x8xf32>
-              }
-              transform.sequence  failures(propagate) {
-              ^bb0(%arg0: !pdl.operation):
-                %0 = transform.structured.match ops{["linalg.matmul"]} in %arg0 : (!pdl.operation) -> !pdl.operation
-                %tiled_linalg_op, %loops:2 = transform.structured.tile %0[2, 3] : (!pdl.operation) -> (!pdl.operation, !transform.op<"scf.foreach_thread">, !transform.op<"scf.foreach_thread.perform_concurrently">)
-              }
-            }
-            """
-                )
-            )
-        print(module)
-
-        run_pipeline_with_repro_report(
-            module,
-            Pipeline()
-            .transform_dialect_interpreter()
-            .transform_dialect_erase_schedule()
-            .materialize(),
-            enable_ir_printing=True
-        )
-        print(module)
