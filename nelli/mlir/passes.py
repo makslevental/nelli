@@ -14,12 +14,12 @@ class Pipeline:
         self._pipeline = pipeline
         self._wrapper = wrapper
 
-    def func(self):
+    def FUNC(self):
         assert self._wrapper is None
         self._wrapper = "func.func"
         return self
 
-    def cnuf(self):
+    def CNUF(self):
         assert self._wrapper == "func.func"
         self._wrapper = None
         return self
@@ -39,7 +39,11 @@ class Pipeline:
         return self
 
     def _add_pass(self, pass_name, **kwargs):
-        kwargs = {k.replace("_", "-"): v for k, v in kwargs.items() if v is not None}
+        kwargs = {
+            k.replace("_", "-"): int(v) if isinstance(v, bool) else v
+            for k, v in kwargs.items()
+            if v is not None
+        }
         if kwargs:
             args_str = " ".join(f"{k}={v}" for k, v in kwargs.items())
             pass_str = f"{pass_name}{{ {args_str} }}"
@@ -68,28 +72,28 @@ class Pipeline:
 
     def bufferize(self):
         return (
-            self.func()
+            self.FUNC()
             .scf_bufferize()
             .empty_tensor_to_alloc_tensor()
             .linalg_bufferize()
-            .cnuf()
+            .CNUF()
             .func_bufferize()
             .arith_bufferize()
-            .func()
+            .FUNC()
             .tensor_bufferize()
             .finalizing_bufferize()
             .buffer_deallocation()
-            .cnuf()
+            .CNUF()
         )
 
     def lower_to_llvm(self):
         return (
             self.cse()
-            .func()
+            .FUNC()
             .lower_affine()
             .arith_expand()
             .convert_math_to_llvm()
-            .cnuf()
+            .CNUF()
             .convert_math_to_libm()
             .convert_linalg_to_llvm()
             .finalize_memref_to_llvm()
@@ -97,9 +101,9 @@ class Pipeline:
             .convert_cf_to_llvm()
             .cse()
             .lower_affine()
-            .func()
+            .FUNC()
             .convert_arith_to_llvm()
-            .cnuf()
+            .CNUF()
             .convert_func_to_llvm()
             .canonicalize()
             .convert_openmp_to_llvm()
@@ -108,10 +112,17 @@ class Pipeline:
         )
 
     def lower_to_openmp(self):
-        return self.convert_scf_to_openmp().func().lower_affine().cnuf()
+        return self.convert_scf_to_openmp().FUNC().lower_affine().CNUF()
 
     def refbackend_munge_calling_conventions(self):
         self._add_pass("refback-munge-calling-conventions")
+        return self
+
+    def linalg_transform_patterns(self, linalg_to_vector_patterns=None):
+        self._add_pass(
+            "linalg-transform-patterns",
+            linalg_to_vector_patterns=linalg_to_vector_patterns,
+        )
         return self
 
     ############################

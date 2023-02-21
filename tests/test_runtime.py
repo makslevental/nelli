@@ -32,9 +32,9 @@ class TestRuntime:
             kernel_name="matmul",
             pipeline=Pipeline()
             .bufferize()
-            .func()
+            .FUNC()
             .convert_linalg_to_loops()
-            .cnuf()
+            .CNUF()
             .lower_to_llvm(),
         )
 

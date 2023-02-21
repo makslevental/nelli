@@ -14,6 +14,7 @@ declare_mlir_python_sources(NelliPythonSources)
 add_subdirectory(TilingInterface)
 add_subdirectory(RefBackend)
 add_subdirectory(Transform)
+add_subdirectory(LinalgTransforms)
 declare_mlir_python_extension(NelliPythonSources.Extension
         MODULE_NAME _nelli_mlir
         ADD_TO_PARENT NelliPythonSources
@@ -30,6 +31,7 @@ declare_mlir_python_extension(NelliPythonSources.Extension
         TilingInterfacePasses
         RefBackend
         TransformDialectInterpreter
+        LinalgTransforms
         )
 
 #add_subdirectory(openmp_translation)

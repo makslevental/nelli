@@ -66,7 +66,7 @@ class TestSCF:
             module,
             kernel_name="parallel_loop",
             pipeline=Pipeline()
-            .func()
+            .FUNC()
             .scf_parallel_loop_tiling(parallel_loop_tile_sizes=(1, 4)),
         )
         correct = dedent(
@@ -127,9 +127,9 @@ class TestSCF:
             module,
             kernel_name="parallel_loop",
             pipeline=Pipeline()
-            .func()
+            .FUNC()
             .scf_parallel_loop_tiling(parallel_loop_tile_sizes=(1, 4))
-            .cnuf()
+            .CNUF()
             .lower_to_openmp(),
         )
         correct = dedent(
@@ -209,9 +209,9 @@ class TestSCF:
             kernel_name="parallel_loop",
             pipeline=Pipeline()
             .bufferize()
-            .func()
+            .FUNC()
             .scf_parallel_loop_tiling(parallel_loop_tile_sizes=(1, 4))
-            .cnuf()
+            .CNUF()
             .lower_to_openmp()
             .lower_to_llvm(),
         )
@@ -246,10 +246,10 @@ class TestSCF:
             kernel_name="conv2d",
             pipeline=Pipeline()
             .bufferize()
-            .func()
+            .FUNC()
             .convert_linalg_to_parallel_loops()
             .scf_parallel_loop_tiling(parallel_loop_tile_sizes=(1, 4))
-            .cnuf()
+            .CNUF()
             .lower_to_openmp()
             .lower_to_llvm(),
         )
@@ -260,3 +260,49 @@ class TestSCF:
         invoker.conv2d(input, kernel, output)
         correct = signal.correlate(input.squeeze(), kernel.squeeze(), mode="valid")
         assert np.allclose(output.squeeze(), correct)
+
+    def test_super_vectorize(self):
+        with mlir_mod_ctx() as module:
+
+            @mlir_func
+            def matmul(
+                arg0: MemRef[(4, 16), F32],
+                arg1: MemRef[(16, 8), F32],
+                out: MemRef[(4, 8), F32],
+            ):
+                return linalg.matmul(arg0, arg1, outs=[out])
+
+        module = self.backend.compile(
+            module,
+            kernel_name="matmul",
+            pipeline=Pipeline()
+            .FUNC()
+            .convert_linalg_to_affine_loops()
+            .affine_super_vectorize(virtual_vector_size=8),
+        )
+        correct = dedent(
+            """\
+        #map = affine_map<(d0, d1) -> (0)>
+        module {
+          func.func @matmul(%arg0: memref<4x16xf32>, %arg1: memref<16x8xf32>, %arg2: memref<4x8xf32>) {
+            affine.for %arg3 = 0 to 4 {
+              affine.for %arg4 = 0 to 8 step 8 {
+                affine.for %arg5 = 0 to 16 {
+                  %cst = arith.constant 0.000000e+00 : f32
+                  %0 = vector.transfer_read %arg0[%arg3, %arg5], %cst {permutation_map = #map} : memref<4x16xf32>, vector<8xf32>
+                  %cst_0 = arith.constant 0.000000e+00 : f32
+                  %1 = vector.transfer_read %arg1[%arg5, %arg4], %cst_0 : memref<16x8xf32>, vector<8xf32>
+                  %cst_1 = arith.constant 0.000000e+00 : f32
+                  %2 = vector.transfer_read %arg2[%arg3, %arg4], %cst_1 : memref<4x8xf32>, vector<8xf32>
+                  %3 = arith.mulf %0, %1 : vector<8xf32>
+                  %4 = arith.addf %2, %3 : vector<8xf32>
+                  vector.transfer_write %4, %arg2[%arg3, %arg4] : vector<8xf32>, memref<4x8xf32>
+                }
+              }
+            }
+            return
+          }
+        }
+        """
+        )
+        check_correct(correct, module)

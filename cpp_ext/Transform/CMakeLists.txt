@@ -1,4 +1,4 @@
-include_directories(${PROJECT_BINARY_DIR}/cpp_ext/Transform)
+#include_directories(${PROJECT_BINARY_DIR}/cpp_ext/Transform)
 
 add_mlir_library(TransformDialectInterpreter
         TransformDialectInterpreter.cpp
