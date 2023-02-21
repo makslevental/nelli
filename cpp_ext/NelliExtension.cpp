@@ -24,6 +24,7 @@
 #include "AffineAnalysis.h"
 #include "LoopUtils.h"
 #include "Pybind.h"
+#include "RaiseToAffine/RaiseToAffine.h"
 #include "RefBackend/RefBackend.h"
 #include "TilingInterface/TilingInterface.h"
 #include "Transform/TransformDialectInterpreter.h"
@@ -292,5 +293,6 @@ PYBIND11_MODULE(_nelli_mlir, m) {
   nelli::registerMungeCallingConventionPass();
   nelli::registerTransformDialectInterpreterPass();
   nelli::registerTransformDialectEraseSchedulePass();
+  nelli::registerRaiseSCFToAffinePass();
   nelli::registerLinalgTransforms();
 }

@@ -118,6 +118,18 @@ class Pipeline:
         self._add_pass("refback-munge-calling-conventions")
         return self
 
+    def raise_scf_to_affine(
+        self, for_ops=True, parallel_ops=True, store_ops=True, load_ops=True
+    ):
+        self._add_pass(
+            "raise-scf-to-affine",
+            for_ops=int(for_ops),
+            parallel_ops=int(parallel_ops),
+            store_ops=int(store_ops),
+            load_ops=int(load_ops),
+        )
+        return self
+
     def linalg_transform_patterns(self, linalg_to_vector_patterns=None):
         self._add_pass(
             "linalg-transform-patterns",
