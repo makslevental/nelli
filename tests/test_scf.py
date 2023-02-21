@@ -227,6 +227,49 @@ class TestSCF:
         invoker.parallel_loop(zero, zero, ten, ten, one, one, B, C, output)
         assert np.allclose(B + C, output)
 
+    def test_raise_to_affine(self):
+        with mlir_mod_ctx() as module:
+
+            @mlir_func
+            def matmul(
+                arg0: MemRef[(4, 16), F32],
+                arg1: MemRef[(16, 8), F32],
+                out: MemRef[(4, 8), F32],
+            ):
+                return linalg.matmul(arg0, arg1, outs=[out])
+
+        module = self.backend.compile(
+            module,
+            kernel_name="matmul",
+            pipeline=Pipeline()
+            .bufferize()
+            .FUNC()
+            .convert_linalg_to_loops()
+            .raise_scf_to_affine(),
+        )
+        correct = dedent(
+            """\
+        module {
+          func.func @matmul(%arg0: memref<4x16xf32>, %arg1: memref<16x8xf32>, %arg2: memref<4x8xf32>) {
+            affine.for %arg3 = 0 to 4 {
+              affine.for %arg4 = 0 to 8 {
+                affine.for %arg5 = 0 to 16 {
+                  %0 = affine.load %arg0[%arg3, %arg5] : memref<4x16xf32>
+                  %1 = affine.load %arg1[symbol(%arg5), symbol(%arg4)] : memref<16x8xf32>
+                  %2 = affine.load %arg2[symbol(%arg3), symbol(%arg4)] : memref<4x8xf32>
+                  %3 = arith.mulf %0, %1 : f32
+                  %4 = arith.addf %2, %3 : f32
+                  affine.store %4, %arg2[symbol(%arg3), symbol(%arg4)] : memref<4x8xf32>
+                }
+              }
+            }
+            return
+          }
+        }
+        """
+        )
+        check_correct(correct, module)
+
     def test_linalg_running1(self):
         h = w = 12
         k = 3
