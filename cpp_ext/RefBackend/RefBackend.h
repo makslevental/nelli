@@ -12,6 +12,8 @@
 
 namespace nelli {
 void registerMungeCallingConventionPass();
+void registerMungeMemrefCopyPass();
+void registerGeneralizeTensorPadPass();
 } // namespace nelli
 
 #endif // NELLI_REFBACKEND_H

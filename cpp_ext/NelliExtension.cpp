@@ -22,13 +22,13 @@
 #include <pybind11/pybind11.h>
 
 #include "AffineAnalysis.h"
+#include "LinalgTransforms/LinalgTransforms.h"
 #include "LoopUtils.h"
 #include "Pybind.h"
 #include "RaiseToAffine/RaiseToAffine.h"
 #include "RefBackend/RefBackend.h"
 #include "TilingInterface/TilingInterface.h"
 #include "Transform/TransformDialectInterpreter.h"
-#include "LinalgTransforms/LinalgTransforms.h"
 #include "utils.h"
 
 namespace py = pybind11;
@@ -291,6 +291,8 @@ PYBIND11_MODULE(_nelli_mlir, m) {
 
   nelli::registerTilingInterfacePass();
   nelli::registerMungeCallingConventionPass();
+  nelli::registerMungeMemrefCopyPass();
+  nelli::registerGeneralizeTensorPadPass();
   nelli::registerTransformDialectInterpreterPass();
   nelli::registerTransformDialectEraseSchedulePass();
   nelli::registerRaiseSCFToAffinePass();

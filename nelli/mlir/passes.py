@@ -15,7 +15,9 @@ class Pipeline:
         self._wrapper = wrapper
 
     def FUNC(self):
-        assert self._wrapper is None
+        assert (
+            self._wrapper is None
+        ), f"you probably forgot to close a FUNC with a matching CNUF"
         self._wrapper = "func.func"
         return self
 
@@ -56,9 +58,16 @@ class Pipeline:
     def lower_to_llvm_(self):
         return any(["to-llvm" in p for p in self._pipeline])
 
-    def tiling_interface(self, strategy: str, tile_sizes: list[int], filter_name: str):
+    def tiling_interface(
+        self, strategy: str, tile_sizes: list[int] = None, filter_name: str = None
+    ):
+        if tile_sizes is not None:
+            tile_sizes = ",".join(map(str, tile_sizes))
         self._add_pass(
-            f"tiling-interface{{strategy={strategy} tile-sizes={','.join(map(str, tile_sizes))} filter-name={filter_name}}}"
+            f"tiling-interface",
+            strategy=strategy,
+            tile_sizes=tile_sizes,
+            filter_name=filter_name,
         )
         return self
 
@@ -96,6 +105,7 @@ class Pipeline:
             .CNUF()
             .convert_math_to_libm()
             .convert_linalg_to_llvm()
+            .expand_strided_metadata()
             .finalize_memref_to_llvm()
             .convert_scf_to_cf()
             .convert_cf_to_llvm()
@@ -115,7 +125,15 @@ class Pipeline:
         return self.convert_scf_to_openmp().FUNC().lower_affine().CNUF()
 
     def refbackend_munge_calling_conventions(self):
-        self._add_pass("refback-munge-calling-conventions")
+        self._add_pass("refbackend-munge-calling-conventions")
+        return self
+
+    def refbackend_munge_memref_copy(self):
+        self._add_pass("refbackend-munge-memref-copy")
+        return self
+
+    def refbackend_generalize_tensor_pad(self):
+        self._add_pass("refbackend-generalize-tensor-pad")
         return self
 
     def raise_scf_to_affine(
