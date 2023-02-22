@@ -7,16 +7,24 @@
 //
 
 #include "RefBackend.h"
+#include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/Linalg/IR/Linalg.h"
+#include "mlir/Dialect/Linalg/Transforms/Transforms.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
+#include "mlir/Dialect/Transform/IR/TransformUtils.h"
+#include "mlir/Dialect/Utils/StructuredOpsUtils.h"
 #include "mlir/IR/Operation.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Pass/PassRegistry.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "llvm/ADT/SmallVector.h"
-#include "llvm/IR/Value.h"
+#include "llvm/Support/Debug.h"
+#include <iostream>
 #include <numeric>
+
+#define DEBUG_TYPE "refbackend"
 
 using namespace llvm;
 using namespace mlir;
@@ -172,7 +180,7 @@ struct MungeCallingConventionsPass
     registry.insert<memref::MemRefDialect>();
   }
   [[nodiscard]] StringRef getArgument() const final {
-    return "refback-munge-calling-conventions";
+    return "refbackend-munge-calling-conventions";
   }
 
   void runOnOperation() override {
@@ -200,5 +208,158 @@ struct MungeCallingConventionsPass
 namespace nelli {
 void registerMungeCallingConventionPass() {
   PassRegistration<MungeCallingConventionsPass>();
+}
+} // namespace nelli
+
+Operation *createLinalgCopyOp(OpBuilder &b, Location loc, mlir::Value from,
+                              mlir::Value to) {
+  auto memrefTypeFrom = from.getType().cast<MemRefType>();
+  auto memrefTypeTo = to.getType().cast<MemRefType>();
+  (void)memrefTypeFrom;
+  assert(memrefTypeFrom && memrefTypeTo &&
+         memrefTypeFrom.getRank() == memrefTypeTo.getRank());
+  AffineMap id =
+      AffineMap::getMultiDimIdentityMap(memrefTypeTo.getRank(), b.getContext());
+  SmallVector<utils::IteratorType> iteratorTypes(memrefTypeTo.getRank(),
+                                                 utils::IteratorType::parallel);
+  return b.create<linalg::GenericOp>(
+      loc,
+      /*inputs=*/from,
+      /*outputs=*/to,
+      /*indexingMaps=*/llvm::ArrayRef({id, id}),
+      /*iteratorTypes=*/iteratorTypes,
+      [](OpBuilder &b, Location loc, ValueRange args) {
+        b.create<linalg::YieldOp>(loc, args.front());
+      });
+}
+
+namespace {
+class MemrefCopyOpToLinalg : public OpRewritePattern<memref::CopyOp> {
+  using OpRewritePattern<memref::CopyOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(memref::CopyOp copyOp,
+                                PatternRewriter &rewriter) const override {
+    Operation *linalgCopy = createLinalgCopyOp(
+        rewriter, copyOp.getLoc(), copyOp.getSource(), copyOp.getTarget());
+    rewriter.replaceOp(copyOp, linalgCopy->getResults());
+    return success();
+  }
+};
+
+// class MungeMemrefCopy : public MungeMemrefCopyBase<MungeMemrefCopy> {
+struct MungeMemrefCopy
+    : public PassWrapper<MungeMemrefCopy, OperationPass<func::FuncOp>> {
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(MungeMemrefCopy)
+
+  MungeMemrefCopy() = default;
+  MungeMemrefCopy(const MungeMemrefCopy &pass) : PassWrapper(pass) {}
+  void getDependentDialects(DialectRegistry &registry) const override {
+    registry.insert<memref::MemRefDialect>();
+  }
+  [[nodiscard]] StringRef getArgument() const final {
+    return "refbackend-munge-memref-copy";
+  }
+
+  void runOnOperation() override {
+    MLIRContext *context = &getContext();
+    RewritePatternSet patterns(&getContext());
+    patterns.insert<MemrefCopyOpToLinalg>(context);
+    if (failed(applyPatternsAndFoldGreedily(getOperation(),
+                                            std::move(patterns)))) {
+      return signalPassFailure();
+    }
+  }
+};
+} // namespace
+
+namespace nelli {
+void registerMungeMemrefCopyPass() { PassRegistration<MungeMemrefCopy>(); }
+} // namespace nelli
+
+namespace {
+
+class ReifyTensorPadShape : public OpRewritePattern<tensor::PadOp> {
+  using OpRewritePattern<tensor::PadOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(tensor::PadOp padOp,
+                                PatternRewriter &rewriter) const override {
+    auto inputType = padOp.getSource().getType();
+    auto resultType = padOp.getResultType();
+    SmallVector<int64_t> staticSizes;
+    for (const auto &it : llvm::enumerate(padOp.getLow())) {
+      auto dim = it.index();
+      if (inputType.isDynamicDim(dim))
+        continue;
+
+      auto inputSize = inputType.getDimSize(dim);
+      auto low = it.value();
+      auto high = padOp.getHigh()[dim];
+      auto ownerLow = dyn_cast<arith::ConstantIndexOp>(low.getDefiningOp());
+      auto ownerHigh = dyn_cast<arith::ConstantIndexOp>(high.getDefiningOp());
+      if (ownerLow && ownerHigh) {
+        auto staticLow = getAsOpFoldResult(low)
+                             .get<Attribute>()
+                             .cast<IntegerAttr>()
+                             .getInt();
+        auto staticHigh = getAsOpFoldResult(high)
+                              .get<Attribute>()
+                              .cast<IntegerAttr>()
+                              .getInt();
+        staticSizes.push_back(inputSize + staticLow + staticHigh);
+      }
+    }
+    if (staticSizes.empty()) {
+      assert(resultType.hasStaticShape());
+      LLVM_DEBUG(llvm::dbgs() << "resultType.hasStaticShape() "
+                              << resultType.hasStaticShape() << "\n");
+      return success();
+    }
+    auto reifiedResultType =
+        RankedTensorType::get(staticSizes, resultType.getElementType());
+    rewriter.replaceOpWithNewOp<tensor::PadOp>(
+        padOp, reifiedResultType, padOp.getSource(), padOp.getMixedLowPad(),
+        padOp.getMixedHighPad(), padOp.getConstantPaddingValue());
+    return success();
+  }
+};
+
+class GeneralizeTensorPad
+    : public PassWrapper<GeneralizeTensorPad, OperationPass<func::FuncOp>> {
+  void getDependentDialects(DialectRegistry &registry) const override {
+    registry.insert<linalg::LinalgDialect>();
+  }
+  [[nodiscard]] StringRef getArgument() const final {
+    return "refbackend-generalize-tensor-pad";
+  }
+
+  void runOnOperation() override {
+    MLIRContext *context = &getContext();
+    RewritePatternSet patterns(&getContext());
+    RewritePatternSet padOpPatterns(&getContext());
+    padOpPatterns.insert<ReifyTensorPadShape>(context);
+    /// Return success if the iterative process converged and no more patterns
+    /// can be matched in the result operation regions.
+    // TODO(max): this isn't the right way to do this? because
+    // it reruns over rewritten tensor pad ops
+    GreedyRewriteConfig config;
+    config.strictMode = GreedyRewriteStrictness::ExistingOps;
+    if (failed(applyPatternsAndFoldGreedily(
+            getOperation(), std::move(padOpPatterns), config))) {
+      LLVM_DEBUG(llvm::dbgs()
+                 << "generalize tensorpad failed (probably spuriously");
+    }
+
+    patterns.insert<linalg::GeneralizePadOpPattern>(context);
+    if (failed(applyPatternsAndFoldGreedily(getOperation(),
+                                            std::move(patterns)))) {
+      return signalPassFailure();
+    }
+  }
+};
+} // namespace
+
+namespace nelli {
+void registerGeneralizeTensorPadPass() {
+  PassRegistration<GeneralizeTensorPad>();
 }
 } // namespace nelli
