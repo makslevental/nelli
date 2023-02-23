@@ -1,7 +1,7 @@
 import builtins
 import contextlib
 import platform
-from typing import Callable
+from typing import Callable, Optional
 
 import sympy
 
@@ -74,8 +74,11 @@ def mlir_gc():
 
 
 @contextlib.contextmanager
-def mlir_mod_ctx():
-    module = Module.create()
+def mlir_mod_ctx(src: Optional[str] = None):
+    if src is not None:
+        module = Module.parse(src)
+    else:
+        module = Module.create()
     with InsertionPoint(module.body):
         yield module
 
