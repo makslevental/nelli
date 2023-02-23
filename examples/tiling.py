@@ -6,7 +6,7 @@ from nelli import DefaultContext, F32, F64, Index
 from nelli.mlir._mlir.execution_engine import ExecutionEngine
 from nelli.mlir._mlir.ir import _stringAttr
 from nelli.mlir._mlir.runtime import get_ranked_memref_descriptor
-from nelli.mlir.affine import AffineMemRefValue as MemRef
+from nelli.mlir.affine import RankedAffineMemRefValue as MemRef
 from nelli.mlir.arith import constant
 from nelli.mlir.func import mlir_func
 from nelli.mlir.refbackend import LLVMJITBackend

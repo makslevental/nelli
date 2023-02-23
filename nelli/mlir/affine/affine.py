@@ -21,6 +21,8 @@ from ...mlir._mlir.ir import (
     IntegerAttr,
     IntegerType,
     MemRefType,
+    UnrankedMemRefType,
+    Attribute,
     OpView,
     Operation,
     Value,
@@ -193,22 +195,9 @@ class Apply(affine.AffineApplyOp):
 class AffineMemRefValue(MemRefValue):
     most_recent_store: StoreOp = None
 
-    @staticmethod
-    def alloca(dim_sizes: Union[list[int], tuple[int, ...]], el_type: Type):
-        return AffineMemRefValue(AllocaOp(dim_sizes, el_type).memref)
-
-    def __class_getitem__(
-            cls, dim_sizes_el_type: Tuple[Union[list[int], tuple[int, ...]], Type]
-    ):
-        assert (
-                len(dim_sizes_el_type) == 2
-        ), f"wrong dim_sizes_el_type: {dim_sizes_el_type}"
-        dim_sizes, el_type = dim_sizes_el_type
-        assert all(
-            isinstance(t, int) for t in dim_sizes[:-1]
-        ), f"wrong type T args for tensor: {dim_sizes}"
-        assert isinstance(el_type, Type), f"wrong type T args for tensor: {el_type}"
-        return Annot(cls, MemRefType.get(dim_sizes, el_type))
+    @classmethod
+    def alloca(cls, dim_sizes: Union[list[int], tuple[int, ...]], el_type: Type):
+        return cls(AllocaOp(dim_sizes, el_type).memref)
 
     def __getitem__(self, item):
         if not isinstance(item, tuple):
@@ -220,3 +209,24 @@ class AffineMemRefValue(MemRefValue):
             indices = tuple([indices])
         # store op has no result...
         self.most_recent_store = StoreOp(self, value, indices)
+
+
+class RankedAffineMemRefValue(AffineMemRefValue):
+    def __class_getitem__(
+        cls, dim_sizes_el_type: Tuple[Union[list[int], tuple[int, ...]], Type]
+    ):
+        assert (
+            len(dim_sizes_el_type) == 2
+        ), f"wrong dim_sizes_el_type: {dim_sizes_el_type}"
+        dim_sizes, el_type = dim_sizes_el_type
+        assert all(
+            isinstance(t, int) for t in dim_sizes[:-1]
+        ), f"wrong type T args for tensor: {dim_sizes}"
+        assert isinstance(el_type, Type), f"wrong type T args for memref: {el_type}"
+        return Annot(cls, MemRefType.get(dim_sizes, el_type))
+
+
+class UnrankedAffineMemRefValue(MemRefValue):
+    def __class_getitem__(cls, el_type: Type):
+        assert isinstance(el_type, Type), f"wrong type T args for memref: {el_type}"
+        return Annot(cls, UnrankedMemRefType.get(el_type, Attribute.parse("0")))

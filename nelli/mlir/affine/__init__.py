@@ -4,5 +4,6 @@ from .affine import (
     endfor,
     LoadOp,
     StoreOp,
-    AffineMemRefValue,
+    RankedAffineMemRefValue,
+    UnrankedAffineMemRefValue,
 )
