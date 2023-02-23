@@ -30,7 +30,7 @@ from nelli import F32, F64, I32, Index
 from nelli.poly.sympy_ import d0, d1, d2, d3, d4, d5, s0, s1
 from nelli.mlir.arith import constant
 from nelli.mlir.func import mlir_func
-from nelli.mlir.affine import AffineMemRefValue as MemRef
+from nelli.mlir.affine import RankedAffineMemRefValue as MemRef
 from nelli.utils import find_ops, mlir_mod_ctx, mlir_gc, reset_disambig_names
 
 

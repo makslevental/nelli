@@ -6,7 +6,7 @@ from nelli.mlir.func import mlir_func
 from nelli.mlir.affine import (
     range as affine_range,
     endfor as affine_endfor,
-    AffineMemRefValue as MemRef,
+    RankedAffineMemRefValue as MemRef,
 )
 from nelli.mlir.scf import scf_if, scf_endif_branch, scf_endif
 from nelli.utils import mlir_mod_ctx

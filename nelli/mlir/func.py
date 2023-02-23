@@ -13,14 +13,20 @@ from .affine import endfor as affine_endfor, range as affine_range
 from .scf import scf_endif_branch, scf_if, scf_else, scf_endif
 from .arith import ArithValue
 from ..mlir._mlir.dialects import func as func_dialect
-from ..mlir._mlir.ir import Type as MLIRType, MemRefType, RankedTensorType
+from ..mlir._mlir.ir import (
+    Type as MLIRType,
+    MemRefType,
+    RankedTensorType,
+    FunctionType as MLIRFunctionType,
+    FlatSymbolRefAttr,
+)
 from .memref import MemRefValue
-from .affine import AffineMemRefValue
+from .affine import RankedAffineMemRefValue
 from .tensor import TensorValue
 from .utils import doublewrap, Annot
 
 
-def call(name, args=None):
+def ast_call(name, args=None):
     if args is None:
         args = []
     return ast.Call(
@@ -37,7 +43,7 @@ class InsertEndFors(ast.NodeTransformer):
     def visit_For(self, node):
         for i, b in enumerate(node.body):
             node.body[i] = self.visit(b)
-        node.body.append(ast.Expr(call(self.endfor.__name__)))
+        node.body.append(ast.Expr(ast_call(self.endfor.__name__)))
         return node
 
 
@@ -50,11 +56,11 @@ def wrap_if_test(test):
         isinstance(c, ast.Name) for c in test.comparators
     ), f"unexpected if test comparators: {test.comparators}"
     test = ast.Compare(
-        call(ArithValue.__name__, args=[test.left]),
+        ast_call(ArithValue.__name__, args=[test.left]),
         ops=test.ops,
-        comparators=[call(ArithValue.__name__, args=[c]) for c in test.comparators],
+        comparators=[ast_call(ArithValue.__name__, args=[c]) for c in test.comparators],
     )
-    return call(scf_if.__name__, args=[test])
+    return ast_call(scf_if.__name__, args=[test])
 
 
 class InsertEndIfs(ast.NodeTransformer):
@@ -66,15 +72,15 @@ class InsertEndIfs(ast.NodeTransformer):
 
         node.test = wrap_if_test(node.test)
         # every if branch needs a scf_endif_branch
-        node.body.append(ast.Expr(call(scf_endif_branch.__name__)))
+        node.body.append(ast.Expr(ast_call(scf_endif_branch.__name__)))
         # no else, then need to end the whole if in the body of the true branch
         if not node.orelse:
-            node.body.append(ast.Expr(call(scf_endif.__name__)))
+            node.body.append(ast.Expr(ast_call(scf_endif.__name__)))
         else:
             # otherwise end the if after the else branch
-            node.orelse.insert(0, ast.Expr(call(scf_else.__name__)))
-            node.orelse.append(ast.Expr(call(scf_endif_branch.__name__)))
-            node.orelse.append(ast.Expr(call(scf_endif.__name__)))
+            node.orelse.insert(0, ast.Expr(ast_call(scf_else.__name__)))
+            node.orelse.append(ast.Expr(ast_call(scf_endif_branch.__name__)))
+            node.orelse.append(ast.Expr(ast_call(scf_endif.__name__)))
 
         return node
 
@@ -195,7 +201,7 @@ def mlir_func(
         for i, (annot, arg) in enumerate(zip(annots, args)):
             logger.debug(f"{f.__name__} arg {i}: {arg}")
             if MemRefType.isinstance(arg.type) or RankedTensorType.isinstance(arg.type):
-                if annot.py_type in {AffineMemRefValue, MemRefValue, TensorValue}:
+                if annot.py_type in {RankedAffineMemRefValue, MemRefValue, TensorValue}:
                     args[i] = annot.py_type(arg)
                 else:
                     raise RuntimeError(f"unknown annotation: {annot.py_type}")
@@ -208,3 +214,39 @@ def mlir_func(
     return func_dialect.FuncOp.from_py_func(
         *[(an.mlir_type if isinstance(an, Annot) else an) for an in annots]
     )(args_wrapped_f)
+
+
+def call_func(symbol_name, call_args, return_types):
+    call_op = func_dialect.CallOp(
+        return_types, FlatSymbolRefAttr.get(symbol_name), call_args
+    )
+    if return_types is None:
+        return None
+    elif len(return_types) == 1:
+        return call_op.result
+    else:
+        return call_op.results
+
+
+def declare(symbol_name, inputs: list, results=None):
+    if results is None:
+        results = []
+    assert all(
+        isinstance(a, (MLIRType, Annot)) for a in inputs
+    ), f"wrong func args {inputs}"
+    assert all(
+        isinstance(a, (MLIRType, Annot)) for a in results
+    ), f"wrong func results {results}"
+
+    inputs = [a.mlir_type if isinstance(a, Annot) else a for a in inputs]
+    results = [a.mlir_type if isinstance(a, Annot) else a for a in results]
+
+    function_type = MLIRFunctionType.get(inputs=inputs, results=results)
+    sym_name = func_dialect.FuncOp(
+        name=symbol_name, type=function_type, visibility="private"
+    ).sym_name
+
+    def callable(*call_args):
+        return call_func(sym_name.value, call_args, results)
+
+    return callable
