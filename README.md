@@ -1,3 +1,11 @@
+- [Nelli](#nelli)
+- [Installing](#installing)
+- [Example](#example)
+- [Development](#development)
+    * [Generating MLIR Python bindings by hand](#generating-mlir-python-bindings-by-hand)
+    * [ARM Docker](#arm-docker)
+    * [Conda](#conda)
+
 # Nelli
 
 Loop analysis for the polyhedrally challenged.
