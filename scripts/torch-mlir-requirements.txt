@@ -1,0 +1,13 @@
+# Torch-MLIR
+-f https://llvm.github.io/torch-mlir/package-index/
+torch-mlir
+
+# TODO: This is copied from the torch-mlir requirements.txt
+# Because it requires installing a nightly build of PyTorch,
+# it cannot be installed as a normal dependency of the
+# torch-mlir Python package.
+-f https://download.pytorch.org/whl/nightly/cpu/torch_nightly.html
+--pre
+torch
+torchvision
+numpy
