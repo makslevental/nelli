@@ -22,6 +22,7 @@
 #include <pybind11/pybind11.h>
 
 #include "AffineAnalysis.h"
+#include "FakeQuantize/FakeQuantize.h"
 #include "LinalgTransforms/LinalgTransforms.h"
 #include "LoopUtils.h"
 #include "Pybind.h"
@@ -297,4 +298,5 @@ PYBIND11_MODULE(_nelli_mlir, m) {
   nelli::registerTransformDialectEraseSchedulePass();
   nelli::registerRaiseSCFToAffinePass();
   nelli::registerLinalgTransforms();
+  nelli::registerLinalgFakeQuantizePass();
 }

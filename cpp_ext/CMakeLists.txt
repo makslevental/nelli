@@ -16,6 +16,7 @@ add_subdirectory(RefBackend)
 add_subdirectory(Transform)
 add_subdirectory(RaiseToAffine)
 add_subdirectory(LinalgTransforms)
+add_subdirectory(FakeQuantize)
 declare_mlir_python_extension(NelliPythonSources.Extension
         MODULE_NAME _nelli_mlir
         ADD_TO_PARENT NelliPythonSources
@@ -36,6 +37,7 @@ declare_mlir_python_extension(NelliPythonSources.Extension
         TransformDialectInterpreter
         RaiseToAffine
         LinalgTransforms
+        FakeQuantize
         )
 
 #add_subdirectory(openmp_translation)

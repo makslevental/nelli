@@ -155,6 +155,10 @@ class Pipeline:
         )
         return self
 
+    def linalg_fake_quantize(self, bits=None):
+        self._add_pass("linalg-fake-quantize", bits=bits)
+        return self
+
     def sparse_compiler(
         self,
         parallelization_strategy=None,

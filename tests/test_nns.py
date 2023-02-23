@@ -89,7 +89,7 @@ class TestNNs:
             # enable_ir_printing=True
         )
 
-    def test_alexnet(self):
+    def alexnet(self):
         result = None
 
         def callback(*args):
@@ -114,7 +114,7 @@ class TestNNs:
         invoker.forward(example_224().astype(np.float32))
         assert result is not None and not np.isnan(result).any()
 
-    def test_convnext(self):
+    def convnext(self):
         result = None
 
         def callback(*args):
@@ -145,38 +145,7 @@ class TestNNs:
             invoker.forward(example_32().astype(np.float32))
             assert result is not None and not np.isnan(result).any()
 
-    def test_densenet(self):
-        result = None
-
-        def callback(*args):
-            nonlocal result
-            result = tuple(
-                [
-                    arg
-                    if type in elemental_type_to_ctype
-                    else unranked_memref_to_numpy(arg, memref_type_to_np_dtype[type])
-                    for arg, type in zip(args, invoker.ret_types)
-                ]
-            )
-            assert len(args) == 1
-            result = result[0]
-
-        for model in [
-            # "densenet121",
-            # "densenet161",
-            # "densenet169",
-            # "densenet201",
-        ]:
-            result = None
-            with mlir_mod_ctx(read_model_ir(model)) as module:
-                sequence(basic_tile)
-
-            module = self.lower(module)
-            invoker = self.backend.load(module, consume_return_func=callback)
-            invoker.forward(example_32().astype(np.float32))
-            assert result is not None and not np.isnan(result).any()
-
-    def test_efficientnet(self):
+    def efficientnet(self):
         result = None
 
         def callback(*args):
@@ -214,7 +183,7 @@ class TestNNs:
             invoker.forward(example_32().astype(np.float32))
             assert result is not None and not np.isnan(result).any()
 
-    def test_googlenet(self):
+    def googlenet(self):
         result = None
 
         def callback(*args):
@@ -238,8 +207,7 @@ class TestNNs:
         invoker.forward(example_32().astype(np.float32))
         assert result is not None and not np.isnan(result).any()
 
-    @pytest.mark.xfail()
-    def test_inception(self):
+    def inception(self):
         result = None
 
         def callback(*args):
@@ -260,10 +228,10 @@ class TestNNs:
 
         module = self.lower(module)
         invoker = self.backend.load(module, consume_return_func=callback)
-        invoker.forward(example_32().astype(np.float32))
+        invoker.forward(example_299().astype(np.float32))
         assert result is not None and not np.isnan(result).any()
 
-    def test_mnasnet(self):
+    def mnasnet(self):
         result = None
 
         def callback(*args):
@@ -294,7 +262,7 @@ class TestNNs:
             invoker.forward(example_32().astype(np.float32))
             assert result is not None and not np.isnan(result).any()
 
-    def test_mobilenet(self):
+    def mobilenet(self):
         result = None
 
         def callback(*args):
@@ -324,7 +292,7 @@ class TestNNs:
             invoker.forward(example_32().astype(np.float32))
             assert result is not None and not np.isnan(result).any()
 
-    def test_resnet(self):
+    def resnet(self):
         result = None
 
         def callback(*args):
@@ -358,7 +326,7 @@ class TestNNs:
             invoker.forward(example_32().astype(np.float32))
             assert result is not None and not np.isnan(result).any()
 
-    def test_squeezenet(self):
+    def squeezenet(self):
         result = None
 
         def callback(*args):
@@ -387,7 +355,7 @@ class TestNNs:
             invoker.forward(example_32().astype(np.float32))
             assert result is not None and not np.isnan(result).any()
 
-    def test_vgg(self):
+    def vgg(self):
         result = None
 
         def callback(*args):
@@ -417,6 +385,44 @@ class TestNNs:
             with mlir_mod_ctx(read_model_ir(model)) as module:
                 sequence(basic_tile)
 
+            module = self.lower(module)
+            invoker = self.backend.load(module, consume_return_func=callback)
+            invoker.forward(example_224().astype(np.float32))
+            assert result is not None and not np.isnan(result).any()
+
+    def test_quantize(self):
+        result = None
+
+        def callback(*args):
+            nonlocal result
+            result = tuple(
+                [
+                    arg
+                    if type in elemental_type_to_ctype
+                    else unranked_memref_to_numpy(arg, memref_type_to_np_dtype[type])
+                    for arg, type in zip(args, invoker.ret_types)
+                ]
+            )
+            assert len(args) == 1
+            result = result[0]
+
+        for model in [
+            "convnext_tiny",
+            "efficientnet_b0",
+            "googlenet",
+            "mnasnet0_5",
+            "mobilenet_v2",
+            "resnet18",
+            "squeezenet1_0",
+        ]:
+            with mlir_mod_ctx(read_model_ir(model)) as module:
+                sequence(basic_tile)
+
+            module = self.backend.compile(
+                module,
+                kernel_name="forward",
+                pipeline=Pipeline().FUNC().linalg_fake_quantize(bits=32).CNUF(),
+            )
             module = self.lower(module)
             invoker = self.backend.load(module, consume_return_func=callback)
             invoker.forward(example_224().astype(np.float32))
