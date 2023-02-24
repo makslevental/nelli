@@ -1,7 +1,6 @@
 from pathlib import Path
 
 import numpy as np
-import pytest
 
 from nelli.mlir._mlir import _mlir_libs
 from nelli.mlir._mlir.runtime import unranked_memref_to_numpy
@@ -31,7 +30,6 @@ assert omp_lib_path.exists()
 read_model_ir = lambda model_name: open(
     Path(__file__).parent / f"pytorch_nns/{model_name}.mlir"
 ).read()
-
 
 BATCH_SIZE = 1
 CHANNEL = 3

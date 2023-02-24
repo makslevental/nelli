@@ -1,13 +1,13 @@
 from textwrap import dedent
 
-from nelli import F32, F64, Index
-from nelli.mlir.arith import constant, ArithValue
-from nelli.mlir.func import mlir_func
+from nelli import F64, Index
 from nelli.mlir.affine import (
     range as affine_range,
     endfor as affine_endfor,
     RankedAffineMemRefValue as MemRef,
 )
+from nelli.mlir.arith import constant, ArithValue
+from nelli.mlir.func import mlir_func
 from nelli.mlir.scf import scf_if, scf_endif_branch, scf_endif
 from nelli.utils import mlir_mod_ctx
 from util import check_correct

@@ -42,8 +42,6 @@ class TestSympyConversion:
         # print(module)
 
     def test_mod_floordiv(self):
-        from nelli import ir
-
         expr = d0 % 2
         res = SymPyVisitor(symbol_factory=Int).visit(expr)
         assert res.sexpr() == "(mod d0 2)"

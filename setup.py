@@ -146,7 +146,7 @@ packages = find_namespace_packages(
     ],
 )
 
-VERSION = "0.0.4"
+VERSION = "0.0.5"
 
 if len(sys.argv) > 1 and sys.argv[1] == "--version":
     print(VERSION)

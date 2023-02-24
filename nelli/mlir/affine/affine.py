@@ -3,11 +3,10 @@ from typing import Optional, Union, Sequence, Tuple
 from . import _affine_ops_gen as affine
 from ._affine_ops_gen import _Dialect
 from ..arith import ArithValue, constant
+from ..memref import MemRefValue, AllocaOp
 from ..utils import Annot
-from ..memref import AllocaOp
 
 # noinspection PyUnresolvedReferences
-from ...mlir._mlir._mlir_libs._nelli_mlir import MemRefValue
 from ...mlir._mlir.dialects._ods_common import _cext
 from ...mlir._mlir.dialects._ods_common import (
     get_op_result_or_value,
@@ -192,41 +191,16 @@ class Apply(affine.AffineApplyOp):
         super().__init__(result, map, operands)
 
 
-class AffineMemRefValue(MemRefValue):
-    most_recent_store: StoreOp = None
-
-    @classmethod
-    def alloca(cls, dim_sizes: Union[list[int], tuple[int, ...]], el_type: Type):
-        return cls(AllocaOp(dim_sizes, el_type).memref)
-
-    def __getitem__(self, item):
-        if not isinstance(item, tuple):
-            item = tuple([item])
-        return ArithValue(LoadOp(self, item).result)
-
-    def __setitem__(self, indices, value):
-        if not isinstance(indices, tuple):
-            indices = tuple([indices])
-        # store op has no result...
-        self.most_recent_store = StoreOp(self, value, indices)
+class RankedAffineMemRefValue(MemRefValue):
+    alloc_op = AllocaOp
+    load_op = LoadOp
+    store_op = StoreOp
+    memref_type = MemRefType
 
 
-class RankedAffineMemRefValue(AffineMemRefValue):
-    def __class_getitem__(
-        cls, dim_sizes_el_type: Tuple[Union[list[int], tuple[int, ...]], Type]
-    ):
-        assert (
-            len(dim_sizes_el_type) == 2
-        ), f"wrong dim_sizes_el_type: {dim_sizes_el_type}"
-        dim_sizes, el_type = dim_sizes_el_type
-        assert all(
-            isinstance(t, int) for t in dim_sizes[:-1]
-        ), f"wrong type T args for tensor: {dim_sizes}"
-        assert isinstance(el_type, Type), f"wrong type T args for memref: {el_type}"
-        return Annot(cls, MemRefType.get(dim_sizes, el_type))
+class UnrankedAffineMemRefValue(RankedAffineMemRefValue):
+    memref_type = UnrankedMemRefType
 
-
-class UnrankedAffineMemRefValue(MemRefValue):
     def __class_getitem__(cls, el_type: Type):
         assert isinstance(el_type, Type), f"wrong type T args for memref: {el_type}"
-        return Annot(cls, UnrankedMemRefType.get(el_type, Attribute.parse("0")))
+        return Annot(cls, cls.memref_type.get(el_type, Attribute.parse("0")))

@@ -3,12 +3,12 @@ from textwrap import dedent
 
 import numpy as np
 
+from nelli import F32, F64, Index
 from nelli.mlir._mlir.execution_engine import ExecutionEngine
 from nelli.mlir._mlir.runtime import get_ranked_memref_descriptor
-from nelli import F32, F64, Index
+from nelli.mlir.affine import RankedAffineMemRefValue as MemRef
 from nelli.mlir.arith import constant
 from nelli.mlir.func import mlir_func
-from nelli.mlir.affine import RankedAffineMemRefValue as MemRef
 from nelli.mlir.refbackend import LLVMJITBackend, Pipeline
 from nelli.poly.affine import ForOp
 from nelli.utils import mlir_gc
