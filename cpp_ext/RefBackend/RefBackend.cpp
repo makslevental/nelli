@@ -310,15 +310,19 @@ class ReifyTensorPadShape : public OpRewritePattern<tensor::PadOp> {
     }
     if (staticSizes.empty()) {
       assert(resultType.hasStaticShape());
-      LLVM_DEBUG(llvm::dbgs() << "resultType.hasStaticShape() "
-                              << resultType.hasStaticShape() << "\n");
+      if (!padOp->hasAttr("refined")) {
+        LLVM_DEBUG(llvm::dbgs()
+                   << "couldn't find \"refined\" attr" << padOp << "\n");
+        return failure();
+      }
       return success();
     }
     auto reifiedResultType =
         RankedTensorType::get(staticSizes, resultType.getElementType());
-    rewriter.replaceOpWithNewOp<tensor::PadOp>(
+    auto newPadOp = rewriter.replaceOpWithNewOp<tensor::PadOp>(
         padOp, reifiedResultType, padOp.getSource(), padOp.getMixedLowPad(),
         padOp.getMixedHighPad(), padOp.getConstantPaddingValue());
+    newPadOp->setAttr("refined", UnitAttr::get(getContext()));
     return success();
   }
 };
@@ -345,13 +349,6 @@ class GeneralizeTensorPad
     config.strictMode = GreedyRewriteStrictness::ExistingOps;
     if (failed(applyPatternsAndFoldGreedily(
             getOperation(), std::move(padOpPatterns), config))) {
-      LLVM_DEBUG(llvm::dbgs()
-                 << "generalize tensorpad failed (probably spuriously");
-    }
-
-    patterns.insert<linalg::GeneralizePadOpPattern>(context);
-    if (failed(applyPatternsAndFoldGreedily(getOperation(),
-                                            std::move(patterns)))) {
       return signalPassFailure();
     }
   }

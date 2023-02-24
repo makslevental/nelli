@@ -127,14 +127,24 @@ class CMakeBuild(build_ext):
             "omp",
         ]:
             shlib_name = f"lib{shlib}.{shlib_ext}"
-            llvm_install_dir = Path(".").parent / "llvm_install"
+            llvm_install_dir = (Path(".").parent / "llvm_install").absolute()
             assert llvm_install_dir.exists()
-            llvm_install_fp = llvm_install_dir / "lib" / shlib_name
+            llvm_install_fp = (llvm_install_dir / "lib" / shlib_name).absolute()
             assert llvm_install_fp.exists()
             dst_path = mlir_libs_dir / shlib_name
             shutil.copyfile(llvm_install_fp, dst_path)
-            # shutil.copyfile(llvm_install_fp, f"{dst_path}.16")
-            # os.symlink(dst_path, f"{dst_path}.16", target_is_directory=False)
+            if platform.system() == "Linux":
+                shutil.copyfile(llvm_install_fp, f"{dst_path}.17git")
+                subprocess.run(
+                    ["patchelf", "--set-rpath", "$ORIGIN", dst_path],
+                    cwd=build_temp,
+                    check=True,
+                )
+                subprocess.run(
+                    ["patchelf", "--set-rpath", "$ORIGIN", f"{dst_path}.17git"],
+                    cwd=build_temp,
+                    check=True,
+                )
 
 
 PACKAGE_NAME = "nelli"
@@ -146,7 +156,7 @@ packages = find_namespace_packages(
     ],
 )
 
-VERSION = "0.0.4"
+VERSION = "0.0.5"
 
 if len(sys.argv) > 1 and sys.argv[1] == "--version":
     print(VERSION)

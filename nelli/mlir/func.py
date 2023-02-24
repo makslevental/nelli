@@ -10,7 +10,15 @@ from types import FunctionType, CodeType
 from bytecode import ConcreteBytecode, ConcreteInstr
 
 from .affine import endfor as affine_endfor, range as affine_range
-from .scf import scf_endif_branch, scf_if, scf_else, scf_endif
+from .scf import (
+    scf_endif_branch,
+    scf_if,
+    scf_else,
+    scf_endif,
+    range as scf_range,
+    endfor as scf_endfor,
+)
+from .openmp.omp import ws_loop as omp_range, endfor as omp_endfor
 from .arith import ArithValue
 from ..mlir._mlir.dialects import func as func_dialect
 from ..mlir._mlir.ir import (
@@ -19,11 +27,17 @@ from ..mlir._mlir.ir import (
     RankedTensorType,
     FunctionType as MLIRFunctionType,
     FlatSymbolRefAttr,
+    UnitAttr,
+)
+from ..mlir._mlir.dialects._ods_common import (
+    get_op_result_or_value,
+    get_op_results_or_values,
 )
 from .memref import MemRefValue
 from .affine import RankedAffineMemRefValue
 from .tensor import TensorValue
-from .utils import doublewrap, Annot
+from .utils import doublewrap
+from .annot import Annot
 
 
 def ast_call(name, args=None):
@@ -182,7 +196,7 @@ def mlir_func(
     rewrite_ast_=True,
     rewrite_bytecode_=True,
     range_ctor=affine_range,
-    endfor=affine_endfor,
+    emit_c_interface=False,
 ):
     sig = inspect.signature(f)
     annots = [p.annotation for p in sig.parameters.values()]
@@ -191,7 +205,14 @@ def mlir_func(
     ), f"wrong func args {annots}"
 
     if rewrite_ast_:
-        f = rewrite_ast(f, range_ctor=range_ctor, endfor=endfor)
+        if range_ctor == affine_range:
+            f = rewrite_ast(f, range_ctor=affine_range, endfor=affine_endfor)
+        elif range_ctor == scf_range:
+            f = rewrite_ast(f, range_ctor=scf_range, endfor=scf_endfor)
+        elif range_ctor == omp_range:
+            f = rewrite_ast(f, range_ctor=omp_range, endfor=omp_endfor)
+        else:
+            raise RuntimeError(f"unsupported {range_ctor=}")
 
     if rewrite_bytecode_:
         f = rewrite_bytecode(f)
@@ -207,6 +228,10 @@ def mlir_func(
                     raise RuntimeError(f"unknown annotation: {annot.py_type}")
             else:
                 args[i] = ArithValue(arg)
+
+        if emit_c_interface:
+            func_op.attributes["llvm.emit_c_interface"] = UnitAttr.get()
+
         return f(*args)
 
     args_wrapped_f.__name__ = f.__name__
@@ -228,25 +253,49 @@ def call_func(symbol_name, call_args, return_types):
         return call_op.results
 
 
-def declare(symbol_name, inputs: list, results=None):
-    if results is None:
-        results = []
+def declare(symbol_name, input_annots: list, result_annots=None):
+    if result_annots is None:
+        result_annots = []
     assert all(
-        isinstance(a, (MLIRType, Annot)) for a in inputs
-    ), f"wrong func args {inputs}"
+        isinstance(a, (MLIRType, Annot)) for a in input_annots
+    ), f"wrong func args {input_annots}"
     assert all(
-        isinstance(a, (MLIRType, Annot)) for a in results
-    ), f"wrong func results {results}"
+        isinstance(a, (MLIRType, Annot)) for a in result_annots
+    ), f"wrong func results {result_annots}"
 
-    inputs = [a.mlir_type if isinstance(a, Annot) else a for a in inputs]
-    results = [a.mlir_type if isinstance(a, Annot) else a for a in results]
+    input_annots = [a.mlir_type if isinstance(a, Annot) else a for a in input_annots]
+    result_mlir_types = [
+        a.mlir_type if isinstance(a, Annot) else a for a in result_annots
+    ]
 
-    function_type = MLIRFunctionType.get(inputs=inputs, results=results)
+    function_type = MLIRFunctionType.get(inputs=input_annots, results=result_mlir_types)
     sym_name = func_dialect.FuncOp(
         name=symbol_name, type=function_type, visibility="private"
     ).sym_name
 
     def callable(*call_args):
-        return call_func(sym_name.value, call_args, results)
+        res = call_func(sym_name.value, call_args, result_mlir_types)
+        if len(result_mlir_types) == 0:
+            return
+        elif len(result_mlir_types) == 1:
+            res_vals = [get_op_result_or_value(res)]
+        else:  # if len(result_mlir_types) > 1:
+            res_vals = get_op_results_or_values(res)
+
+        for i, (annot, res_val) in enumerate(zip(result_annots, res_vals)):
+            logger.debug(f"{sym_name} result {i}: {res_val}")
+            if MemRefType.isinstance(res_val.type) or RankedTensorType.isinstance(
+                res_val.type
+            ):
+                if annot.py_type in {RankedAffineMemRefValue, MemRefValue, TensorValue}:
+                    res_vals[i] = annot.py_type(res_val)
+                else:
+                    raise RuntimeError(f"unknown annotation: {annot.py_type}")
+            else:
+                res_vals[i] = ArithValue(res_val)
+
+        if len(res_vals) == 1:
+            res_vals = res_vals[0]
+        return res_vals
 
     return callable

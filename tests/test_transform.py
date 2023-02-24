@@ -1,7 +1,6 @@
 from textwrap import dedent
 
 import numpy as np
-import pytest
 
 from nelli import F32
 from nelli.mlir import arith
@@ -15,7 +14,7 @@ from nelli.mlir.refbackend import (
     elemental_type_to_ctype,
     memref_type_to_np_dtype,
 )
-from nelli.mlir.scf import range as scf_range, endfor as scf_endfor
+from nelli.mlir.scf import range as scf_range
 from nelli.mlir.tensor import TensorValue as Tensor, pad
 from nelli.mlir.transform import (
     loop_ext,
@@ -81,7 +80,7 @@ class TestTiling:
     def test_basic_unroll(self):
         with mlir_mod_ctx() as module:
 
-            @mlir_func(range_ctor=scf_range, endfor=scf_endfor)
+            @mlir_func(range_ctor=scf_range)
             def loop_unroll_op():
                 for i in range(0, 42, 5):
                     v = arith.add(i, i)

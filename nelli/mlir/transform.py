@@ -1,10 +1,11 @@
-import contextlib
 from typing import (
     Union,
     Optional,
 )
 
-from .arith import constant
+from nelli.mlir._mlir._mlir_libs._mlir.ir import ArrayAttr, StringAttr
+
+from nelli.mlir._mlir.dialects._ods_common import get_op_result_or_value
 from .utils import doublewrap, get_dense_int64_array_attr
 
 # noinspection PyUnresolvedReferences
@@ -32,6 +33,15 @@ def sequence(
     with InsertionPoint(sequence.body):
         f(sequence.bodyTarget, *sequence.bodyExtraArgs)
         transform_dialect.YieldOp()
+
+
+def match_name(target, name):
+    transform_operation_type = transform_dialect.OperationType.get(name)
+    return structured_ext.MatchOp(
+        transform_operation_type,
+        get_op_result_or_value(target),
+        ops=ArrayAttr.get(list(map(lambda s: StringAttr.get(s), [name]))),
+    ).result
 
 
 def match(target, names):
@@ -74,4 +84,35 @@ def tile_to_scf_foreach_thread(target, sizes: list[int]):
         num_threads=[],
         tile_sizes=[],
         static_tile_sizes=get_dense_int64_array_attr(sizes),
+    )
+
+
+def pack_greedily(
+    target, gemm_packed_sizes: list[int], gemm_inner_dims_order: list[int]
+):
+    return structured_ext.PackGreedilyOp(
+        transform_dialect.OperationType.get("linalg.generic"),
+        target,
+        [],
+        static_gemm_packed_sizes=get_dense_int64_array_attr(gemm_packed_sizes),
+        gemm_inner_dims_order=get_dense_int64_array_attr(gemm_inner_dims_order),
+    )
+
+
+def lower_pack(target):
+    return structured_ext.LowerPackOp(
+        transform_dialect.OperationType.get("tensor.pad"),
+        transform_dialect.OperationType.get("tensor.expand_shape"),
+        transform_dialect.OperationType.get("linalg.transpose"),
+        target,
+    )
+
+
+def lower_unpack(target):
+    return structured_ext.LowerUnPackOp(
+        transform_dialect.OperationType.get("tensor.empty"),
+        transform_dialect.OperationType.get("linalg.transpose"),
+        transform_dialect.OperationType.get("tensor.collapse_shape"),
+        transform_dialect.OperationType.get("tensor.extract_slice"),
+        target,
     )

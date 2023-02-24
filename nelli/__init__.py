@@ -24,6 +24,20 @@ DefaultContext.__enter__()
 DefaultContext.allow_unregistered_dialects = False
 
 
+@contextlib.contextmanager
+def allow_unregistered_dialects(context=DefaultContext):
+    context.allow_unregistered_dialects = True
+    yield
+    context.allow_unregistered_dialects = False
+
+
+@contextlib.contextmanager
+def enable_multithreading(context=DefaultContext):
+    context.enable_multithreading(True)
+    yield
+    context.enable_multithreading(False)
+
+
 @atexit.register
 def __exit_ctxt():
     DefaultContext.__exit__(None, None, None)

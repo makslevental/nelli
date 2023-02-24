@@ -12,8 +12,8 @@ from nelli.mlir.affine import (
     RankedAffineMemRefValue as MemRef,
 )
 from nelli.mlir.func import mlir_func, declare
-from nelli.mlir.refbackend import LLVMJITBackend
 from nelli.mlir.passes import Pipeline
+from nelli.mlir.refbackend import LLVMJITBackend
 from nelli.utils import mlir_mod_ctx, shlib_ext
 from util import check_correct
 
@@ -68,7 +68,6 @@ class TestRuntime:
     def test_func_declare_call(self, capfd):
 
         with mlir_mod_ctx() as module:
-
             print_memref_32 = declare("printMemrefF32", [UnrankedMemRef[F32]])
 
             @mlir_func

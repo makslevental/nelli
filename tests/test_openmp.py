@@ -22,7 +22,6 @@ from nelli.mlir.openmp.omp import (
     WsLoopOp,
     parallel,
     ws_loop as omp_range,
-    endfor as omp_endfor,
 )
 from nelli.mlir.refbackend import LLVMJITBackend
 from nelli.mlir.passes import Pipeline
@@ -140,7 +139,6 @@ class TestOMP:
                 rewrite_ast_=True,
                 rewrite_bytecode_=False,
                 range_ctor=omp_range,
-                endfor=omp_endfor,
             )
             def ws_loop(one: I32, ten: I32, two: I32, mem: MemRef[(12,), I32]):
                 with parallel(num_threads=12):
@@ -178,7 +176,6 @@ class TestOMP:
                 rewrite_ast_=True,
                 rewrite_bytecode_=False,
                 range_ctor=omp_range,
-                endfor=omp_endfor,
             )
             def ws_loop(one: I32, ten: I32, two: I32, mem: MemRef[(12,), I32]):
                 with parallel(num_threads=12):

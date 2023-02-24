@@ -1,26 +1,25 @@
 import ctypes
 import re
-import time
 from pathlib import Path
 from textwrap import dedent
 
 import numpy as np
 
-from nelli import F64, I64
 from nelli.mlir._mlir import _mlir_libs
-from nelli.mlir._mlir.ir import Module
 from nelli.mlir._mlir import runtime as rt
 from nelli.mlir._mlir.dialects.linalg.opdsl import lang as dsl
-from nelli.mlir._mlir.execution_engine import ExecutionEngine
-from nelli.mlir.benchmark import create_sparse_np_tensor, wrap
-from nelli.mlir.func import mlir_func, declare
-from nelli.mlir.memref import MemRefValue as MemRef
+from nelli.mlir._mlir.ir import Module
+from nelli.mlir.benchmark import create_sparse_np_tensor
 from nelli.mlir.passes import Pipeline
 from nelli.mlir.refbackend import LLVMJITBackend
-from nelli.mlir.scf import range as scf_range
-from nelli.mlir.tensor import TensorValue as Tensor
+from nelli.mlir.transform import (
+    sequence,
+    pack_greedily,
+    match_name,
+    lower_pack,
+    lower_unpack,
+)
 from nelli.utils import shlib_ext, mlir_mod_ctx
-from util import check_correct
 
 c_runner_utils_lib_path = (
     Path(_mlir_libs.__file__).parent / f"libmlir_c_runner_utils.{shlib_ext()}"
@@ -80,56 +79,9 @@ class TestBenchmark:
         engine_invoke("main", *compiled_program_args)
         return int(np_timers_ns[0])
 
-    def benchmark_np_matrix_multiplication(self, M, N, K):
-        argument1 = np.random.uniform(low=0.0, high=100.0, size=(M, N))
-        argument2 = np.random.uniform(low=0.0, high=100.0, size=(N, K))
-        start_time = time.time_ns()
-        np.matmul(argument1, argument2)
-        return time.time_ns() - start_time
-
-    def test_benchmark_sparse_mlir_multiplication(self):
-        M, N, K = 100, 150, 200
-        with mlir_mod_ctx() as module:
-            param1_type, param2_type, result_type = (
-                Tensor[[M, N], F64],
-                Tensor[[N, K], F64],
-                Tensor[[M, K], F64],
-            )
-
-            @mlir_func
-            def sparse_kernel(x: param1_type, y: param2_type, z: result_type):
-                return matmul_dsl(x, y, outs=[z])
-
-        module = wrap(module)
-
-        module = self.backend.compile(
-            module,
-            Pipeline().sparse_compiler(
-                parallelization_strategy="dense-outer-loop",
-                vl=16,
-                reassociate_fp_reductions=True,
-                enable_index_optimizations=True,
-            ),
-        )
-        engine = ExecutionEngine(
-            module,
-            3,
-            shared_libs=[str(c_runner_utils_lib_path), str(runner_utils_lib_path)],
-        )
-        for i in range(10):
-            time_sparse = self.runner(
-                engine.invoke,
-                param1_type.mlir_type,
-                param2_type.mlir_type,
-                result_type.mlir_type,
-            )
-            time_np = self.benchmark_np_matrix_multiplication(M, N, K)
-            print()
-            print(f"{time_sparse/1e9=}")
-            print(f"{time_np/1e9=}")
-
-    N_RUNS = 100
-    correct = dedent(
+    N_RUNS = 1000
+    M, N, K = 100, 150, 200
+    generic = dedent(
         f"""\
     #map = affine_map<(d0, d1, d2) -> (d1, d0)>
     #map1 = affine_map<(d0, d1, d2) -> (d0, d2)>
@@ -161,71 +113,90 @@ class TestBenchmark:
     }}
     """
     )
+    matmul = dedent(
+        f"""\
+    module {{
+      func.func private @_mlir_ciface_nanoTime() -> i64
+      func.func @matmul(%arg0: tensor<100x150xf64>, %arg1: tensor<150x200xf64>, %arg2: tensor<100x200xf64>) -> tensor<100x200xf64> {{
+        %0 = linalg.matmul {{cast = #linalg.type_fn<cast_signed>}} ins(%arg0, %arg1 : tensor<100x150xf64>, tensor<150x200xf64>) outs(%arg2 : tensor<100x200xf64>) -> tensor<100x200xf64>
+        return %0 : tensor<100x200xf64>
+      }}
+      func.func @timing_wrapper(%arg0: tensor<100x150xf64>, %arg1: tensor<150x200xf64>, %arg2: tensor<100x200xf64>, %arg3: memref<{N_RUNS}xi64>) attributes {{llvm.emit_c_interface}} {{
+        %c0 = arith.constant 0 : index
+        %c10 = arith.constant {N_RUNS} : index
+        %c1 = arith.constant 1 : index
+        scf.for %arg4 = %c0 to %c10 step %c1 {{
+          %0 = func.call @_mlir_ciface_nanoTime() : () -> i64
+          %1 = func.call @matmul(%arg0, %arg1, %arg2) : (tensor<100x150xf64>, tensor<150x200xf64>, tensor<100x200xf64>) -> tensor<100x200xf64>
+          %2 = func.call @_mlir_ciface_nanoTime() : () -> i64
+          %3 = arith.subi %2, %0 : i64
+          memref.store %3, %arg3[%arg4] : memref<{N_RUNS}xi64>
+        }}
+        return
+      }}
+    }}
+    """
+    )
 
-    M, N, K = 100, 150, 200
-
-    def test_sugar_benchmark(self):
-        N_RUNS = self.N_RUNS
-        param1_type, param2_type, result_type = (
-            Tensor[[self.M, self.N], F64],
-            Tensor[[self.N, self.K], F64],
-            Tensor[[self.M, self.K], F64],
-        )
-
-        with mlir_mod_ctx() as module:
-            timer = declare("_mlir_ciface_nanoTime", [], result_annots=[I64])
-
-            @mlir_func
-            def matmul(x: param1_type, y: param2_type, z: result_type):
-                return matmul_dsl(x, y, outs=[z])
-
-            @mlir_func(range_ctor=scf_range, emit_c_interface=True)
-            def timing_wrapper(
-                x: param1_type,
-                y: param2_type,
-                z: result_type,
-                times: MemRef[[N_RUNS], I64],
-            ):
-                for i in range(0, self.N_RUNS):
-                    start = timer()
-                    matmul(x, y, z)
-                    end = timer()
-                    times[i] = end - start
-
-        check_correct(self.correct, module)
-        module_str = str(module)
+    def test_baseline_generic(self):
         A = np.random.randint(low=0, high=10, size=(self.M, self.N)).astype(np.float32)
         B = np.random.randint(low=0, high=10, size=(self.N, self.K)).astype(np.float32)
 
         print()
         module = self.backend.compile(
-            Module.parse(module_str),
-            Pipeline().sparse_compiler(
-                parallelization_strategy="dense-outer-loop",
-                vl=8,
-                reassociate_fp_reductions=True,
-                enable_index_optimizations=True,
-            ),
+            Module.parse(self.generic),
+            Pipeline().sparse_compiler(),
         )
         invoker = self.backend.load(module, opt_level=3)
         C = np.zeros((self.M, self.K)).astype(np.float32)
-        times = np.zeros(N_RUNS).astype(np.int64)
+        times = np.zeros(self.N_RUNS).astype(np.int64)
         invoker.timing_wrapper(A, B, C, times)
         print("avg time", times.mean() / 1e9)
 
-    def test_no_parallel(self):
+    def test_baseline_matmul(self):
         A = np.random.randint(low=0, high=10, size=(self.M, self.N)).astype(np.float32)
         B = np.random.randint(low=0, high=10, size=(self.N, self.K)).astype(np.float32)
 
         print()
         module = self.backend.compile(
-            Module.parse(self.correct),
-            Pipeline().sparse_compiler(
-                # parallelization_strategy="dense-outer-loop",
-                # vl=8,
-                # reassociate_fp_reductions=True,
-                # enable_index_optimizations=True,
-            ),
+            Module.parse(self.matmul),
+            Pipeline().sparse_compiler(),
+        )
+        invoker = self.backend.load(module, opt_level=3)
+        C = np.zeros((self.M, self.K)).astype(np.float32)
+        times = np.zeros(self.N_RUNS).astype(np.int64)
+        invoker.timing_wrapper(A, B, C, times)
+        print("avg time", times.mean() / 1e9)
+
+    def test_packed_matmul(self):
+        A = np.random.randint(low=0, high=10, size=(self.M, self.N)).astype(np.float32)
+        B = np.random.randint(low=0, high=10, size=(self.N, self.K)).astype(np.float32)
+        with mlir_mod_ctx(self.matmul) as module:
+
+            @sequence
+            def basic(target, *extra_args):
+                m = match_name(target, "linalg.matmul")
+                packed = pack_greedily(
+                    m, gemm_packed_sizes=[8, 16, 32], gemm_inner_dims_order=[1, 2, 0]
+                )
+                m = match_name(target, "tensor.pack")
+                lowered = lower_pack(m)
+                m = match_name(target, "tensor.unpack")
+                lowered = lower_unpack(m)
+
+        module = self.backend.compile(
+            module,
+            Pipeline()
+            .transform_dialect_interpreter()
+            .FUNC()
+            .empty_tensor_to_alloc_tensor()
+            .tensor_bufferize()
+            .CNUF()
+            .transform_dialect_interpreter()
+            .transform_dialect_erase_schedule()
+            .bufferize()
+            .sparse_compiler(),
+            # enable_ir_printing=True
         )
         invoker = self.backend.load(module, opt_level=3)
         C = np.zeros((self.M, self.K)).astype(np.float32)

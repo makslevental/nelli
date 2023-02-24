@@ -4,7 +4,7 @@ from typing import (
 )
 
 from .arith import constant
-from .utils import Annot
+from .annot import Annot
 
 # noinspection PyUnresolvedReferences
 from ..mlir._mlir._mlir_libs._nelli_mlir import TensorValue

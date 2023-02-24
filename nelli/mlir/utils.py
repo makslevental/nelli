@@ -1,18 +1,21 @@
 import os
 import sys
 import tempfile
-from dataclasses import dataclass
+from contextlib import ExitStack
 from functools import wraps
 from io import StringIO
 from typing import Optional, Sequence
 
+from .. import (
+    enable_multithreading as enable_multithreading_mgr,
+    allow_unregistered_dialects as allow_unregistered_dialects_mgr,
+)
 from ..mlir._mlir.passmanager import PassManager
 from ..mlir._mlir.ir import (
     StringAttr,
-    Type as MLIRType,
     register_attribute_builder,
     DenseI64ArrayAttr,
-    Context
+    Context,
 )
 
 
@@ -37,23 +40,31 @@ def run_pipeline_with_repro_report(
     description: Optional[str] = None,
     enable_ir_printing=False,
     print_pipeline=False,
+    allow_unregistered_dialects=False,
 ):
     """Runs `pipeline` on `module`, with a nice repro report if it fails."""
     module_name = get_module_name_for_debug_dump(module)
     try:
         original_stderr = sys.stderr
         sys.stderr = StringIO()
-        asm_for_error_report = module.operation.get_asm(
-            large_elements_limit=10, enable_debug_info=True
-        )
         # Lower module in place to make it ready for compiler backends.
-        with module.context:
+        with ExitStack() as stack:
+            stack.enter_context(module.context)
             pm = PassManager.parse(pipeline)
             if print_pipeline:
                 print(pm)
             if enable_ir_printing:
+                stack.enter_context(enable_multithreading_mgr())
                 module.context.enable_multithreading(False)
                 pm.enable_ir_printing()
+            if allow_unregistered_dialects:
+                stack.enter_context(allow_unregistered_dialects_mgr(module.context))
+
+            asm_for_error_report = module.operation.get_asm(
+                large_elements_limit=10,
+                enable_debug_info=True,
+            )
+
             pm.run(module)
     except Exception as e:
         print(e, file=sys.stderr)
@@ -101,15 +112,12 @@ def doublewrap(f):
     return new_dec
 
 
-@dataclass
-class Annot:
-    py_type: type
-    mlir_type: MLIRType
-
-
 @register_attribute_builder("DenseI64ArrayAttr")
-def get_dense_int64_array_attr(values: Sequence[int], context: Optional[Context] = None) -> DenseI64ArrayAttr:
+def get_dense_int64_array_attr(
+    values: Sequence[int], context: Optional[Context] = None
+) -> DenseI64ArrayAttr:
     from .. import DefaultContext
+
     if context is None:
         context = DefaultContext
     if values is None:

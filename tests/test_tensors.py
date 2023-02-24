@@ -2,19 +2,22 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+import pytest
+
+
 from pathlib import Path
 from textwrap import dedent
 
 from nelli.mlir._mlir.dialects.linalg import BinaryFn, TypeFn
 from nelli.mlir._mlir.dialects import linalg
-from nelli import F32
+from nelli import F32, allow_unregistered_dialects
 from nelli.mlir.arith import constant
 from nelli.mlir.tensor import TensorValue as Tensor, pad
 from nelli.mlir.func import mlir_func
 from nelli.mlir.refbackend import LLVMJITBackend
 from nelli.utils import mlir_mod_ctx, shlib_ext
+from nelli.mlir.passes import Pipeline
 from util import check_correct
-
 from nelli.mlir._mlir import _mlir_libs
 
 omp_lib_path = Path(_mlir_libs.__file__).parent / f"libomp.{shlib_ext()}"
@@ -104,3 +107,106 @@ class TestTensor:
         """
         )
         check_correct(correct, module)
+
+    def test_allow_unregistered_dialect(self, capfd):
+        src = dedent(
+            """\
+        module {
+          func.func @pad_tensor_3_4(%arg0: tensor<4x16xf32>, %arg1: f32) {
+            %c0 = arith.constant 0 : index
+            %c1 = arith.constant 1 : index
+            %padded = tensor.pad %arg0 low[%c1, %c1] high[%c1, %c1] {
+            ^bb0(%arg2: index, %arg3: index):
+              tensor.yield %arg1 : f32
+            } : tensor<4x16xf32> to tensor<?x?xf32>
+            "test.use"(%padded) : (tensor<?x?xf32>) -> ()
+            return
+          }
+        } 
+        """
+        )
+        with pytest.raises(ValueError) as exc_info:
+            with mlir_mod_ctx(src) as module:
+                print(module)
+
+        assert (
+            exc_info.value.args[0]
+            == "Unable to parse module assembly (see diagnostics)"
+        )
+        out, err = capfd.readouterr()
+        assert (
+            err.strip()
+            == 'loc("-":9:15): error: operation being parsed with an unregistered dialect. If this is intended, please use -allow-unregistered-dialect with the MLIR tool used'
+        )
+        with allow_unregistered_dialects(), mlir_mod_ctx(src) as module:
+            print(module)
+
+    def test_refine_unrefined_pad(self):
+        src = dedent(
+            """\
+        module {
+          func.func @pad_tensor_3_4(%arg0: tensor<4x16xf32>, %arg1: f32) {
+            %c0 = arith.constant 0 : index
+            %c1 = arith.constant 1 : index
+            %padded = tensor.pad %arg0 low[%c1, %c1] high[%c1, %c1] {
+            ^bb0(%arg2: index, %arg3: index):
+              tensor.yield %arg1 : f32
+            } : tensor<4x16xf32> to tensor<?x?xf32>
+            "test.use"(%padded) : (tensor<?x?xf32>) -> ()
+            return
+          }
+        } 
+        """
+        )
+        with allow_unregistered_dialects(), mlir_mod_ctx(src) as module:
+            pass
+
+        module = self.backend.compile(
+            module,
+            Pipeline().FUNC().refbackend_generalize_tensor_pad().CNUF(),
+            allow_unregistered_dialects=True,
+        )
+        correct = dedent(
+            """\
+        module {
+          func.func @pad_tensor_3_4(%arg0: tensor<4x16xf32>, %arg1: f32) {
+            %c1 = arith.constant 1 : index
+            %padded = tensor.pad %arg0 low[%c1, %c1] high[%c1, %c1] {
+            ^bb0(%arg2: index, %arg3: index):
+              tensor.yield %arg1 : f32
+            } {refined} : tensor<4x16xf32> to tensor<6x18xf32>
+            "test.use"(%padded) : (tensor<6x18xf32>) -> ()
+            return
+          }
+        }
+        """
+        )
+        with allow_unregistered_dialects():
+            check_correct(correct, module)
+
+        module = self.backend.compile(
+            module,
+            Pipeline()
+            .FUNC()
+            .linalg_transform_patterns(generalize_pad_tensor=True)
+            .CNUF(),
+            allow_unregistered_dialects=True,
+        )
+
+        correct = dedent(
+            """\
+        module {
+          func.func @pad_tensor_3_4(%arg0: tensor<4x16xf32>, %arg1: f32) {
+            %c1 = arith.constant 1 : index
+            %0 = tensor.empty() : tensor<6x18xf32>
+            %1 = linalg.fill ins(%arg1 : f32) outs(%0 : tensor<6x18xf32>) -> tensor<6x18xf32>
+            %inserted_slice = tensor.insert_slice %arg0 into %1[%c1, %c1] [4, 16] [1, 1] : tensor<4x16xf32> into tensor<6x18xf32>
+            "test.use"(%inserted_slice) : (tensor<6x18xf32>) -> ()
+            return
+          }
+        }
+        """
+        )
+
+        with allow_unregistered_dialects():
+            check_correct(correct, module)

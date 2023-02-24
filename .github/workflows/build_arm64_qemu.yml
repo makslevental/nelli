@@ -25,13 +25,16 @@ jobs:
         with:
           path: |
             ~/.ccache
-          key: build_${{ matrix.base_image }}
+          key: build_v1_${{ matrix.base_image }}
 
       - uses: actions/checkout@v3
       - uses: uraimo/run-on-arch-action@v2.5.0
         name: Run commands
         id: runcmd
+#       ghcr.io/<github_user>/<github_repo>/run-on-arch-<github_user>-<github_repo>-<workflow_name>-<arch>-<distro>
         with:
+          env: |
+            GITHUB_WORKFLOW: ${{ matrix.base_image }}
           arch: aarch64
           distro: none
           base_image: ${{ matrix.base_image }}
@@ -52,10 +55,12 @@ jobs:
             echo 'export PATH="/usr/lib/ccache:$PATH"' | tee -a ~/.bashrc
             pip install cmake auditwheel patchelf wheel
             echo 'CMAKE_BUILD_PARALLEL_LEVEL=$(nproc)' | tee -a ~/.bashrc
+            mkdir /wheelhouse
+            pip wheel z3-solver==4.12.1.0 -w /wheelhouse -v
 
           run: |
             cd /repo
-            pip wheel z3-solver==4.12.1.0 -w wheelhouse -v
+            cp -R /wheelhouse .
             z3wheel=$(ls wheelhouse | head -1)
             auditwheel repair --plat manylinux_2_35_aarch64 wheelhouse/$z3wheel
             

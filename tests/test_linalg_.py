@@ -2,7 +2,6 @@ from pathlib import Path
 from textwrap import dedent
 
 import numpy as np
-from scipy import signal
 
 from nelli import F32
 from nelli.mlir._mlir import _mlir_libs

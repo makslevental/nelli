@@ -148,10 +148,43 @@ class Pipeline:
         )
         return self
 
-    def linalg_transform_patterns(self, linalg_to_vector_patterns=None):
+    def linalg_transform_patterns(
+        self,
+        bubble_up_extract_slice_op_pattern=None,
+        erase_unnecessary_inputs=None,
+        erase_unused_operands_and_results=None,
+        generalize_pad_tensor=None,
+        generalize_tensor_pack=None,
+        generalize_tensor_unpack=None,
+        linalg_to_vector_patterns=None,
+        loop_type=None,
+        patterns=None,
+        peeled_loops=None,
+        skip_partial=None,
+        swap_extract_slice_with_fill_pattern=None,
+        swap_subtensor_padtensor=None,
+        tile_sizes=None,
+        transform_pad_tensor=None,
+        vector_transfer_forwarding_patterns=None,
+    ):
         self._add_pass(
             "linalg-transform-patterns",
+            bubble_up_extract_slice_op_pattern=bubble_up_extract_slice_op_pattern,
+            erase_unnecessary_inputs=erase_unnecessary_inputs,
+            erase_unused_operands_and_results=erase_unused_operands_and_results,
+            generalize_pad_tensor=generalize_pad_tensor,
+            generalize_tensor_pack=generalize_tensor_pack,
+            generalize_tensor_unpack=generalize_tensor_unpack,
             linalg_to_vector_patterns=linalg_to_vector_patterns,
+            loop_type=loop_type,
+            patterns=patterns,
+            peeled_loops=peeled_loops,
+            skip_partial=skip_partial,
+            swap_extract_slice_with_fill_pattern=swap_extract_slice_with_fill_pattern,
+            swap_subtensor_padtensor=swap_subtensor_padtensor,
+            tile_sizes=tile_sizes,
+            transform_pad_tensor=transform_pad_tensor,
+            vector_transfer_forwarding_patterns=vector_transfer_forwarding_patterns,
         )
         return self
 

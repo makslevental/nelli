@@ -1,16 +1,23 @@
+import logging
+
+logger = logging.getLogger(__name__)
 from pathlib import Path
 
 import numpy as np
-import pytest
 
+from nelli import I64, F32
 from nelli.mlir._mlir import _mlir_libs
 from nelli.mlir._mlir.runtime import unranked_memref_to_numpy
+from nelli.mlir.func import declare, mlir_func, call_func
+from nelli.mlir.memref import MemRefValue as MemRef
 from nelli.mlir.passes import Pipeline
 from nelli.mlir.refbackend import (
     LLVMJITBackend,
     elemental_type_to_ctype,
     memref_type_to_np_dtype,
 )
+from nelli.mlir.scf import range as scf_range
+from nelli.mlir.tensor import TensorValue as Tensor
 from nelli.mlir.transform import sequence, match, tile_linalg_to_scf_for
 from nelli.utils import mlir_mod_ctx, shlib_ext
 
@@ -31,7 +38,6 @@ assert omp_lib_path.exists()
 read_model_ir = lambda model_name: open(
     Path(__file__).parent / f"pytorch_nns/{model_name}.mlir"
 ).read()
-
 
 BATCH_SIZE = 1
 CHANNEL = 3
@@ -72,6 +78,7 @@ class TestNNs:
             pipeline=Pipeline()
             .FUNC()
             .refbackend_generalize_tensor_pad()
+            .linalg_transform_patterns(generalize_pad_tensor=True)
             .linalg_fuse_elementwise_ops()
             .CNUF()
             .bufferize()
@@ -415,6 +422,7 @@ class TestNNs:
             "resnet18",
             "squeezenet1_0",
         ]:
+            logger.debug(f"{model=}")
             with mlir_mod_ctx(read_model_ir(model)) as module:
                 sequence(basic_tile)
 
@@ -425,5 +433,42 @@ class TestNNs:
             )
             module = self.lower(module)
             invoker = self.backend.load(module, consume_return_func=callback)
-            invoker.forward(example_224().astype(np.float32))
+            invoker.forward(example_32().astype(np.float32))
             assert result is not None and not np.isnan(result).any()
+
+    def test_benchmark(self):
+        N, C, H, W = 1, 3, 32, 32
+        N_RUNS = 10
+        param1_type = Tensor[[N, C, H, W], F32]
+        res_type = Tensor[[1, 1000], F32].mlir_type
+
+        with mlir_mod_ctx(read_model_ir("resnet18")) as module:
+            timer = declare("_mlir_ciface_nanoTime", [], result_annots=[I64])
+
+            @mlir_func(range_ctor=scf_range, emit_c_interface=True)
+            def timing_wrapper(
+                x: param1_type,
+                times: MemRef[[N_RUNS], I64],
+            ):
+                for i in range(0, N_RUNS):
+                    start = timer()
+                    out = call_func("forward", [x], [res_type])
+                    end = timer()
+                    times[i] = end - start
+
+        module = self.backend.compile(
+            module,
+            Pipeline().sparse_compiler(
+                parallelization_strategy="dense-outer-loop",
+                vl=16,
+                reassociate_fp_reductions=True,
+                enable_index_optimizations=True,
+            ),
+        )
+
+        invoker = self.backend.load(module, opt_level=1)
+        A = np.random.randint(low=0, high=10, size=(N, C, H, W)).astype(np.float32)
+        times = np.zeros(N_RUNS).astype(np.int64)
+        invoker.timing_wrapper(A, times)
+        print(times)
+        print("avg time", times.mean() / 1e9)
