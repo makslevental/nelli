@@ -29,6 +29,8 @@ declare_mlir_python_extension(NelliPythonSources.Extension
         MLIRIR
         MLIRPresburger
         MLIRAffineAnalysis
+        MLIRSparseTensorPipelines
+
         TilingInterfacePasses
         RefBackend
         TransformDialectInterpreter

@@ -137,6 +137,36 @@ class Pipeline:
         )
         return self
 
+    def sparse_compiler(
+        self,
+        parallelization_strategy=None,
+        enable_runtime_library=None,
+        enable_buffer_initialization=None,
+        vl=None,
+        s2s_strategy=None,
+        reassociate_fp_reductions=None,
+        enable_index_optimizations=None,
+        enable_amx=None,
+        enable_arm_neon=None,
+        enable_arm_sve=None,
+        enable_x86vector=None,
+    ):
+        self._add_pass(
+            "sparse-compiler",
+            parallelization_strategy=parallelization_strategy,
+            enable_runtime_library=enable_runtime_library,
+            enable_buffer_initialization=enable_buffer_initialization,
+            vl=vl,
+            s2s_strategy=s2s_strategy,
+            reassociate_fp_reductions=reassociate_fp_reductions,
+            enable_index_optimizations=enable_index_optimizations,
+            enable_amx=enable_amx,
+            enable_arm_neon=enable_arm_neon,
+            enable_arm_sve=enable_arm_sve,
+            enable_x86vector=enable_x86vector,
+        )
+        return self
+
     ############################
     # autogen starts
     ############################
