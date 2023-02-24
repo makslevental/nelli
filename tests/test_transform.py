@@ -450,7 +450,6 @@ class TestTiling:
                 m = match(target, ["linalg.matmul"])
                 tiled = tile_to_scf_foreach_thread(m, sizes=[2, 3])
 
-        # print(module)
         correct = dedent(
             """\
         module {
@@ -461,7 +460,7 @@ class TestTiling:
           transform.sequence  failures(propagate) {
           ^bb0(%arg0: !pdl.operation):
             %0 = transform.structured.match ops{["linalg.matmul"]} in %arg0 : (!pdl.operation) -> !pdl.operation
-            %foreach_thread_op, %tiled_op = transform.structured.tile_to_foreach_thread_op %0   tile_sizes [2, 3]
+            %forall_op, %tiled_op = transform.structured.tile_to_forall_op %0   tile_sizes [2, 3]
           }
         }
         """
@@ -485,7 +484,7 @@ class TestTiling:
           func.func @matmul(%arg0: tensor<4x16xf32>, %arg1: tensor<16x8xf32>, %arg2: tensor<4x8xf32>) -> tensor<4x8xf32> {
             %c2 = arith.constant 2 : index
             %c3 = arith.constant 3 : index
-            %0 = scf.foreach_thread (%arg3, %arg4) in (%c2, %c3) shared_outs(%arg5 = %arg2) -> (tensor<4x8xf32>) {
+            %0 = scf.forall (%arg3, %arg4) in (2, 3) shared_outs(%arg5 = %arg2) -> (tensor<4x8xf32>) {
               %1 = affine.apply #map(%arg3)
               %2 = affine.apply #map1(%arg4)
               %3 = affine.apply #map2(%arg4)
@@ -505,7 +504,7 @@ class TestTiling:
               %14 = affine.apply #map(%arg3)
               %15 = affine.apply #map1(%arg4)
               %16 = affine.apply #map4(%4)
-              scf.foreach_thread.perform_concurrently {
+              scf.forall.in_parallel {
                 tensor.parallel_insert_slice %12 into %arg5[%14, %15] [2, %4] [1, 1] : tensor<2x?xf32> into tensor<4x8xf32>
               }
             }
@@ -531,7 +530,7 @@ class TestTiling:
               transform.sequence failures(propagate) {
               ^bb1(%arg1: !pdl.operation):
                 %0 = transform.structured.match ops{["linalg.matmul"]} in %arg1 : (!pdl.operation) -> !pdl.operation
-                %1:2 = transform.structured.tile_to_foreach_thread_op %0 num_threads [10, 20] (mapping = [ #gpu.thread<y>, #gpu.thread<x> ] )
+                %1:2 = transform.structured.tile_to_forall_op %0 num_threads [10, 20] (mapping = [ #gpu.thread<y>, #gpu.thread<x> ] )
               }
             }
             """
@@ -577,7 +576,7 @@ class TestTiling:
             %dim_8 = tensor.dim %arg2, %c1_7 : tensor<?x?xf32>
             %c10 = arith.constant 10 : index
             %c20 = arith.constant 20 : index
-            %0 = scf.foreach_thread (%arg3, %arg4) in (%c10, %c20) shared_outs(%arg5 = %arg2) -> (tensor<?x?xf32>) {
+            %0 = scf.forall (%arg3, %arg4) in (10, 20) shared_outs(%arg5 = %arg2) -> (tensor<?x?xf32>) {
               %1 = affine.apply #map()[%dim]
               %2 = affine.apply #map1(%arg3)[%dim]
               %3 = affine.apply #map2()[%dim]
@@ -614,7 +613,7 @@ class TestTiling:
               %31 = affine.apply #map11(%6)
               %32 = affine.apply #map7(%arg4)[%dim_4]
               %33 = affine.apply #map11(%12)
-              scf.foreach_thread.perform_concurrently {
+              scf.forall.in_parallel {
                 tensor.parallel_insert_slice %26 into %arg5[%30, %32] [%6, %12] [1, 1] : tensor<?x?xf32> into tensor<?x?xf32>
               }
             } {mapping = [#gpu.thread<y>, #gpu.thread<x>]}

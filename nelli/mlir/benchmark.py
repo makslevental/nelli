@@ -6,17 +6,18 @@ from ..mlir._mlir.dialects import arith
 from ..mlir._mlir.dialects import func
 from ..mlir._mlir.dialects import memref
 from ..mlir._mlir.dialects import scf
-from ..mlir._mlir.passmanager import PassManager
 
 
 def setup_passes(mlir_module):
     """Setup pass pipeline parameters for benchmark functions."""
     opt = (
-        "parallelization-strategy=none"
-        " vectorization-strategy=none vl=1 enable-simd-index32=False"
+        "parallelization-strategy=dense-outer-loop"
+        " enable-amx"
+        " vl=16"
+        " reassociate-fp-reductions=1 enable-index-optimizations=1"
     )
-    pipeline = f"sparse-compiler{{{opt}}}"
-    PassManager.parse(pipeline).run(mlir_module)
+    pipeline = f"builtin.module(sparse-compiler{{{opt}}})"
+    return pipeline
 
 
 def create_sparse_np_tensor(dimensions, number_of_elements):
@@ -73,7 +74,7 @@ def emit_benchmark_wrapped_main_func(kernel_func, timer_func):
     create a "time measuring" variant of a function.
     """
     i64_type = ir.IntegerType.get_signless(64)
-    memref_of_i64_type = ir.MemRefType.get([-1], i64_type)
+    memref_of_i64_type = ir.MemRefType.get([len(kernel_func.type.results)], i64_type)
     wrapped_func = func.FuncOp(
         # Same signature and an extra buffer of indices to save timings.
         "main",
@@ -86,7 +87,7 @@ def emit_benchmark_wrapped_main_func(kernel_func, timer_func):
     with ir.InsertionPoint(wrapped_func.add_entry_block()):
         timer_buffer = wrapped_func.arguments[-1]
         zero = arith.ConstantOp.create_index(0)
-        n_iterations = memref.DimOp(ir.IndexType.get(), timer_buffer, zero)
+        n_iterations = memref.DimOp(timer_buffer, zero)
         one = arith.ConstantOp.create_index(1)
         iter_args = list(wrapped_func.arguments[-num_results - 1 : -1])
         loop = scf.ForOp(zero, n_iterations, one, iter_args)
@@ -103,3 +104,15 @@ def emit_benchmark_wrapped_main_func(kernel_func, timer_func):
         func.ReturnOp(loop)
 
     return wrapped_func
+
+
+def wrap(module):
+    with ir.Context(), ir.Location.unknown():
+        kernel_func = get_kernel_func_from_module(module)
+        timer_func = emit_timer_func()
+        wrapped_func = emit_benchmark_wrapped_main_func(kernel_func, timer_func)
+        main_module_with_benchmark = ir.Module.parse(
+            str(timer_func) + str(wrapped_func) + str(kernel_func)
+        )
+
+    return main_module_with_benchmark
