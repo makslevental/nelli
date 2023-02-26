@@ -26,6 +26,18 @@ class Pipeline:
         self._wrapper = None
         return self
 
+    def SPIRV(self):
+        assert (
+            self._wrapper is None
+        ), f"you probably forgot to close a SPIRV with a matching VRIPS"
+        self._wrapper = "spirv.module"
+        return self
+
+    def VRIPS(self):
+        assert self._wrapper == "spirv.module"
+        self._wrapper = None
+        return self
+
     def materialize(self, module=True):
         pipeline_str = ",".join(self._pipeline)
         if module:
@@ -132,6 +144,25 @@ class Pipeline:
             enable_x86vector=enable_x86vector,
         )
         return self
+
+    def lower_to_vulkan(self, index_bitwidth):
+        return (
+            self.gpu_kernel_outlining()
+            .fold_memref_alias_ops()
+            .convert_gpu_to_spirv()
+            .SPIRV()
+            .spirv_lower_abi_attrs()
+            .spirv_update_vce()
+            .VRIPS()
+            .convert_gpu_launch_to_vulkan_launch()
+            .finalize_memref_to_llvm()
+            .FUNC()
+            .llvm_request_c_wrappers()
+            .CNUF()
+            .convert_func_to_llvm(index_bitwidth=index_bitwidth)
+            .reconcile_unrealized_casts()
+            .launch_func_to_vulkan()
+        )
 
     ############################
     # autogen starts

@@ -26,9 +26,6 @@ declare_mlir_python_extension(NelliPythonSources.Extension
         AffineAnalysis.cpp
 
         PRIVATE_LINK_LIBS
-        LLVMSupport
-        MLIRSupport
-        MLIRIR
         MLIRPresburger
         MLIRAffineAnalysis
         MLIRSparseTensorPipelines
