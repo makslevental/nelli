@@ -14,9 +14,9 @@
 #include "mlir/Dialect/Affine/IR/AffineValueMap.h"
 #include "mlir/IR/AffineExprVisitor.h"
 #include "mlir/IR/Operation.h"
-#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "llvm/ExecutionEngine/Orc/JITTargetMachineBuilder.h"
 #include "llvm/Support/Error.h"
+#include "llvm/Support/FileSystem.h"
 #include <mlir/Dialect/Affine/LoopUtils.h>
 #include <pybind11/functional.h>
 #include <pybind11/pybind11.h>
@@ -31,6 +31,7 @@
 #include "TilingInterface/TilingInterface.h"
 #include "Transform/TransformDialectInterpreter.h"
 #include "utils.h"
+#include <string>
 
 namespace py = pybind11;
 using namespace mlir::python;
@@ -288,6 +289,13 @@ PYBIND11_MODULE(_nelli_mlir, m) {
     if (failed(mlir::loopUnrollByFactor(forOp, unrollFactor, annotateFn))) {
       throw py::value_error("unroll by factor failed");
     }
+  });
+  m.def("print_help", []() -> std::string {
+    PassPipelineCLParser passPipeline("", "Compiler passes to run", "p");
+    std::string dummy = "dummy";
+    std::string help = "--help";
+    char *argv[] = {dummy.data(), help.data()};
+    llvm::cl::ParseCommandLineOptions(2, argv, "");
   });
 
   nelli::registerTilingInterfacePass();

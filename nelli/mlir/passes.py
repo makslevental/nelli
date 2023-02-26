@@ -58,27 +58,6 @@ class Pipeline:
     def lower_to_llvm_(self):
         return any(["to-llvm" in p for p in self._pipeline])
 
-    def tiling_interface(
-        self, strategy: str, tile_sizes: list[int] = None, filter_name: str = None
-    ):
-        if tile_sizes is not None:
-            tile_sizes = ",".join(map(str, tile_sizes))
-        self._add_pass(
-            f"tiling-interface",
-            strategy=strategy,
-            tile_sizes=tile_sizes,
-            filter_name=filter_name,
-        )
-        return self
-
-    def transform_dialect_interpreter(self):
-        self._add_pass("transform-dialect-interpreter")
-        return self
-
-    def transform_dialect_erase_schedule(self):
-        self._add_pass("transform-dialect-erase-schedule")
-        return self
-
     def bufferize(self):
         return (
             self.FUNC()
@@ -123,74 +102,6 @@ class Pipeline:
 
     def lower_to_openmp(self):
         return self.convert_scf_to_openmp().FUNC().lower_affine().CNUF()
-
-    def refbackend_munge_calling_conventions(self):
-        self._add_pass("refbackend-munge-calling-conventions")
-        return self
-
-    def refbackend_munge_memref_copy(self):
-        self._add_pass("refbackend-munge-memref-copy")
-        return self
-
-    def refbackend_generalize_tensor_pad(self):
-        self._add_pass("refbackend-generalize-tensor-pad")
-        return self
-
-    def raise_scf_to_affine(
-        self, for_ops=True, parallel_ops=True, store_ops=True, load_ops=True
-    ):
-        self._add_pass(
-            "raise-scf-to-affine",
-            for_ops=int(for_ops),
-            parallel_ops=int(parallel_ops),
-            store_ops=int(store_ops),
-            load_ops=int(load_ops),
-        )
-        return self
-
-    def linalg_transform_patterns(
-        self,
-        bubble_up_extract_slice_op_pattern=None,
-        erase_unnecessary_inputs=None,
-        erase_unused_operands_and_results=None,
-        generalize_pad_tensor=None,
-        generalize_tensor_pack=None,
-        generalize_tensor_unpack=None,
-        linalg_to_vector_patterns=None,
-        loop_type=None,
-        patterns=None,
-        peeled_loops=None,
-        skip_partial=None,
-        swap_extract_slice_with_fill_pattern=None,
-        swap_subtensor_padtensor=None,
-        tile_sizes=None,
-        transform_pad_tensor=None,
-        vector_transfer_forwarding_patterns=None,
-    ):
-        self._add_pass(
-            "linalg-transform-patterns",
-            bubble_up_extract_slice_op_pattern=bubble_up_extract_slice_op_pattern,
-            erase_unnecessary_inputs=erase_unnecessary_inputs,
-            erase_unused_operands_and_results=erase_unused_operands_and_results,
-            generalize_pad_tensor=generalize_pad_tensor,
-            generalize_tensor_pack=generalize_tensor_pack,
-            generalize_tensor_unpack=generalize_tensor_unpack,
-            linalg_to_vector_patterns=linalg_to_vector_patterns,
-            loop_type=loop_type,
-            patterns=patterns,
-            peeled_loops=peeled_loops,
-            skip_partial=skip_partial,
-            swap_extract_slice_with_fill_pattern=swap_extract_slice_with_fill_pattern,
-            swap_subtensor_padtensor=swap_subtensor_padtensor,
-            tile_sizes=tile_sizes,
-            transform_pad_tensor=transform_pad_tensor,
-            vector_transfer_forwarding_patterns=vector_transfer_forwarding_patterns,
-        )
-        return self
-
-    def linalg_fake_quantize(self, bits=None):
-        self._add_pass("linalg-fake-quantize", bits=bits)
-        return self
 
     def sparse_compiler(
         self,
@@ -557,18 +468,22 @@ class Pipeline:
         )
         return self
 
-    def convert_async_to_llvm(self):
-        self._add_pass("convert-async-to-llvm")
+    def convert_async_to_llvm(self, use_opaque_pointers=None):
+        self._add_pass("convert-async-to-llvm", use_opaque_pointers=use_opaque_pointers)
         return self
 
     def convert_bufferization_to_memref(self):
         self._add_pass("convert-bufferization-to-memref")
         return self
 
-    def convert_cf_to_llvm(self, index_bitwidth=None):
+    def convert_cf_to_llvm(self, index_bitwidth=None, use_opaque_pointers=None):
         if index_bitwidth is not None and isinstance(index_bitwidth, (list, tuple)):
             index_bitwidth = ",".join(map(str, index_bitwidth))
-        self._add_pass("convert-cf-to-llvm", index_bitwidth=index_bitwidth)
+        self._add_pass(
+            "convert-cf-to-llvm",
+            index_bitwidth=index_bitwidth,
+            use_opaque_pointers=use_opaque_pointers,
+        )
         return self
 
     def convert_cf_to_spirv(self, emulate_lt_32_bit_scalar_types=None):
@@ -595,7 +510,11 @@ class Pipeline:
         return self
 
     def convert_func_to_llvm(
-        self, data_layout=None, index_bitwidth=None, use_bare_ptr_memref_call_conv=None
+        self,
+        data_layout=None,
+        index_bitwidth=None,
+        use_bare_ptr_memref_call_conv=None,
+        use_opaque_pointers=None,
     ):
         if data_layout is not None and isinstance(data_layout, (list, tuple)):
             data_layout = ",".join(map(str, data_layout))
@@ -606,6 +525,7 @@ class Pipeline:
             data_layout=data_layout,
             index_bitwidth=index_bitwidth,
             use_bare_ptr_memref_call_conv=use_bare_ptr_memref_call_conv,
+            use_opaque_pointers=use_opaque_pointers,
         )
         return self
 
@@ -739,8 +659,8 @@ class Pipeline:
         self._add_pass("convert-scf-to-cf")
         return self
 
-    def convert_scf_to_openmp(self):
-        self._add_pass("convert-scf-to-openmp")
+    def convert_scf_to_openmp(self, use_opaque_pointers=None):
+        self._add_pass("convert-scf-to-openmp", use_opaque_pointers=use_opaque_pointers)
         return self
 
     def convert_scf_to_spirv(self):
@@ -755,8 +675,8 @@ class Pipeline:
         self._add_pass("convert-shape-to-std")
         return self
 
-    def convert_spirv_to_llvm(self):
-        self._add_pass("convert-spirv-to-llvm")
+    def convert_spirv_to_llvm(self, use_opaque_pointers=None):
+        self._add_pass("convert-spirv-to-llvm", use_opaque_pointers=use_opaque_pointers)
         return self
 
     def convert_tensor_to_linalg(self):
@@ -782,6 +702,7 @@ class Pipeline:
         enable_x86vector=None,
         force_32bit_vector_indices=None,
         reassociate_fp_reductions=None,
+        use_opaque_pointers=None,
     ):
         self._add_pass(
             "convert-vector-to-llvm",
@@ -791,6 +712,7 @@ class Pipeline:
             enable_x86vector=enable_x86vector,
             force_32bit_vector_indices=force_32bit_vector_indices,
             reassociate_fp_reductions=reassociate_fp_reductions,
+            use_opaque_pointers=use_opaque_pointers,
         )
         return self
 
@@ -831,12 +753,20 @@ class Pipeline:
         self._add_pass("empty-tensor-to-alloc-tensor")
         return self
 
+    def ensure_debug_info_scope_on_llvm_func(self):
+        self._add_pass("ensure-debug-info-scope-on-llvm-func")
+        return self
+
     def expand_strided_metadata(self):
         self._add_pass("expand-strided-metadata")
         return self
 
     def finalize_memref_to_llvm(
-        self, index_bitwidth=None, use_aligned_alloc=None, use_generic_functions=None
+        self,
+        index_bitwidth=None,
+        use_aligned_alloc=None,
+        use_generic_functions=None,
+        use_opaque_pointers=None,
     ):
         if index_bitwidth is not None and isinstance(index_bitwidth, (list, tuple)):
             index_bitwidth = ",".join(map(str, index_bitwidth))
@@ -845,6 +775,7 @@ class Pipeline:
             index_bitwidth=index_bitwidth,
             use_aligned_alloc=use_aligned_alloc,
             use_generic_functions=use_generic_functions,
+            use_opaque_pointers=use_opaque_pointers,
         )
         return self
 
@@ -878,23 +809,6 @@ class Pipeline:
         self._add_pass("gpu-launch-sink-index-computations")
         return self
 
-    def gpu_lower_memory_space_attributes(
-        self, global_=None, private=None, workgroup=None
-    ):
-        if global_ is not None and isinstance(global_, (list, tuple)):
-            global_ = ",".join(map(str, global_))
-        if private is not None and isinstance(private, (list, tuple)):
-            private = ",".join(map(str, private))
-        if workgroup is not None and isinstance(workgroup, (list, tuple)):
-            workgroup = ",".join(map(str, workgroup))
-        self._add_pass(
-            "gpu-lower-memory-space-attributes",
-            global_=global_,
-            private=private,
-            workgroup=workgroup,
-        )
-        return self
-
     def gpu_map_parallel_loops(self):
         self._add_pass("gpu-map-parallel-loops")
         return self
@@ -913,13 +827,18 @@ class Pipeline:
         )
         return self
 
-    def inline(self, default_pipeline=None, max_iterations=None):
+    def inline(self, default_pipeline=None, max_iterations=None, op_pipelines=None):
         if default_pipeline is not None and isinstance(default_pipeline, (list, tuple)):
             default_pipeline = ",".join(map(str, default_pipeline))
         if max_iterations is not None and isinstance(max_iterations, (list, tuple)):
             max_iterations = ",".join(map(str, max_iterations))
+        if op_pipelines is not None and isinstance(op_pipelines, (list, tuple)):
+            op_pipelines = ",".join(map(str, op_pipelines))
         self._add_pass(
-            "inline", default_pipeline=default_pipeline, max_iterations=max_iterations
+            "inline",
+            default_pipeline=default_pipeline,
+            max_iterations=max_iterations,
+            op_pipelines=op_pipelines,
         )
         return self
 
@@ -937,6 +856,12 @@ class Pipeline:
 
     def linalg_detensorize(self, aggressive_mode=None):
         self._add_pass("linalg-detensorize", aggressive_mode=aggressive_mode)
+        return self
+
+    def linalg_fake_quantize(self, bits=None):
+        if bits is not None and isinstance(bits, (list, tuple)):
+            bits = ",".join(map(str, bits))
+        self._add_pass("linalg-fake-quantize", bits=bits)
         return self
 
     def linalg_fold_unit_extent_dims(
@@ -965,6 +890,52 @@ class Pipeline:
         self._add_pass("linalg-named-op-conversion")
         return self
 
+    def linalg_transform_patterns(
+        self,
+        bubble_up_extract_slice_op_pattern=None,
+        erase_unnecessary_inputs=None,
+        erase_unused_operands_and_results=None,
+        generalize_pad_tensor=None,
+        generalize_tensor_pack=None,
+        generalize_tensor_unpack=None,
+        linalg_to_vector_patterns=None,
+        loop_type=None,
+        patterns=None,
+        peeled_loops=None,
+        skip_partial=None,
+        swap_extract_slice_with_fill_pattern=None,
+        swap_subtensor_padtensor=None,
+        tile_sizes=None,
+        transform_pad_tensor=None,
+        vector_transfer_forwarding_patterns=None,
+    ):
+        if loop_type is not None and isinstance(loop_type, (list, tuple)):
+            loop_type = ",".join(map(str, loop_type))
+        if peeled_loops is not None and isinstance(peeled_loops, (list, tuple)):
+            peeled_loops = ",".join(map(str, peeled_loops))
+        if tile_sizes is not None and isinstance(tile_sizes, (list, tuple)):
+            tile_sizes = ",".join(map(str, tile_sizes))
+        self._add_pass(
+            "linalg-transform-patterns",
+            bubble_up_extract_slice_op_pattern=bubble_up_extract_slice_op_pattern,
+            erase_unnecessary_inputs=erase_unnecessary_inputs,
+            erase_unused_operands_and_results=erase_unused_operands_and_results,
+            generalize_pad_tensor=generalize_pad_tensor,
+            generalize_tensor_pack=generalize_tensor_pack,
+            generalize_tensor_unpack=generalize_tensor_unpack,
+            linalg_to_vector_patterns=linalg_to_vector_patterns,
+            loop_type=loop_type,
+            patterns=patterns,
+            peeled_loops=peeled_loops,
+            skip_partial=skip_partial,
+            swap_extract_slice_with_fill_pattern=swap_extract_slice_with_fill_pattern,
+            swap_subtensor_padtensor=swap_subtensor_padtensor,
+            tile_sizes=tile_sizes,
+            transform_pad_tensor=transform_pad_tensor,
+            vector_transfer_forwarding_patterns=vector_transfer_forwarding_patterns,
+        )
+        return self
+
     def llvm_legalize_for_export(self):
         self._add_pass("llvm-legalize-for-export")
         return self
@@ -985,8 +956,8 @@ class Pipeline:
         self._add_pass("lower-affine")
         return self
 
-    def lower_host_to_llvm(self):
-        self._add_pass("lower-host-to-llvm")
+    def lower_host_to_llvm(self, use_opaque_pointers=None):
+        self._add_pass("lower-host-to-llvm", use_opaque_pointers=use_opaque_pointers)
         return self
 
     def lower_vector_mask(self):
@@ -1124,8 +1095,32 @@ class Pipeline:
         )
         return self
 
+    def raise_scf_to_affine(
+        self, for_ops=None, load_ops=None, parallel_ops=None, store_ops=None
+    ):
+        self._add_pass(
+            "raise-scf-to-affine",
+            for_ops=for_ops,
+            load_ops=load_ops,
+            parallel_ops=parallel_ops,
+            store_ops=store_ops,
+        )
+        return self
+
     def reconcile_unrealized_casts(self):
         self._add_pass("reconcile-unrealized-casts")
+        return self
+
+    def refbackend_generalize_tensor_pad(self):
+        self._add_pass("refbackend-generalize-tensor-pad")
+        return self
+
+    def refbackend_munge_calling_conventions(self):
+        self._add_pass("refbackend-munge-calling-conventions")
+        return self
+
+    def refbackend_munge_memref_copy(self):
+        self._add_pass("refbackend-munge-memref-copy")
         return self
 
     def remove_shape_constraints(self):
@@ -1321,6 +1316,26 @@ class Pipeline:
         self._add_pass("tensor-bufferize")
         return self
 
+    def tiling_interface(
+        self, filter_name=None, interchange=None, strategy=None, tile_sizes=None
+    ):
+        if filter_name is not None and isinstance(filter_name, (list, tuple)):
+            filter_name = ",".join(map(str, filter_name))
+        if interchange is not None and isinstance(interchange, (list, tuple)):
+            interchange = ",".join(map(str, interchange))
+        if strategy is not None and isinstance(strategy, (list, tuple)):
+            strategy = ",".join(map(str, strategy))
+        if tile_sizes is not None and isinstance(tile_sizes, (list, tuple)):
+            tile_sizes = ",".join(map(str, tile_sizes))
+        self._add_pass(
+            "tiling-interface",
+            filter_name=filter_name,
+            interchange=interchange,
+            strategy=strategy,
+            tile_sizes=tile_sizes,
+        )
+        return self
+
     def topological_sort(self):
         self._add_pass("topological-sort")
         return self
@@ -1373,6 +1388,80 @@ class Pipeline:
 
     def transform_dialect_check_uses(self):
         self._add_pass("transform-dialect-check-uses")
+        return self
+
+    def transform_dialect_erase_schedule(self):
+        self._add_pass("transform-dialect-erase-schedule")
+        return self
+
+    def transform_dialect_interpreter(
+        self,
+        bind_first_extra_to_ops=None,
+        bind_first_extra_to_params=None,
+        bind_first_extra_to_results_of_ops=None,
+        bind_second_extra_to_ops=None,
+        bind_second_extra_to_params=None,
+        bind_second_extra_to_results_of_ops=None,
+        debug_payload_root_tag=None,
+        debug_transform_root_tag=None,
+        enable_expensive_checks=None,
+        transform_file_name=None,
+    ):
+        if bind_first_extra_to_ops is not None and isinstance(
+            bind_first_extra_to_ops, (list, tuple)
+        ):
+            bind_first_extra_to_ops = ",".join(map(str, bind_first_extra_to_ops))
+        if bind_first_extra_to_params is not None and isinstance(
+            bind_first_extra_to_params, (list, tuple)
+        ):
+            bind_first_extra_to_params = ",".join(map(str, bind_first_extra_to_params))
+        if bind_first_extra_to_results_of_ops is not None and isinstance(
+            bind_first_extra_to_results_of_ops, (list, tuple)
+        ):
+            bind_first_extra_to_results_of_ops = ",".join(
+                map(str, bind_first_extra_to_results_of_ops)
+            )
+        if bind_second_extra_to_ops is not None and isinstance(
+            bind_second_extra_to_ops, (list, tuple)
+        ):
+            bind_second_extra_to_ops = ",".join(map(str, bind_second_extra_to_ops))
+        if bind_second_extra_to_params is not None and isinstance(
+            bind_second_extra_to_params, (list, tuple)
+        ):
+            bind_second_extra_to_params = ",".join(
+                map(str, bind_second_extra_to_params)
+            )
+        if bind_second_extra_to_results_of_ops is not None and isinstance(
+            bind_second_extra_to_results_of_ops, (list, tuple)
+        ):
+            bind_second_extra_to_results_of_ops = ",".join(
+                map(str, bind_second_extra_to_results_of_ops)
+            )
+        if debug_payload_root_tag is not None and isinstance(
+            debug_payload_root_tag, (list, tuple)
+        ):
+            debug_payload_root_tag = ",".join(map(str, debug_payload_root_tag))
+        if debug_transform_root_tag is not None and isinstance(
+            debug_transform_root_tag, (list, tuple)
+        ):
+            debug_transform_root_tag = ",".join(map(str, debug_transform_root_tag))
+        if transform_file_name is not None and isinstance(
+            transform_file_name, (list, tuple)
+        ):
+            transform_file_name = ",".join(map(str, transform_file_name))
+        self._add_pass(
+            "transform-dialect-interpreter",
+            bind_first_extra_to_ops=bind_first_extra_to_ops,
+            bind_first_extra_to_params=bind_first_extra_to_params,
+            bind_first_extra_to_results_of_ops=bind_first_extra_to_results_of_ops,
+            bind_second_extra_to_ops=bind_second_extra_to_ops,
+            bind_second_extra_to_params=bind_second_extra_to_params,
+            bind_second_extra_to_results_of_ops=bind_second_extra_to_results_of_ops,
+            debug_payload_root_tag=debug_payload_root_tag,
+            debug_transform_root_tag=debug_transform_root_tag,
+            enable_expensive_checks=enable_expensive_checks,
+            transform_file_name=transform_file_name,
+        )
         return self
 
     def vector_bufferize(self):

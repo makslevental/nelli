@@ -245,7 +245,7 @@ class TestSCF:
             .bufferize()
             .FUNC()
             .convert_linalg_to_loops()
-            .raise_scf_to_affine(),
+            .raise_scf_to_affine(for_ops=True, load_ops=True, store_ops=True),
         )
         correct = dedent(
             """\
