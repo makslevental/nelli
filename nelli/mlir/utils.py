@@ -50,13 +50,6 @@ def run_pipeline_with_repro_report(
         # Lower module in place to make it ready for compiler backends.
         with ExitStack() as stack:
             stack.enter_context(module.context)
-            pm = PassManager.parse(pipeline)
-            if print_pipeline:
-                print(pm)
-            if enable_ir_printing:
-                stack.enter_context(enable_multithreading_mgr())
-                module.context.enable_multithreading(False)
-                pm.enable_ir_printing()
             if allow_unregistered_dialects:
                 stack.enter_context(allow_unregistered_dialects_mgr(module.context))
 
@@ -64,6 +57,13 @@ def run_pipeline_with_repro_report(
                 large_elements_limit=10,
                 enable_debug_info=True,
             )
+            pm = PassManager.parse(pipeline)
+            if print_pipeline:
+                print(pm)
+            if enable_ir_printing:
+                stack.enter_context(enable_multithreading_mgr())
+                module.context.enable_multithreading(False)
+                pm.enable_ir_printing()
 
             pm.run(module)
     except Exception as e:
