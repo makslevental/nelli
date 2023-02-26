@@ -22,6 +22,7 @@ for shlib in [
     "gomp",
     "iomp5",
     "omp",
+    "vulkan-runtime-wrappers",
 ]:
     shlib_name = f"lib{shlib}.{shlib_ext}"
     llvm_install_dir = (Path(__file__).parent.parent / "llvm_install").absolute()

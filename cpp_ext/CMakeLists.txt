@@ -27,6 +27,7 @@ declare_mlir_python_extension(NelliPythonSources.Extension
 
         PRIVATE_LINK_LIBS
         LLVMSupport
+        MLIRSupport
         MLIRIR
         MLIRPresburger
         MLIRAffineAnalysis
