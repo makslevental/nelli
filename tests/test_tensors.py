@@ -161,52 +161,48 @@ class TestTensor:
         with allow_unregistered_dialects(), mlir_mod_ctx(src) as module:
             pass
 
-        module = self.backend.compile(
-            module,
-            Pipeline().FUNC().refbackend_generalize_tensor_pad().CNUF(),
-            allow_unregistered_dialects=True,
-        )
-        correct = dedent(
-            """\
-        module {
-          func.func @pad_tensor_3_4(%arg0: tensor<4x16xf32>, %arg1: f32) {
-            %c1 = arith.constant 1 : index
-            %padded = tensor.pad %arg0 low[%c1, %c1] high[%c1, %c1] {
-            ^bb0(%arg2: index, %arg3: index):
-              tensor.yield %arg1 : f32
-            } {refined} : tensor<4x16xf32> to tensor<6x18xf32>
-            "test.use"(%padded) : (tensor<6x18xf32>) -> ()
-            return
-          }
-        }
-        """
-        )
-        with allow_unregistered_dialects():
+            module = self.backend.compile(
+                module,
+                Pipeline().FUNC().refbackend_generalize_tensor_pad().CNUF(),
+            )
+            correct = dedent(
+                """\
+            module {
+              func.func @pad_tensor_3_4(%arg0: tensor<4x16xf32>, %arg1: f32) {
+                %c1 = arith.constant 1 : index
+                %padded = tensor.pad %arg0 low[%c1, %c1] high[%c1, %c1] {
+                ^bb0(%arg2: index, %arg3: index):
+                  tensor.yield %arg1 : f32
+                } {refined} : tensor<4x16xf32> to tensor<6x18xf32>
+                "test.use"(%padded) : (tensor<6x18xf32>) -> ()
+                return
+              }
+            }
+            """
+            )
             check_correct(correct, module)
 
-        module = self.backend.compile(
-            module,
-            Pipeline()
-            .FUNC()
-            .linalg_transform_patterns(generalize_pad_tensor=True)
-            .CNUF(),
-            allow_unregistered_dialects=True,
-        )
+            module = self.backend.compile(
+                module,
+                Pipeline()
+                .FUNC()
+                .linalg_transform_patterns(generalize_pad_tensor=True)
+                .CNUF(),
+            )
 
-        correct = dedent(
-            """\
-        module {
-          func.func @pad_tensor_3_4(%arg0: tensor<4x16xf32>, %arg1: f32) {
-            %c1 = arith.constant 1 : index
-            %0 = tensor.empty() : tensor<6x18xf32>
-            %1 = linalg.fill ins(%arg1 : f32) outs(%0 : tensor<6x18xf32>) -> tensor<6x18xf32>
-            %inserted_slice = tensor.insert_slice %arg0 into %1[%c1, %c1] [4, 16] [1, 1] : tensor<4x16xf32> into tensor<6x18xf32>
-            "test.use"(%inserted_slice) : (tensor<6x18xf32>) -> ()
-            return
-          }
-        }
-        """
-        )
+            correct = dedent(
+                """\
+            module {
+              func.func @pad_tensor_3_4(%arg0: tensor<4x16xf32>, %arg1: f32) {
+                %c1 = arith.constant 1 : index
+                %0 = tensor.empty() : tensor<6x18xf32>
+                %1 = linalg.fill ins(%arg1 : f32) outs(%0 : tensor<6x18xf32>) -> tensor<6x18xf32>
+                %inserted_slice = tensor.insert_slice %arg0 into %1[%c1, %c1] [4, 16] [1, 1] : tensor<4x16xf32> into tensor<6x18xf32>
+                "test.use"(%inserted_slice) : (tensor<6x18xf32>) -> ()
+                return
+              }
+            }
+            """
+            )
 
-        with allow_unregistered_dialects():
             check_correct(correct, module)

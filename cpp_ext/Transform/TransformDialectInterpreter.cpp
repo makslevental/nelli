@@ -199,11 +199,11 @@ struct TransformDialectEraseSchedulePass
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(
       TransformDialectEraseSchedulePass)
 
-  StringRef getArgument() const final {
+  [[nodiscard]] StringRef getArgument() const final {
     return "transform-dialect-erase-schedule";
   }
 
-  StringRef getDescription() const final {
+  [[nodiscard]] StringRef getDescription() const final {
     return "erase transform dialect schedule from the IR";
   }
 

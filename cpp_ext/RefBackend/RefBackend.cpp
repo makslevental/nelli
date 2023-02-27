@@ -327,8 +327,11 @@ class ReifyTensorPadShape : public OpRewritePattern<tensor::PadOp> {
   }
 };
 
-class GeneralizeTensorPad
+struct GeneralizeTensorPad
     : public PassWrapper<GeneralizeTensorPad, OperationPass<func::FuncOp>> {
+
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(GeneralizeTensorPad)
+
   void getDependentDialects(DialectRegistry &registry) const override {
     registry.insert<linalg::LinalgDialect>();
   }

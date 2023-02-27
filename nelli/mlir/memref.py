@@ -6,7 +6,7 @@ from typing import (
     Tuple,
 )
 
-from ._mlir._mlir_libs._mlir.ir import Attribute
+from ._mlir._mlir_libs._mlir.ir import Attribute, ShapedType
 from .arith import ArithValue
 from .annot import Annot
 
@@ -17,7 +17,15 @@ from ..mlir._mlir.dialects._ods_common import (
     get_op_result_or_value,
     get_op_results_or_values,
 )
-from ..mlir._mlir.ir import Type, Value, F64Type, Operation, OpView, MemRefType
+from ..mlir._mlir.ir import (
+    Type,
+    Value,
+    F64Type,
+    Operation,
+    OpView,
+    MemRefType,
+    UnrankedMemRefType,
+)
 
 
 class LoadOp(memref.LoadOp):
@@ -71,15 +79,42 @@ class AllocaOp(memref.AllocaOp):
         super().__init__(res_type, [], [], loc=loc, ip=ip)
 
 
+class AllocOp(memref.AllocOp):
+    def __init__(
+        self,
+        dim_sizes: Union[List[int], Tuple[int]],
+        el_type: Type = None,
+        *,
+        loc=None,
+        ip=None,
+    ):
+        if el_type is None:
+            el_type = F64Type.get()
+        assert dim_sizes
+        assert isinstance(dim_sizes[0], int)
+
+        # TODO(max): this goes in dynamic/symbolic sizes
+        # if isinstance(dim_sizes[0], (Operation, OpView, Value)):
+        #     dim_sizes = [] if dim_sizes is None else _get_op_results_or_values(dim_sizes)
+
+        res_type = MemRefType.get(dim_sizes, el_type)
+        super().__init__(res_type, [], [], loc=loc, ip=ip)
+
+
 class MemRefValue(MemRefValue):
     most_recent_store: StoreOp = None
-    alloc_op = AllocaOp
+    alloca_op = AllocaOp
+    alloc_op = AllocOp
     load_op = LoadOp
     store_op = StoreOp
     memref_type = MemRefType
 
     @classmethod
     def alloca(cls, dim_sizes: Union[list[int], tuple[int, ...]], el_type: Type):
+        return cls(cls.alloca_op(dim_sizes, el_type).memref)
+
+    @classmethod
+    def alloc(cls, dim_sizes: Union[list[int], tuple[int, ...]], el_type: Type):
         return cls(cls.alloc_op(dim_sizes, el_type).memref)
 
     def __class_getitem__(
@@ -93,6 +128,10 @@ class MemRefValue(MemRefValue):
             isinstance(t, int) for t in dim_sizes[:-1]
         ), f"wrong type T args for tensor: {dim_sizes}"
         assert isinstance(el_type, Type), f"wrong type T args for tensor: {el_type}"
+        dim_sizes = list(dim_sizes)
+        for i, v in enumerate(dim_sizes):
+            if v == -1:
+                dim_sizes[i] = ShapedType.get_dynamic_size()
         return Annot(cls, cls.memref_type.get(dim_sizes, el_type))
 
     def __getitem__(self, item):
@@ -108,7 +147,7 @@ class MemRefValue(MemRefValue):
 
 
 class UnrankedMemRefValue(MemRefValue):
-    memref_type = MemRefType
+    memref_type = UnrankedMemRefType
 
     def __class_getitem__(cls, el_type: Type):
         assert isinstance(el_type, Type), f"wrong type T args for memref: {el_type}"
@@ -117,3 +156,7 @@ class UnrankedMemRefValue(MemRefValue):
 
 def load(memref_, indices) -> ArithValue:
     return ArithValue(LoadOp(memref_, indices).result)
+
+
+def cast(src, dst_type):
+    return MemRefValue(memref.CastOp(dst_type, src).result)

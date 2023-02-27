@@ -1,10 +1,26 @@
+import numpy as np
 from pathlib import Path
 from textwrap import dedent
 
+from nelli import F32, I64
 from nelli.mlir._mlir import _mlir_libs
+from nelli.mlir._mlir.dialects import linalg
+from nelli.mlir.arith import constant
+from nelli.mlir.scf import range as scf_range
+from nelli.mlir.tensor import TensorValue as Tensor
+from nelli.mlir.func import mlir_func, declare, call_func
+from nelli.mlir.memref import (
+    MemRefValue as MemRef,
+    UnrankedMemRefValue as UnrankedMemRef,
+    cast,
+)
 from nelli.mlir.passes import Pipeline
-from nelli.mlir.refbackend import LLVMJITBackend
-from nelli.utils import shlib_ext, mlir_mod_ctx
+from nelli.mlir.refbackend import (
+    LLVMJITBackend,
+)
+from nelli.utils import mlir_mod_ctx
+from nelli.utils import shlib_ext
+from tests.test_nns import read_model_ir
 
 c_runner_utils_lib_path = (
     Path(_mlir_libs.__file__).parent / f"libmlir_c_runner_utils.{shlib_ext()}"
@@ -75,13 +91,243 @@ module attributes {
 
 class TestVulkan:
     backend = LLVMJITBackend(
-        shared_libs=[str(vulkan_wrapper_library_path), str(runner_utils_lib_path)]
+        shared_libs=[
+            str(vulkan_wrapper_library_path),
+            str(runner_utils_lib_path),
+            str(c_runner_utils_lib_path),
+        ]
     )
 
     def test_basic(self):
         with mlir_mod_ctx(src) as module:
             pass
 
-        module = self.backend.compile(module, Pipeline().lower_to_vulkan(64))
+        module = self.backend.compile(
+            module,
+            Pipeline()
+            .gpu_kernel_outlining()
+            .fold_memref_alias_ops()
+            .canonicalize()
+            .convert_gpu_to_spirv()
+            .canonicalize()
+            .SPIRV()
+            .spirv_lower_abi_attrs()
+            .spirv_update_vce()
+            .VRIPS()
+            .convert_gpu_launch_to_vulkan_launch()
+            .finalize_memref_to_llvm()
+            .FUNC()
+            .llvm_request_c_wrappers()
+            .CNUF()
+            .convert_func_to_llvm(index_bitwidth=64)
+            .reconcile_unrealized_casts()
+            .launch_func_to_vulkan(),
+        )
+        print(module)
         invoker = self.backend.load(module)
         invoker.main()
+
+    def test_pipeline(self):
+        with mlir_mod_ctx(src) as module:
+            pass
+
+        module = self.backend.compile(
+            module,
+            Pipeline().gpu_kernel_outlining().fold_memref_alias_ops().canonicalize()
+            ##########
+            .set_spirv_capabilities(client_api="vulkan")
+            .GPU()
+            .set_spirv_abi_attrs()
+            .UPG()
+            ##########
+            # .nelli_map_memref_spirv_storage_class(client_api="vulkan")
+            # .convert_gpux_to_spirv(map_memory_space=True).canonicalize()
+            .convert_gpu_to_spirv()
+            ##########
+            .SPIRV().spirv_lower_abi_attrs().spirv_update_vce().VRIPS()
+            ##########
+            .convert_gpu_launch_to_vulkan_launch()
+            .finalize_memref_to_llvm()
+            .FUNC()
+            .llvm_request_c_wrappers()
+            .CNUF()
+            .convert_func_to_llvm(index_bitwidth=64)
+            .reconcile_unrealized_casts()
+            .launch_func_to_vulkan(),
+        )
+        print(module)
+        invoker = self.backend.load(module)
+        invoker.main()
+
+    def test_linalg(self):
+        scale = 1
+        tile_x, tile_y = 1, 1
+        M, N, K = 4 * scale, 16 * scale, 8 * scale
+        dynamic_2d_memref = MemRef[(-1, -1), F32]
+        unranked_memref = UnrankedMemRef[F32]
+        with mlir_mod_ctx() as module:
+
+            print_memref_32 = declare("printMemrefF32", [unranked_memref])
+            fill_resource_2d_float = declare(
+                "fillResource2DFloat", [dynamic_2d_memref, F32]
+            )
+
+            @mlir_func(visibility="public")
+            def matmul(
+                A: MemRef[(M, N), F32],
+                B: MemRef[(N, K), F32],
+                C: MemRef[(M, K), F32],
+            ):
+
+                arg0_cast = cast(A, unranked_memref.mlir_type)
+                arg1_cast = cast(B, unranked_memref.mlir_type)
+                out_cast = cast(C, unranked_memref.mlir_type)
+                print_memref_32(arg0_cast)
+                print_memref_32(arg1_cast)
+                print_memref_32(out_cast)
+
+                linalg.matmul(A, B, outs=[C])
+
+                print_memref_32(out_cast)
+                # return out
+
+        module = self.backend.compile(
+            module,
+            kernel_name="matmul",
+            pipeline=Pipeline()
+            .bufferize()
+            .FUNC()
+            .convert_linalg_to_parallel_loops()
+            .scf_parallel_loop_tiling(parallel_loop_tile_sizes=(tile_x, tile_y))
+            .gpu_map_parallel_loops()
+            .convert_parallel_loops_to_gpu()
+            .canonicalize()
+            .lower_affine()
+            .CNUF()
+            .gpu_launch_sink_index_computations()
+            .gpu_kernel_outlining()
+            .fold_memref_alias_ops()
+            .canonicalize()
+            ##########
+            .set_spirv_capabilities(client_api="vulkan")
+            .GPU()
+            .set_spirv_abi_attrs()
+            .UPG()
+            ##########
+            # .nelli_map_memref_spirv_storage_class(client_api="vulkan")
+            .convert_gpux_to_spirv(map_memory_space=True).canonicalize()
+            ##########
+            .SPIRV().spirv_lower_abi_attrs().spirv_update_vce().VRIPS()
+            ##########
+            .convert_gpu_launch_to_vulkan_launch()
+            .finalize_memref_to_llvm()
+            .FUNC()
+            .llvm_request_c_wrappers()
+            .CNUF()
+            .convert_func_to_llvm(index_bitwidth=64)
+            .reconcile_unrealized_casts()
+            .launch_func_to_vulkan(),
+            enable_ir_printing=False,
+        )
+        A = np.random.randint(low=0, high=10, size=(M, N)).astype(np.float32)
+        B = np.random.randint(low=0, high=10, size=(N, K)).astype(np.float32)
+        C = np.zeros((M, K)).astype(np.float32)
+        invoker = self.backend.load(module)
+        invoker.matmul(A, B, C)
+        assert np.allclose(A @ B, C)
+
+    def test_nn(self):
+        scale = 1
+        tile_x, tile_y = 1, 1
+        M, N, K = 4 * scale, 16 * scale, 8 * scale
+        with mlir_mod_ctx(read_model_ir("resnet18")) as module:
+            pass
+
+        module = self.backend.compile(
+            module,
+            kernel_name="forward",
+            pipeline=Pipeline()
+            .FUNC()
+            .refbackend_generalize_tensor_pad()
+            .linalg_transform_patterns(generalize_pad_tensor=True)
+            .linalg_fuse_elementwise_ops()
+            .CNUF()
+            .bufferize()
+            .FUNC()
+            .convert_linalg_to_parallel_loops()
+            .scf_parallel_loop_tiling(parallel_loop_tile_sizes=(tile_x, tile_y))
+            .gpu_map_parallel_loops()
+            .convert_parallel_loops_to_gpu()
+            .canonicalize()
+            .lower_affine()
+            .CNUF()
+            .gpu_launch_sink_index_computations()
+            .gpu_kernel_outlining()
+            .fold_memref_alias_ops()
+            .canonicalize()
+            ##########
+            .set_spirv_capabilities(client_api="vulkan")
+            .GPU()
+            .set_spirv_abi_attrs()
+            .UPG()
+            # ##########
+            # # .nelli_map_memref_spirv_storage_class(client_api="vulkan")
+            .convert_gpux_to_spirv(map_memory_space=True).canonicalize()
+            # ##########
+            # .SPIRV().spirv_lower_abi_attrs().spirv_update_vce().VRIPS()
+            # ##########
+            # .convert_gpu_launch_to_vulkan_launch()
+            # .finalize_memref_to_llvm()
+            # .FUNC()
+            # .llvm_request_c_wrappers()
+            # .CNUF()
+            # .convert_func_to_llvm(index_bitwidth=64)
+            # .reconcile_unrealized_casts()
+            # .launch_func_to_vulkan()
+            ,
+            enable_ir_printing=False,
+        )
+        print(module)
+        # A = np.random.randint(low=0, high=10, size=(M, N)).astype(np.float32)
+        # B = np.random.randint(low=0, high=10, size=(N, K)).astype(np.float32)
+        # C = np.zeros((M, K)).astype(np.float32)
+        # invoker = self.backend.load(module)
+        # invoker.matmul(A, B, C)
+        # assert np.allclose(A @ B, C)
+
+    def test_benchmark(self):
+        N, C, H, W = 1, 3, 32, 32
+        N_RUNS = 10
+        param1_type = Tensor[[N, C, H, W], F32]
+        res_type = Tensor[[1, 1000], F32].mlir_type
+
+        with mlir_mod_ctx(read_model_ir("resnet18")) as module:
+            timer = declare("_mlir_ciface_nanoTime", [], result_annots=[I64])
+
+            @mlir_func(range_ctor=scf_range, emit_c_interface=True)
+            def timing_wrapper(
+                x: param1_type,
+                times: MemRef[[N_RUNS], I64],
+            ):
+                for i in range(0, N_RUNS):
+                    start = timer()
+                    out = call_func("forward", [x], [res_type])
+                    end = timer()
+                    times[i] = end - start
+
+        module = self.backend.compile(
+            module,
+            Pipeline().sparse_compiler(
+                parallelization_strategy="dense-outer-loop",
+                vl=16,
+                reassociate_fp_reductions=True,
+                enable_index_optimizations=True,
+            ),
+        )
+
+        invoker = self.backend.load(module, opt_level=1)
+        A = np.random.randint(low=0, high=10, size=(N, C, H, W)).astype(np.float32)
+        times = np.zeros(N_RUNS).astype(np.int64)
+        invoker.timing_wrapper(A, times)
+        print(times)
+        print("avg time", times.mean() / 1e9)

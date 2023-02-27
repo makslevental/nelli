@@ -14,6 +14,18 @@ class Pipeline:
         self._pipeline = pipeline
         self._wrapper = wrapper
 
+    def WRAP(self, scope):
+        assert (
+            self._wrapper is None
+        ), f"you probably forgot to close a FUNC with a matching CNUF"
+        self._wrapper = scope
+        return self
+
+    def UNWRAP(self, scope):
+        assert self._wrapper == scope
+        self._wrapper = None
+        return self
+
     def FUNC(self):
         assert (
             self._wrapper is None
@@ -35,6 +47,18 @@ class Pipeline:
 
     def VRIPS(self):
         assert self._wrapper == "spirv.module"
+        self._wrapper = None
+        return self
+
+    def GPU(self):
+        assert (
+            self._wrapper is None
+        ), f"you probably forgot to close a GPU with a matching VRIPS"
+        self._wrapper = "gpu.module"
+        return self
+
+    def UPG(self):
+        assert self._wrapper == "gpu.module"
         self._wrapper = None
         return self
 
@@ -145,7 +169,7 @@ class Pipeline:
         )
         return self
 
-    def lower_to_vulkan(self, index_bitwidth):
+    def lower_to_vulkan(self, index_bitwidth=None):
         return (
             self.gpu_kernel_outlining()
             .fold_memref_alias_ops()
@@ -167,6 +191,10 @@ class Pipeline:
     ############################
     # autogen starts
     ############################
+
+    def add_outer_parallel_loop(self):
+        self._add_pass("add-outer-parallel-loop")
+        return self
 
     def affine_data_copy_generate(
         self,
@@ -419,6 +447,10 @@ class Pipeline:
         self._add_pass("buffer-hoisting")
         return self
 
+    def buffer_host_register(self):
+        self._add_pass("buffer-host-register")
+        return self
+
     def buffer_loop_hoisting(self):
         self._add_pass("buffer-loop-hoisting")
         return self
@@ -603,6 +635,22 @@ class Pipeline:
 
     def convert_gpu_to_spirv(self):
         self._add_pass("convert-gpu-to-spirv")
+        return self
+
+    def convert_gpux_to_spirv(
+        self,
+        client_api=None,
+        emulate_lt_32_bit_scalar_types=None,
+        map_memory_space=None,
+    ):
+        if client_api is not None and isinstance(client_api, (list, tuple)):
+            client_api = ",".join(map(str, client_api))
+        self._add_pass(
+            "convert-gpux-to-spirv",
+            client_api=client_api,
+            emulate_lt_32_bit_scalar_types=emulate_lt_32_bit_scalar_types,
+            map_memory_space=map_memory_space,
+        )
         return self
 
     def convert_index_to_llvm(self, index_bitwidth=None):
@@ -873,6 +921,12 @@ class Pipeline:
         )
         return self
 
+    def insert_gpu_allocs(self, client_api=None):
+        if client_api is not None and isinstance(client_api, (list, tuple)):
+            client_api = ",".join(map(str, client_api))
+        self._add_pass("insert-gpu-allocs", client_api=client_api)
+        return self
+
     def int_range_optimizations(self):
         self._add_pass("int-range-optimizations")
         return self
@@ -1013,6 +1067,12 @@ class Pipeline:
 
     def memref_expand(self):
         self._add_pass("memref-expand")
+        return self
+
+    def nelli_map_memref_spirv_storage_class(self, client_api=None):
+        if client_api is not None and isinstance(client_api, (list, tuple)):
+            client_api = ",".join(map(str, client_api))
+        self._add_pass("nelli-map-memref-spirv-storage-class", client_api=client_api)
         return self
 
     def normalize_memrefs(self):
@@ -1240,6 +1300,22 @@ class Pipeline:
             no_min_max_bounds=no_min_max_bounds,
             parallel_loop_tile_sizes=parallel_loop_tile_sizes,
         )
+        return self
+
+    def serialize_spirv(self):
+        self._add_pass("serialize-spirv")
+        return self
+
+    def set_spirv_abi_attrs(self, workgroup_size=None):
+        if workgroup_size is not None and isinstance(workgroup_size, (list, tuple)):
+            workgroup_size = ",".join(map(str, workgroup_size))
+        self._add_pass("set-spirv-abi-attrs", workgroup_size=workgroup_size)
+        return self
+
+    def set_spirv_capabilities(self, client_api=None):
+        if client_api is not None and isinstance(client_api, (list, tuple)):
+            client_api = ",".join(map(str, client_api))
+        self._add_pass("set-spirv-capabilities", client_api=client_api)
         return self
 
     def shape_bufferize(self):

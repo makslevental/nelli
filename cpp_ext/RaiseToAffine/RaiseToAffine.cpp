@@ -6,6 +6,7 @@
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/GPU/IR/GPUDialect.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/SCF/Transforms/Passes.h"
@@ -265,7 +266,7 @@ struct ParallelOpRaising : public OpRewritePattern<scf::ParallelOp> {
 
 namespace {
 struct RaiseSCFToAffine
-    : public PassWrapper<RaiseSCFToAffine, OperationPass<func::FuncOp>> {
+    : public PassWrapper<RaiseSCFToAffine, OperationPass<>> {
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(RaiseSCFToAffine)
 
   RaiseSCFToAffine() = default;

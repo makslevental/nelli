@@ -155,7 +155,6 @@ class LLVMJITBackend:
         pipeline: Union[Pipeline, str],
         kernel_name="main",
         enable_ir_printing=False,
-        allow_unregistered_dialects=True,
     ):
         def cb(op):
             try:
@@ -182,7 +181,6 @@ class LLVMJITBackend:
             pipeline=pipeline_str,
             description="Lowering IR",
             enable_ir_printing=enable_ir_printing,
-            allow_unregistered_dialects=allow_unregistered_dialects,
         )
         return module
 

@@ -38,6 +38,20 @@ def enable_multithreading(context=DefaultContext):
     context.enable_multithreading(False)
 
 
+@contextlib.contextmanager
+def disable_multithreading(context=DefaultContext):
+    context.enable_multithreading(False)
+    yield
+    context.enable_multithreading(True)
+
+
+@contextlib.contextmanager
+def enable_debug():
+    ir._GlobalDebug.flag = True
+    yield
+    ir._GlobalDebug.flag = False
+
+
 @atexit.register
 def __exit_ctxt():
     DefaultContext.__exit__(None, None, None)
