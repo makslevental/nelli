@@ -7,8 +7,7 @@ from io import StringIO
 from typing import Optional, Sequence
 
 from .. import (
-    enable_multithreading as enable_multithreading_mgr,
-    allow_unregistered_dialects as allow_unregistered_dialects_mgr,
+    disable_multithreading as disable_multithreading_mgr,
 )
 from ..mlir._mlir.passmanager import PassManager
 from ..mlir._mlir.ir import (
@@ -40,7 +39,6 @@ def run_pipeline_with_repro_report(
     description: Optional[str] = None,
     enable_ir_printing=False,
     print_pipeline=False,
-    allow_unregistered_dialects=False,
 ):
     """Runs `pipeline` on `module`, with a nice repro report if it fails."""
     module_name = get_module_name_for_debug_dump(module)
@@ -50,9 +48,6 @@ def run_pipeline_with_repro_report(
         # Lower module in place to make it ready for compiler backends.
         with ExitStack() as stack:
             stack.enter_context(module.context)
-            if allow_unregistered_dialects:
-                stack.enter_context(allow_unregistered_dialects_mgr(module.context))
-
             asm_for_error_report = module.operation.get_asm(
                 large_elements_limit=10,
                 enable_debug_info=True,
@@ -61,8 +56,7 @@ def run_pipeline_with_repro_report(
             if print_pipeline:
                 print(pm)
             if enable_ir_printing:
-                stack.enter_context(enable_multithreading_mgr())
-                module.context.enable_multithreading(False)
+                stack.enter_context(disable_multithreading_mgr())
                 pm.enable_ir_printing()
 
             pm.run(module)

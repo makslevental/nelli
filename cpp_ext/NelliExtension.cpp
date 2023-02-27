@@ -23,6 +23,8 @@
 
 #include "AffineAnalysis.h"
 #include "FakeQuantize/FakeQuantize.h"
+#include "GPUTransforms/GPUTransforms.h"
+#include "GPUTransforms/MapMemRefStorageClassPass.h"
 #include "LinalgTransforms/LinalgTransforms.h"
 #include "LoopUtils.h"
 #include "Pybind.h"
@@ -298,13 +300,21 @@ PYBIND11_MODULE(_nelli_mlir, m) {
     llvm::cl::ParseCommandLineOptions(2, argv, "");
   });
 
-  nelli::registerTilingInterfacePass();
+  nelli::registerAddOuterParallelLoopPass();
+  nelli::registerBufferHostRegisterPass();
+  nelli::registerGeneralizeTensorPadPass();
+  nelli::registerGPUXToSPIRVPass();
+  nelli::registerInsertGPUAllocsPass();
+  nelli::registerLinalgFakeQuantizePass();
+  nelli::registerLinalgTransforms();
   nelli::registerMungeCallingConventionPass();
   nelli::registerMungeMemrefCopyPass();
-  nelli::registerGeneralizeTensorPadPass();
-  nelli::registerTransformDialectInterpreterPass();
-  nelli::registerTransformDialectEraseSchedulePass();
   nelli::registerRaiseSCFToAffinePass();
-  nelli::registerLinalgTransforms();
-  nelli::registerLinalgFakeQuantizePass();
+  nelli::registerSerializeSPIRVPass();
+  nelli::registerSetSPIRVAbiAttributePass();
+  nelli::registerSetSPIRVCapabilitiesPass();
+  nelli::registerTilingInterfacePass();
+  nelli::registerTransformDialectEraseSchedulePass();
+  nelli::registerTransformDialectInterpreterPass();
+  nelli::registerMapMemRefStorageClassPass();
 }

@@ -1,5 +1,7 @@
 import logging
 
+from .. import DefaultContext
+
 logger = logging.getLogger(__name__)
 
 import inspect
@@ -28,6 +30,7 @@ from ..mlir._mlir.ir import (
     FunctionType as MLIRFunctionType,
     FlatSymbolRefAttr,
     UnitAttr,
+    _stringAttr,
 )
 from ..mlir._mlir.dialects._ods_common import (
     get_op_result_or_value,
@@ -197,6 +200,7 @@ def mlir_func(
     rewrite_bytecode_=True,
     range_ctor=affine_range,
     emit_c_interface=False,
+    visibility=None,
 ):
     sig = inspect.signature(f)
     annots = [p.annotation for p in sig.parameters.values()]
@@ -231,6 +235,10 @@ def mlir_func(
 
         if emit_c_interface:
             func_op.attributes["llvm.emit_c_interface"] = UnitAttr.get()
+        if visibility is not None:
+            func_op.attributes["sym_visibility"] = _stringAttr(
+                visibility, DefaultContext
+            )
 
         return f(*args)
 

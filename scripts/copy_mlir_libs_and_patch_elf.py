@@ -1,9 +1,14 @@
+import os
 import platform
 import shutil
 import subprocess
 from pathlib import Path
 
 mlir_libs_dir = Path(__file__).parent.parent / "nelli/mlir/_mlir/_mlir_libs"
+if llvm_install_dir := os.environ.get("LLVM_INSTALL_DIR"):
+    llvm_install_dir = Path(llvm_install_dir).absolute()
+else:
+    llvm_install_dir = (Path(__file__).parent.parent / "llvm_install").absolute()
 
 if platform.system() == "Darwin":
     shlib_ext = "dylib"
@@ -25,7 +30,6 @@ for shlib in [
     "vulkan-runtime-wrappers",
 ]:
     shlib_name = f"lib{shlib}.{shlib_ext}"
-    llvm_install_dir = (Path(__file__).parent.parent / "llvm_install").absolute()
     assert llvm_install_dir.exists(), f"{llvm_install_dir}"
     llvm_install_fp = (llvm_install_dir / "lib" / shlib_name).absolute()
     assert llvm_install_fp.exists(), f"{llvm_install_fp}"
