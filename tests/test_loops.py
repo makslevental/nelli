@@ -1,14 +1,15 @@
 from textwrap import dedent
 
-from nelli import F64, Index
+from nelli import F64, Index, F32
 from nelli.mlir.affine import (
     range as affine_range,
-    endfor as affine_endfor,
-    RankedAffineMemRefValue as MemRef,
+    end_for as affine_endfor,
+    RankedAffineMemRefValue as AffineMemRef,
 )
 from nelli.mlir.arith import constant, ArithValue
 from nelli.mlir.func import mlir_func
-from nelli.mlir.scf import scf_if, scf_endif_branch, scf_endif
+from nelli.mlir.memref import MemRefValue as MemRef
+from nelli.mlir.scf import scf_if, scf_endif_branch, scf_endif, par_range as parfor
 from nelli.utils import mlir_mod_ctx
 from util import check_correct
 
@@ -20,7 +21,7 @@ class TestLoops:
             @mlir_func(rewrite_ast_=False)
             def double_loop(M: Index, N: Index):
                 two = constant(1.0)
-                mem = MemRef.alloca([10, 10], F64)
+                mem = AffineMemRef.alloca([10, 10], F64)
                 for i in affine_range(1, 10, 1):
                     for j in affine_range(1, 10, 1):
                         v = mem[i, j]
@@ -55,7 +56,7 @@ class TestLoops:
             @mlir_func(rewrite_ast_=True)
             def double_loop(M: Index, N: Index):
                 two = constant(1.0)
-                mem = MemRef.alloca([10, 10], F64)
+                mem = AffineMemRef.alloca([10, 10], F64)
                 for i in range(1, 10, 1):
                     for j in range(1, 10, 1):
                         v = mem[i, j]
@@ -88,7 +89,7 @@ class TestLoops:
             @mlir_func(rewrite_ast_=False)
             def double_loop(M: Index, N: Index):
                 two = constant(1.0)
-                mem = MemRef.alloca([10, 10], F64)
+                mem = AffineMemRef.alloca([10, 10], F64)
                 for i in affine_range(1, 10, 1):
                     for j in affine_range(1, 10, 1):
                         if scf_if(ArithValue(i) < ArithValue(j)):
@@ -130,7 +131,7 @@ class TestLoops:
             @mlir_func(rewrite_ast_=True)
             def double_loop(M: Index, N: Index):
                 two = constant(1.0)
-                mem = MemRef.alloca([10, 10], F64)
+                mem = AffineMemRef.alloca([10, 10], F64)
                 for i in range(1, 10, 1):
                     for j in range(1, 10, 1):
                         if i < j:
@@ -167,7 +168,7 @@ class TestLoops:
             @mlir_func(rewrite_ast_=True)
             def double_loop(M: Index, N: Index):
                 two = constant(1.0)
-                mem = MemRef.alloca((10, 10), F64)
+                mem = AffineMemRef.alloca((10, 10), F64)
                 for i in range(1, 10, 1):
                     for j in range(1, 10, 1):
                         if i < j:
@@ -210,7 +211,7 @@ class TestLoops:
             @mlir_func(rewrite_ast_=True)
             def double_loop(M: Index, N: Index):
                 two = constant(1.0)
-                mem = MemRef.alloca((10, 10), F64)
+                mem = AffineMemRef.alloca((10, 10), F64)
                 for i in range(1, 10, 1):
                     for j in range(1, 10, 1):
                         if M < N:
@@ -253,7 +254,7 @@ class TestLoops:
             @mlir_func(rewrite_ast_=True)
             def double_loop(M: Index, N: Index):
                 two = constant(1.0)
-                mem = MemRef.alloca((10, 10), F64)
+                mem = AffineMemRef.alloca((10, 10), F64)
                 if M < N:
                     for i in range(1, 10, 1):
                         for j in range(1, 10, 1):
@@ -292,7 +293,7 @@ class TestLoops:
             def double_loop(M: Index, N: Index):
                 two = constant(1.0)
                 for _ in range(2):
-                    mem = MemRef.alloca((10, 10), F64)
+                    mem = AffineMemRef.alloca((10, 10), F64)
                 for _ in range(2):
                     for i in affine_range(1, 10, 1):
                         for j in affine_range(1, 10, 1):
@@ -329,3 +330,19 @@ class TestLoops:
         """
         )
         check_correct(correct, module)
+
+    def test_parfor(self):
+        with mlir_mod_ctx() as module:
+
+            @mlir_func(range_ctor=parfor)
+            def matmul(
+                A: MemRef[(4, 16), F32],
+                B: MemRef[(16, 8), F32],
+                C: MemRef[(4, 8), F32],
+            ):
+                for i, j in parfor([0, 0], [4, 8]):
+                    a = A[i, j]
+                    b = B[i, j]
+                    C[i, j] = a * b
+
+            # print(module)

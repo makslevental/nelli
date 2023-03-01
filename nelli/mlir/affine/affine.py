@@ -160,10 +160,10 @@ def range(start, stop, step=1):
     for_op = AffineForOp(start, stop, step)
     _for_ip = InsertionPoint(for_op.body)
     _for_ip.__enter__()
-    return [for_op.induction_variable]
+    return [ArithValue(for_op.induction_variable)]
 
 
-def endfor():
+def end_for():
     affine.AffineYieldOp([])
     global _for_ip
     _for_ip.__exit__(None, None, None)

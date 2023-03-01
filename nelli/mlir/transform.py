@@ -76,7 +76,7 @@ def tile_linalg_to_scf_for(target, sizes: list[int]):
     )
 
 
-def tile_to_scf_foreach_thread(target, sizes: list[int]):
+def tile_to_scf_forall(target, sizes: list[int]):
     return structured_ext.TileToForallOp(
         target.type,
         target.type,

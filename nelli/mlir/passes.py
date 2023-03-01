@@ -978,6 +978,7 @@ class Pipeline:
     def linalg_transform_patterns(
         self,
         bubble_up_extract_slice_op_pattern=None,
+        decompose_convolutions=None,
         erase_unnecessary_inputs=None,
         erase_unused_operands_and_results=None,
         generalize_pad_tensor=None,
@@ -1003,6 +1004,7 @@ class Pipeline:
         self._add_pass(
             "linalg-transform-patterns",
             bubble_up_extract_slice_op_pattern=bubble_up_extract_slice_op_pattern,
+            decompose_convolutions=decompose_convolutions,
             erase_unnecessary_inputs=erase_unnecessary_inputs,
             erase_unused_operands_and_results=erase_unused_operands_and_results,
             generalize_pad_tensor=generalize_pad_tensor,

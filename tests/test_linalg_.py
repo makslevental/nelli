@@ -21,6 +21,8 @@ from nelli.mlir.memref import AllocaOp
 from nelli.mlir.memref import MemRefValue as MemRef
 from nelli.mlir.passes import Pipeline
 from nelli.mlir.refbackend import LLVMJITBackend
+from nelli.mlir.tensor import TensorValue as Tensor
+from nelli.mlir.transform import sequence, match, tile_linalg_to_scf_for
 from nelli.utils import mlir_mod_ctx, shlib_ext
 from util import check_correct
 
@@ -250,3 +252,32 @@ class TestLinalg:
         output = np.zeros((4, 2, 8)).astype(np.float32)
         invoker.conv1d_nwc_4x2x8_memref(input, kernel, output)
         assert np.nonzero(output)
+
+    def test_conv_2d_nhwc_hwcf_tiling(self):
+        with mlir_mod_ctx() as module:
+
+            @mlir_func
+            def conv_2d_nhwc_hwcf(
+                input: Tensor[(1, 225, 225, 3), F32],
+                kernel: Tensor[(3, 3, 3, 32), F32],
+                output: Tensor[(1, 112, 112, 32), F32],
+            ):
+                return linalg.conv_2d_nhwc_hwcf(input, kernel, outs=[output])
+
+            @sequence
+            def basic(target, *extra_args):
+                m = match(target, ["linalg.conv_2d_nhwc_hwcf"])
+                tiled = tile_linalg_to_scf_for(m, sizes=[0, 1, 8, 8, 1])
+
+        module = self.backend.compile(
+            module,
+            kernel_name="conv_2d_nhwc_hwcf",
+            pipeline=Pipeline()
+            .transform_dialect_interpreter()
+            .transform_dialect_erase_schedule()
+            .FUNC()
+            .linalg_transform_patterns(decompose_convolutions=True)
+            .CNUF(),
+            enable_ir_printing=False,
+        )
+        # print(module)

@@ -4,7 +4,6 @@ logger = logging.getLogger(__name__)
 
 import pytest
 
-
 from pathlib import Path
 from textwrap import dedent
 

@@ -100,7 +100,7 @@ def ws_loop(start, stop, step=1):
     return [for_op.induction_variable]
 
 
-def endfor():
+def end_for():
     omp.YieldOp([])
     global _loop_ip
     _loop_ip.__exit__(None, None, None)
