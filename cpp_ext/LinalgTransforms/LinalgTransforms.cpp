@@ -125,6 +125,10 @@ struct LinalgTransforms
       *this, "erase-unnecessary-inputs",
       llvm::cl::desc("patterns to erase unnecessary inputs"),
       llvm::cl::init(false)};
+  Option<bool> decomposeConvolutions{
+      *this, "decompose-convolutions",
+      llvm::cl::desc("patterns to decompose convolutions"),
+      llvm::cl::init(false)};
 };
 } // namespace
 
@@ -215,6 +219,12 @@ static void applyEraseUnnecessaryInputs(func::FuncOp funcOp) {
   (void)applyPatternsAndFoldGreedily(funcOp, std::move(patterns));
 }
 
+static void applyDecomposeConvolutions(func::FuncOp funcOp) {
+  RewritePatternSet patterns(funcOp.getContext());
+  populateDecomposeConvolutionPatterns(patterns);
+  (void)applyPatternsAndFoldGreedily(funcOp, std::move(patterns));
+}
+
 /// Apply transformations specified as patterns.
 void LinalgTransforms::runOnOperation() {
   if (patterns)
@@ -241,6 +251,8 @@ void LinalgTransforms::runOnOperation() {
     return applyEraseUnusedOperandsAndResultsPatterns(getOperation());
   if (eraseUnnecessaryInputs)
     return applyEraseUnnecessaryInputs(getOperation());
+  if (decomposeConvolutions)
+    return applyDecomposeConvolutions(getOperation());
 }
 
 namespace nelli {

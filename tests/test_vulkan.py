@@ -1,4 +1,6 @@
 import numpy as np
+import pytest
+from scipy import signal
 from pathlib import Path
 from textwrap import dedent
 
@@ -18,6 +20,12 @@ from nelli.mlir.passes import Pipeline
 from nelli.mlir.refbackend import (
     LLVMJITBackend,
 )
+from nelli.mlir.transform import (
+    sequence,
+    match,
+    tile_linalg_to_scf_for,
+    tile_to_scf_forall,
+)
 from nelli.utils import mlir_mod_ctx
 from nelli.utils import shlib_ext
 from tests.test_nns import read_model_ir
@@ -36,58 +44,6 @@ vulkan_wrapper_library_path = (
 )
 assert vulkan_wrapper_library_path.exists()
 
-src = dedent(
-    """\
-module attributes {
-  gpu.container_module,
-  spirv.target_env = #spirv.target_env<
-    #spirv.vce<v1.0, [Shader], [SPV_KHR_storage_buffer_storage_class]>, #spirv.resource_limits<>>
-} {
-  gpu.module @kernels {
-    gpu.func @kernel_mul(%arg0 : memref<4x4xf32>, %arg1 : memref<4x4xf32>, %arg2 : memref<4x4xf32>)
-      kernel attributes { spirv.entry_point_abi = #spirv.entry_point_abi<workgroup_size = [1, 1, 1]>} {
-      %x = gpu.block_id x
-      %y = gpu.block_id y
-      %1 = memref.load %arg0[%x, %y] : memref<4x4xf32>
-      %2 = memref.load %arg1[%x, %y] : memref<4x4xf32>
-      %3 = arith.mulf %1, %2 : f32
-      memref.store %3, %arg2[%x, %y] : memref<4x4xf32>
-      gpu.return
-    }
-  }
-
-  func.func @main() {
-    %arg0 = memref.alloc() : memref<4x4xf32>
-    %arg1 = memref.alloc() : memref<4x4xf32>
-    %arg2 = memref.alloc() : memref<4x4xf32>
-    %0 = arith.constant 0 : i32
-    %1 = arith.constant 1 : i32
-    %2 = arith.constant 2 : i32
-    %value0 = arith.constant 0.0 : f32
-    %value1 = arith.constant 2.0 : f32
-    %value2 = arith.constant 3.0 : f32
-    %arg3 = memref.cast %arg0 : memref<4x4xf32> to memref<?x?xf32>
-    %arg4 = memref.cast %arg1 : memref<4x4xf32> to memref<?x?xf32>
-    %arg5 = memref.cast %arg2 : memref<4x4xf32> to memref<?x?xf32>
-    call @fillResource2DFloat(%arg3, %value1) : (memref<?x?xf32>, f32) -> ()
-    call @fillResource2DFloat(%arg4, %value2) : (memref<?x?xf32>, f32) -> ()
-    call @fillResource2DFloat(%arg5, %value0) : (memref<?x?xf32>, f32) -> ()
-
-    %cst1 = arith.constant 1 : index
-    %cst4 = arith.constant 4 : index
-    gpu.launch_func @kernels::@kernel_mul
-        blocks in (%cst4, %cst4, %cst1) threads in(%cst1, %cst1, %cst1)
-        args(%arg0 : memref<4x4xf32>, %arg1 : memref<4x4xf32>, %arg2 : memref<4x4xf32>)
-    %arg6 = memref.cast %arg5 : memref<?x?xf32> to memref<*xf32>
-    call @printMemrefF32(%arg6) : (memref<*xf32>) -> ()
-    return
-  }
-  func.func private @fillResource2DFloat(%0 : memref<?x?xf32>, %1 : f32)
-  func.func private @printMemrefF32(%ptr : memref<*xf32>)
-}
-"""
-)
-
 
 class TestVulkan:
     backend = LLVMJITBackend(
@@ -97,9 +53,60 @@ class TestVulkan:
             str(c_runner_utils_lib_path),
         ]
     )
+    golden_src = dedent(
+        """\
+    module attributes {
+      gpu.container_module,
+      spirv.target_env = #spirv.target_env<
+        #spirv.vce<v1.0, [Shader], [SPV_KHR_storage_buffer_storage_class]>, #spirv.resource_limits<>>
+    } {
+      gpu.module @kernels {
+        gpu.func @kernel_mul(%arg0 : memref<4x4xf32>, %arg1 : memref<4x4xf32>, %arg2 : memref<4x4xf32>)
+          kernel attributes { spirv.entry_point_abi = #spirv.entry_point_abi<workgroup_size = [1, 1, 1]>} {
+          %x = gpu.block_id x
+          %y = gpu.block_id y
+          %1 = memref.load %arg0[%x, %y] : memref<4x4xf32>
+          %2 = memref.load %arg1[%x, %y] : memref<4x4xf32>
+          %3 = arith.mulf %1, %2 : f32
+          memref.store %3, %arg2[%x, %y] : memref<4x4xf32>
+          gpu.return
+        }
+      }
+
+      func.func @main() {
+        %arg0 = memref.alloc() : memref<4x4xf32>
+        %arg1 = memref.alloc() : memref<4x4xf32>
+        %arg2 = memref.alloc() : memref<4x4xf32>
+        %0 = arith.constant 0 : i32
+        %1 = arith.constant 1 : i32
+        %2 = arith.constant 2 : i32
+        %value0 = arith.constant 0.0 : f32
+        %value1 = arith.constant 2.0 : f32
+        %value2 = arith.constant 3.0 : f32
+        %arg3 = memref.cast %arg0 : memref<4x4xf32> to memref<?x?xf32>
+        %arg4 = memref.cast %arg1 : memref<4x4xf32> to memref<?x?xf32>
+        %arg5 = memref.cast %arg2 : memref<4x4xf32> to memref<?x?xf32>
+        call @fillResource2DFloat(%arg3, %value1) : (memref<?x?xf32>, f32) -> ()
+        call @fillResource2DFloat(%arg4, %value2) : (memref<?x?xf32>, f32) -> ()
+        call @fillResource2DFloat(%arg5, %value0) : (memref<?x?xf32>, f32) -> ()
+
+        %cst1 = arith.constant 1 : index
+        %cst4 = arith.constant 4 : index
+        gpu.launch_func @kernels::@kernel_mul
+            blocks in (%cst4, %cst4, %cst1) threads in(%cst1, %cst1, %cst1)
+            args(%arg0 : memref<4x4xf32>, %arg1 : memref<4x4xf32>, %arg2 : memref<4x4xf32>)
+        %arg6 = memref.cast %arg5 : memref<?x?xf32> to memref<*xf32>
+        call @printMemrefF32(%arg6) : (memref<*xf32>) -> ()
+        return
+      }
+      func.func private @fillResource2DFloat(%0 : memref<?x?xf32>, %1 : f32)
+      func.func private @printMemrefF32(%ptr : memref<*xf32>)
+    }
+    """
+    )
 
     def test_basic(self):
-        with mlir_mod_ctx(src) as module:
+        with mlir_mod_ctx(self.golden_src) as module:
             pass
 
         module = self.backend.compile(
@@ -123,12 +130,11 @@ class TestVulkan:
             .reconcile_unrealized_casts()
             .launch_func_to_vulkan(),
         )
-        print(module)
         invoker = self.backend.load(module)
         invoker.main()
 
     def test_pipeline(self):
-        with mlir_mod_ctx(src) as module:
+        with mlir_mod_ctx(self.golden_src) as module:
             pass
 
         module = self.backend.compile(
@@ -155,7 +161,7 @@ class TestVulkan:
             .reconcile_unrealized_casts()
             .launch_func_to_vulkan(),
         )
-        print(module)
+        # print(module)
         invoker = self.backend.load(module)
         invoker.main()
 
@@ -166,7 +172,6 @@ class TestVulkan:
         dynamic_2d_memref = MemRef[(-1, -1), F32]
         unranked_memref = UnrankedMemRef[F32]
         with mlir_mod_ctx() as module:
-
             print_memref_32 = declare("printMemrefF32", [unranked_memref])
             fill_resource_2d_float = declare(
                 "fillResource2DFloat", [dynamic_2d_memref, F32]
@@ -178,22 +183,94 @@ class TestVulkan:
                 B: MemRef[(N, K), F32],
                 C: MemRef[(M, K), F32],
             ):
+                zero = constant(0.0, type=F32)
+                one = constant(1.0, type=F32)
+                two = constant(2.0, type=F32)
 
-                arg0_cast = cast(A, unranked_memref.mlir_type)
-                arg1_cast = cast(B, unranked_memref.mlir_type)
-                out_cast = cast(C, unranked_memref.mlir_type)
-                print_memref_32(arg0_cast)
-                print_memref_32(arg1_cast)
-                print_memref_32(out_cast)
+                A_cast = cast(A, dynamic_2d_memref.mlir_type)
+                B_cast = cast(B, dynamic_2d_memref.mlir_type)
+                C_cast = cast(C, dynamic_2d_memref.mlir_type)
+
+                fill_resource_2d_float(A_cast, one)
+                fill_resource_2d_float(B_cast, two)
+                fill_resource_2d_float(C_cast, zero)
+
+                A_cast = cast(A, unranked_memref.mlir_type)
+                B_cast = cast(B, unranked_memref.mlir_type)
+                C_cast = cast(C, unranked_memref.mlir_type)
+
+                print_memref_32(A_cast)
+                print_memref_32(B_cast)
+                print_memref_32(C_cast)
 
                 linalg.matmul(A, B, outs=[C])
 
-                print_memref_32(out_cast)
+                print_memref_32(C_cast)
                 # return out
 
         module = self.backend.compile(
             module,
             kernel_name="matmul",
+            pipeline=Pipeline().bufferize().FUNC().convert_linalg_to_parallel_loops()
+            # .scf_parallel_loop_tiling(parallel_loop_tile_sizes=(tile_x, tile_y))
+            .gpu_map_parallel_loops()
+            .convert_parallel_loops_to_gpu()
+            .canonicalize()
+            .lower_affine()
+            .CNUF()
+            .gpu_launch_sink_index_computations()
+            .gpu_kernel_outlining()
+            .fold_memref_alias_ops()
+            .canonicalize()
+            ##########
+            .set_spirv_capabilities(client_api="vulkan")
+            .GPU()
+            .set_spirv_abi_attrs()
+            .UPG()
+            ##########
+            # .nelli_map_memref_spirv_storage_class(client_api="vulkan")
+            .convert_gpux_to_spirv(map_memory_space=True).canonicalize()
+            ##########
+            .SPIRV().spirv_lower_abi_attrs().spirv_update_vce().VRIPS()
+            ##########
+            .convert_gpu_launch_to_vulkan_launch()
+            .finalize_memref_to_llvm()
+            .FUNC()
+            .llvm_request_c_wrappers()
+            .CNUF()
+            .convert_func_to_llvm(index_bitwidth=64)
+            .reconcile_unrealized_casts()
+            .launch_func_to_vulkan(),
+            enable_ir_printing=False,
+        )
+        # A = np.random.randint(low=0, high=10, size=(M, N)).astype(np.float32)
+        # B = np.random.randint(low=0, high=10, size=(N, K)).astype(np.float32)
+        # C = np.zeros((M, K)).astype(np.float32)
+        A = np.empty((M, N)).astype(np.float32)
+        B = np.empty((N, K)).astype(np.float32)
+        C = np.empty((M, K)).astype(np.float32)
+        invoker = self.backend.load(module)
+        invoker.matmul(A, B, C)
+        assert np.allclose(A @ B, C)
+
+    def test_conv2d(self):
+        tile_x, tile_y = 1, 1
+        h = w = 12
+        k = 3
+        with mlir_mod_ctx() as module:
+
+            @mlir_func
+            def conv2d(
+                input: MemRef[(h, w), F32],
+                kernel: MemRef[(k, k), F32],
+                output: MemRef[(h - 2, w - 2), F32],
+            ):
+                linalg.conv_2d(input, kernel, outs=[output])
+                return None
+
+        module = self.backend.compile(
+            module,
+            kernel_name="conv2d",
             pipeline=Pipeline()
             .bufferize()
             .FUNC()
@@ -229,13 +306,106 @@ class TestVulkan:
             .launch_func_to_vulkan(),
             enable_ir_printing=False,
         )
-        A = np.random.randint(low=0, high=10, size=(M, N)).astype(np.float32)
-        B = np.random.randint(low=0, high=10, size=(N, K)).astype(np.float32)
-        C = np.zeros((M, K)).astype(np.float32)
         invoker = self.backend.load(module)
-        invoker.matmul(A, B, C)
-        assert np.allclose(A @ B, C)
+        input = np.random.randint(low=0, high=10, size=(h, w)).astype(np.float32)
+        kernel = np.random.randint(low=0, high=4, size=(3, 3)).astype(np.float32)
+        output = np.zeros((h - 2, w - 2)).astype(np.float32)
+        invoker.conv2d(input, kernel, output)
+        correct = signal.correlate(input.squeeze(), kernel.squeeze(), mode="valid")
+        assert np.allclose(output.squeeze(), correct)
 
+    @pytest.mark.xfail()
+    def test_conv_2d_nhwc_hwcf(self):
+        with mlir_mod_ctx() as module:
+
+            @mlir_func
+            def conv_2d_nhwc_hwcf(
+                input: Tensor[(1, 225, 225, 3), F32],
+                kernel: Tensor[(3, 3, 3, 32), F32],
+                output: Tensor[(1, 112, 112, 32), F32],
+            ):
+                return linalg.conv_2d_nhwc_hwcf(input, kernel, outs=[output])
+
+            @sequence
+            def basic(target, *extra_args):
+                m = match(target, ["linalg.conv_2d_nhwc_hwcf"])
+                tiled = tile_linalg_to_scf_for(m, sizes=[0, 1, 8, 8, 1])
+
+        module = self.backend.compile(
+            module,
+            kernel_name="conv_2d_nhwc_hwcf",
+            pipeline=Pipeline()
+            .transform_dialect_interpreter()
+            .transform_dialect_erase_schedule()
+            .FUNC()
+            .linalg_transform_patterns(decompose_convolutions=True)
+            .CNUF()
+            ############
+            .bufferize()
+            .FUNC()
+            .convert_linalg_to_parallel_loops()
+            .gpu_map_parallel_loops()
+            .convert_parallel_loops_to_gpu()
+            .canonicalize()
+            .lower_affine()
+            .CNUF()
+            .gpu_launch_sink_index_computations()
+            .gpu_kernel_outlining()
+            .fold_memref_alias_ops()
+            .canonicalize()
+            ##########
+            .set_spirv_capabilities(client_api="vulkan")
+            .GPU()
+            .set_spirv_abi_attrs()
+            .UPG()
+            ##########
+            .convert_gpux_to_spirv(map_memory_space=True).canonicalize()
+            ##########
+            .SPIRV().spirv_lower_abi_attrs().spirv_update_vce().VRIPS()
+            ##########
+            .convert_gpu_launch_to_vulkan_launch()
+            .bufferize()
+            .finalize_memref_to_llvm()
+            .FUNC()
+            .llvm_request_c_wrappers()
+            .CNUF()
+            .convert_func_to_llvm(index_bitwidth=64)
+            .reconcile_unrealized_casts()
+            .launch_func_to_vulkan(),
+            enable_ir_printing=False,
+        )
+        # print(module)
+
+    def test_conv_2d_nhwc_hwcf_parallel(self):
+        with mlir_mod_ctx() as module:
+
+            @mlir_func
+            def conv_2d_nhwc_hwcf(
+                input: Tensor[(1, 225, 225, 3), F32],
+                kernel: Tensor[(3, 3, 3, 32), F32],
+                output: Tensor[(1, 112, 112, 32), F32],
+            ):
+                return linalg.conv_2d_nhwc_hwcf(input, kernel, outs=[output])
+
+            @sequence
+            def basic(target, *extra_args):
+                m = match(target, ["linalg.conv_2d_nhwc_hwcf"])
+                tiled = tile_to_scf_forall(m, sizes=[0, 1, 8, 8, 1])
+
+        module = self.backend.compile(
+            module,
+            kernel_name="conv_2d_nhwc_hwcf",
+            pipeline=Pipeline()
+            .transform_dialect_interpreter()
+            .transform_dialect_erase_schedule()
+            .FUNC()
+            .linalg_transform_patterns(decompose_convolutions=True)
+            .CNUF(),
+            enable_ir_printing=False,
+        )
+        # print(module)
+
+    @pytest.mark.xfail()
     def test_nn(self):
         scale = 1
         tile_x, tile_y = 1, 1
@@ -274,26 +444,24 @@ class TestVulkan:
             # # .nelli_map_memref_spirv_storage_class(client_api="vulkan")
             .convert_gpux_to_spirv(map_memory_space=True).canonicalize()
             # ##########
-            # .SPIRV().spirv_lower_abi_attrs().spirv_update_vce().VRIPS()
+            .SPIRV().spirv_lower_abi_attrs().spirv_update_vce().VRIPS()
             # ##########
-            # .convert_gpu_launch_to_vulkan_launch()
-            # .finalize_memref_to_llvm()
-            # .FUNC()
-            # .llvm_request_c_wrappers()
-            # .CNUF()
-            # .convert_func_to_llvm(index_bitwidth=64)
-            # .reconcile_unrealized_casts()
-            # .launch_func_to_vulkan()
-            ,
+            .convert_gpu_launch_to_vulkan_launch()
+            .finalize_memref_to_llvm()
+            .FUNC()
+            .llvm_request_c_wrappers()
+            .CNUF()
+            .convert_func_to_llvm(index_bitwidth=64)
+            .reconcile_unrealized_casts()
+            .launch_func_to_vulkan(),
             enable_ir_printing=False,
         )
-        print(module)
-        # A = np.random.randint(low=0, high=10, size=(M, N)).astype(np.float32)
-        # B = np.random.randint(low=0, high=10, size=(N, K)).astype(np.float32)
-        # C = np.zeros((M, K)).astype(np.float32)
-        # invoker = self.backend.load(module)
-        # invoker.matmul(A, B, C)
-        # assert np.allclose(A @ B, C)
+        A = np.random.randint(low=0, high=10, size=(M, N)).astype(np.float32)
+        B = np.random.randint(low=0, high=10, size=(N, K)).astype(np.float32)
+        C = np.zeros((M, K)).astype(np.float32)
+        invoker = self.backend.load(module)
+        invoker.matmul(A, B, C)
+        assert np.allclose(A @ B, C)
 
     def test_benchmark(self):
         N, C, H, W = 1, 3, 32, 32

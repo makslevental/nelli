@@ -1,5 +1,7 @@
 from textwrap import dedent
 
+import pytest
+
 from nelli import F64
 from nelli.mlir.affine import RankedAffineMemRefValue as MemRef
 from nelli.mlir.arith import constant
@@ -348,3 +350,15 @@ class TestIfs:
         """
         )
         check_correct(correct, module)
+
+    @pytest.mark.xfail()
+    def test_iv_and_constant(self):
+        with mlir_mod_ctx() as module:
+
+            @mlir_func(rewrite_bytecode_=False)
+            def loop():
+                for i in range(1, 10):
+                    if i > 2:
+                        k = constant(1)
+
+            # print(module)

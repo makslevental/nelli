@@ -8,7 +8,7 @@ try:
 except ImportError:
     from yaml import Loader, Dumper
 
-import multiprocessing
+import multiprocess as multiprocessing
 import os
 
 from nelli.mlir._mlir._mlir_libs._nelli_mlir import print_help

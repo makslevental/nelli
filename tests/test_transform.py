@@ -24,7 +24,7 @@ from nelli.mlir.transform import (
     get_parent_for_loop,
     unroll,
     tile_linalg_to_scf_for,
-    tile_to_scf_foreach_thread,
+    tile_to_scf_forall,
     tile_to_scf_for,
 )
 from nelli.mlir.utils import run_pipeline_with_repro_report
@@ -447,7 +447,7 @@ class TestTiling:
             @sequence
             def basic(target, *extra_args):
                 m = match(target, ["linalg.matmul"])
-                tiled = tile_to_scf_foreach_thread(m, sizes=[2, 3])
+                tiled = tile_to_scf_forall(m, sizes=[2, 3])
 
         correct = dedent(
             """\
