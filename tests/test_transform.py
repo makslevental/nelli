@@ -14,7 +14,7 @@ from nelli.mlir.refbackend import (
     elemental_type_to_ctype,
     memref_type_to_np_dtype,
 )
-from nelli.mlir.scf import range as scf_range
+from nelli.mlir.scf import scf_range
 from nelli.mlir.tensor import TensorValue as Tensor, pad
 from nelli.mlir.transform import (
     loop_ext,

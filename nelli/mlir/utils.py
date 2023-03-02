@@ -4,18 +4,20 @@ import tempfile
 from contextlib import ExitStack
 from functools import wraps
 from io import StringIO
+from types import FunctionType
 from typing import Optional, Sequence
 
+from ._mlir._mlir_libs._mlir.ir import FlatSymbolRefAttr, Attribute
 from .. import (
     disable_multithreading as disable_multithreading_mgr,
 )
-from ..mlir._mlir.passmanager import PassManager
 from ..mlir._mlir.ir import (
     StringAttr,
     register_attribute_builder,
     DenseI64ArrayAttr,
     Context,
 )
+from ..mlir._mlir.passmanager import PassManager
 
 
 class NelliMlirCompilerError(Exception):
@@ -106,6 +108,11 @@ def doublewrap(f):
     return new_dec
 
 
+def extract_wrapped(decorated):
+    closure = (c.cell_contents for c in decorated.__closure__)
+    return next((c for c in closure if isinstance(c, FunctionType)), None)
+
+
 @register_attribute_builder("DenseI64ArrayAttr")
 def get_dense_int64_array_attr(
     values: Sequence[int], context: Optional[Context] = None
@@ -117,3 +124,26 @@ def get_dense_int64_array_attr(
     if values is None:
         return DenseI64ArrayAttr.get([], context)
     return DenseI64ArrayAttr.get(values, context)
+
+
+@register_attribute_builder("FlatSymbolRefAttr")
+def get_flat_symbol_ref_attr(
+    symbol: str, context: Optional[Context] = None
+) -> FlatSymbolRefAttr:
+    from .. import DefaultContext
+
+    if context is None:
+        context = DefaultContext
+    return FlatSymbolRefAttr.get(symbol, context)
+
+
+@register_attribute_builder("SymbolRefAttr")
+def get_symbol_ref_attr(
+    symbols: list[str], context: Optional[Context] = None
+) -> FlatSymbolRefAttr:
+    from .. import DefaultContext
+
+    if context is None:
+        context = DefaultContext
+    qualname = "::".join([f"@{q}" for q in symbols])
+    return Attribute.parse(qualname, context)

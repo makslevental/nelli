@@ -8,16 +8,16 @@ import numpy as np
 
 from nelli import F64, I64
 from nelli.mlir._mlir import _mlir_libs
-from nelli.mlir._mlir.ir import Module
 from nelli.mlir._mlir import runtime as rt
 from nelli.mlir._mlir.dialects.linalg.opdsl import lang as dsl
 from nelli.mlir._mlir.execution_engine import ExecutionEngine
+from nelli.mlir._mlir.ir import Module
 from nelli.mlir.benchmark import create_sparse_np_tensor, wrap
 from nelli.mlir.func import mlir_func, declare
 from nelli.mlir.memref import MemRefValue as MemRef
 from nelli.mlir.passes import Pipeline
 from nelli.mlir.refbackend import LLVMJITBackend
-from nelli.mlir.scf import range as scf_range
+from nelli.mlir.scf import scf_range
 from nelli.mlir.tensor import TensorValue as Tensor
 from nelli.utils import shlib_ext, mlir_mod_ctx
 from util import check_correct
@@ -179,7 +179,7 @@ class TestBenchmark:
             def matmul(x: param1_type, y: param2_type, z: result_type):
                 return matmul_dsl(x, y, outs=[z])
 
-            @mlir_func(range_ctor=scf_range, emit_c_interface=True)
+            @mlir_func(range_ctor=scf_range, attributes={"llvm.emit_c_interface": None})
             def timing_wrapper(
                 x: param1_type,
                 y: param2_type,

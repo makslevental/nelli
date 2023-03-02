@@ -6,19 +6,6 @@ from typing import List
 from sympy import Eq, Symbol, Integer
 
 from .op import Op
-from ..mlir._mlir.ir import (
-    AffineAddExpr,
-    AffineExpr,
-    AffineBinaryExpr,
-    AffineCeilDivExpr,
-    AffineConstantExpr,
-    AffineDimExpr,
-    AffineFloorDivExpr,
-    AffineModExpr,
-    AffineMulExpr,
-    AffineSymbolExpr,
-    Value,
-)
 from .z3_ import (
     build_z3_access_constraints,
 )
@@ -32,6 +19,19 @@ from ..mlir._mlir._mlir_libs._nelli_mlir import (
     get_loop_bounds,
     affine_for_skew,
     affine_for_unroll_by_factor,
+)
+from ..mlir._mlir.ir import (
+    AffineAddExpr,
+    AffineExpr,
+    AffineBinaryExpr,
+    AffineCeilDivExpr,
+    AffineConstantExpr,
+    AffineDimExpr,
+    AffineFloorDivExpr,
+    AffineModExpr,
+    AffineMulExpr,
+    AffineSymbolExpr,
+    Value,
 )
 from ..mlir.affine._affine_ops_gen import (
     AffineApplyOp,

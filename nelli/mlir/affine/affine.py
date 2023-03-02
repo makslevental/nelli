@@ -1,10 +1,10 @@
-from typing import Optional, Union, Sequence, Tuple
+from typing import Optional, Union, Sequence
 
 from . import _affine_ops_gen as affine
 from ._affine_ops_gen import _Dialect
+from ..annot import Annot
 from ..arith import ArithValue, constant
 from ..memref import MemRefValue, AllocaOp
-from ..annot import Annot
 
 # noinspection PyUnresolvedReferences
 from ...mlir._mlir.dialects._ods_common import _cext

@@ -3,8 +3,8 @@ from typing import (
     Tuple,
 )
 
-from .arith import constant
 from .annot import Annot
+from .arith import constant
 
 # noinspection PyUnresolvedReferences
 from ..mlir._mlir._mlir_libs._nelli_mlir import TensorValue

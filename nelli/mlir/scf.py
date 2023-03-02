@@ -48,7 +48,7 @@ def scf_endif():
 _for_ip = None
 
 
-def range(start, stop, step=1):
+def scf_range(start, stop, step=1):
     global _for_ip
     if isinstance(start, int):
         start = constant(start, index=True)
