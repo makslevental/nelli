@@ -28,7 +28,6 @@ from ..mlir._mlir.ir import (
     IntegerAttr,
     Operation,
     OpView,
-    StringAttr,
 )
 
 

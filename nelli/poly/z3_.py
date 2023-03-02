@@ -33,8 +33,6 @@ from z3 import (
     Optimize,
     ExprRef,
     Exists,
-    Tactic,
-    set_option,
 )
 
 from .sympy_ import SymPyVisitor

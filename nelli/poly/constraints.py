@@ -8,7 +8,6 @@ from z3.z3util import get_vars
 
 from .z3_ import show_z3_constraints, opt_system, elim_vars
 
-
 # from symengine import Eq, Symbol, Integer
 from sympy import pretty
 from sympy.core.relational import Relational

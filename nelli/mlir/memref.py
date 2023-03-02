@@ -7,8 +7,8 @@ from typing import (
 )
 
 from ._mlir._mlir_libs._mlir.ir import Attribute, ShapedType
-from .arith import ArithValue
 from .annot import Annot
+from .arith import ArithValue
 
 # noinspection PyUnresolvedReferences
 from ..mlir._mlir._mlir_libs._nelli_mlir import MemRefValue

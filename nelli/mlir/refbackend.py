@@ -4,6 +4,7 @@
 # Also available under a BSD-style license. See LICENSE.
 
 from __future__ import annotations
+
 import logging
 
 from .passes import Pipeline

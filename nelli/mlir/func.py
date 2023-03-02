@@ -2,8 +2,14 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-from .. import DefaultContext
-
+from ._mlir._mlir_libs._mlir.ir import (
+    InsertionPoint,
+    Value,
+    OpView,
+    Operation,
+    TypeAttr,
+    StringAttr,
+)
 
 import inspect
 import ast
@@ -18,7 +24,7 @@ from .scf import (
     scf_if,
     scf_else,
     scf_endif,
-    range as scf_range,
+    scf_range,
     end_for as scf_endfor,
     par_range as scf_par_range,
     end_parfor as scf_end_parfor,
@@ -33,7 +39,6 @@ from ..mlir._mlir.ir import (
     FunctionType as MLIRFunctionType,
     FlatSymbolRefAttr,
     UnitAttr,
-    _stringAttr,
 )
 from ..mlir._mlir.dialects._ods_common import (
     get_op_result_or_value,
@@ -119,6 +124,14 @@ class InsertEndIfs(ast.NodeTransformer):
         return node
 
 
+def bind(func, instance, as_name=None):
+    if as_name is None:
+        as_name = func.__name__
+    bound_method = func.__get__(instance, instance.__class__)
+    setattr(instance, as_name, bound_method)
+    return bound_method
+
+
 def rewrite_ast(f, range_ctor, endfor):
     tree = ast.parse(dedent(inspect.getsource(f)))
     assert isinstance(
@@ -158,6 +171,11 @@ def rewrite_ast(f, range_ctor, endfor):
         name=f.__name__,
         argdefs=f.__defaults__,
     )
+    updated_f.__qualname__ = f.__qualname__
+    updated_f.__annotations__ = f.__annotations__
+
+    if inspect.ismethod(f):
+        updated_f = bind(updated_f, f.__self__)
 
     return updated_f
 
@@ -199,7 +217,7 @@ def rewrite_bytecode(f):
         code[idx] = ConcreteInstr("NOP", lineno=c.lineno, location=c.location)
 
     f_code_o = code.to_code()
-    return FunctionType(
+    updated_f = FunctionType(
         code=f_code_o,
         globals={
             **f.__globals__,
@@ -211,6 +229,126 @@ def rewrite_bytecode(f):
         name=f.__name__,
         argdefs=f.__defaults__,
     )
+    updated_f.__qualname__ = f.__qualname__
+    updated_f.__annotations__ = f.__annotations__
+    if inspect.ismethod(f):
+        updated_f = bind(updated_f, f.__self__)
+    return updated_f
+
+
+def get_qual_name(qualname):
+    if ".<locals>." in qualname:
+        _, qualname = qualname.split(".<locals>.")
+    return qualname
+
+
+class MLIRFunc:
+    _func_op = None
+
+    def __init__(
+        self,
+        f,
+        func_op_ctor=None,
+        func_op_terminator=None,
+        attributes=None,
+        build=True,
+        qualname=None,
+    ):
+
+        if func_op_ctor is None:
+            func_op_ctor = func_dialect.FuncOp
+        if func_op_terminator is None:
+            func_op_terminator = func_dialect.ReturnOp
+        if attributes is None:
+            attributes = {}
+        self.qualname = qualname
+
+        sig_params = inspect.signature(f).parameters
+        params = list(sig_params.values())
+
+        if "self" in sig_params:
+            assert params[0].name == "self"
+            params.pop(0)
+
+        annots = [p.annotation for p in params]
+        assert all(
+            isinstance(a, (MLIRType, Annot)) for a in annots
+        ), f"wrong func args {annots}"
+
+        self.f = f
+        self.attributes = attributes
+        self.annots = annots
+        self.func_op_ctor = func_op_ctor
+        self.func_op_terminator = func_op_terminator
+        if build:
+            self._func_op = self._build_func_op()
+
+    def _build_func_op(self):
+        inputs = [(an.mlir_type if isinstance(an, Annot) else an) for an in self.annots]
+        function_type = MLIRFunctionType.get(inputs=inputs, results=[])
+        func_op = self.func_op_ctor(name=self.f.__name__, type=function_type)
+        if self.attributes is not None:
+            for k, v in self.attributes.items():
+                if v is None:
+                    v = UnitAttr.get()
+                func_op.attributes[k] = v
+
+        with InsertionPoint(func_op.add_entry_block()):
+            func_args = func_op.entry_block.arguments
+            args = list(func_args)
+            for i, (annot, arg) in enumerate(zip(self.annots, args)):
+                logger.debug(f"{self.f.__name__} arg {i}: {arg}")
+                if MemRefType.isinstance(arg.type) or RankedTensorType.isinstance(
+                    arg.type
+                ):
+                    if annot.py_type in {
+                        RankedAffineMemRefValue,
+                        MemRefValue,
+                        TensorValue,
+                    }:
+                        args[i] = annot.py_type(arg)
+                    else:
+                        raise RuntimeError(f"unknown annotation: {annot.py_type}")
+                else:
+                    args[i] = ArithValue(arg)
+
+            return_values = self.f(*args)
+            if return_values is None:
+                return_values = []
+            elif isinstance(return_values, tuple):
+                return_values = list(return_values)
+            elif isinstance(return_values, Value):
+                return_values = [return_values]
+            elif isinstance(return_values, OpView):
+                return_values = return_values.operation.results
+            elif isinstance(return_values, Operation):
+                return_values = return_values.results
+            else:
+                return_values = list(return_values)
+            self.func_op_terminator(return_values)
+
+        # Recompute the function type.
+        return_types = [v.type for v in return_values]
+        function_type = MLIRFunctionType.get(inputs=inputs, results=return_types)
+        func_op.attributes["function_type"] = TypeAttr.get(function_type)
+
+        return func_op
+
+    @property
+    def func_op(self):
+        if self._func_op is None:
+            self._func_op = self._build_func_op()
+        return self._func_op
+
+    def __call__(self, *args):
+        return_types = self.func_op.type.results
+        call_op = func_dialect.CallOp(self._func_op, list(args))
+        if return_types is None:
+            return None
+        elif len(return_types) == 1:
+            return call_op.result
+        else:
+            return call_op.results
 
 
 @doublewrap
@@ -219,31 +357,17 @@ def mlir_func(
     rewrite_ast_=None,
     rewrite_bytecode_=None,
     range_ctor=None,
-    emit_c_interface=None,
-    visibility=None,
-    cls=None,
-    func_op_ctor=None,
-):
+    func_ctor=None,
+    **kwargs,
+) -> MLIRFunc:
     if rewrite_ast_ is None:
         rewrite_ast_ = True
     if rewrite_bytecode_ is None:
         rewrite_bytecode_ = True
     if range_ctor is None:
         range_ctor = affine_range
-    if emit_c_interface is None:
-        emit_c_interface = False
-    if func_op_ctor is None:
-        func_op_ctor = func_dialect.FuncOp.from_py_func
-
-    sig_params = inspect.signature(f).parameters
-    annots = list(sig_params.values())
-    if "cls" in sig_params:
-        assert annots[0].name == "cls"
-        annots.pop(0)
-    annots = [p.annotation for p in annots]
-    assert all(
-        isinstance(a, (MLIRType, Annot)) for a in annots
-    ), f"wrong func args {annots}"
+    if func_ctor is None:
+        func_ctor = MLIRFunc
 
     if rewrite_ast_:
         if range_ctor == affine_range:
@@ -261,35 +385,7 @@ def mlir_func(
     if rewrite_bytecode_:
         f = rewrite_bytecode(f)
 
-    def args_wrapped_f(*args, func_op=None):
-        args = list(args)
-        for i, (annot, arg) in enumerate(zip(annots, args)):
-            logger.debug(f"{f.__name__} arg {i}: {arg}")
-            if MemRefType.isinstance(arg.type) or RankedTensorType.isinstance(arg.type):
-                if annot.py_type in {RankedAffineMemRefValue, MemRefValue, TensorValue}:
-                    args[i] = annot.py_type(arg)
-                else:
-                    raise RuntimeError(f"unknown annotation: {annot.py_type}")
-            else:
-                args[i] = ArithValue(arg)
-
-        if emit_c_interface:
-            func_op.attributes["llvm.emit_c_interface"] = UnitAttr.get()
-        if visibility is not None:
-            func_op.attributes["sym_visibility"] = _stringAttr(
-                visibility, DefaultContext
-            )
-
-        if "cls" in sig_params:
-            assert cls is not None
-            args.insert(0, cls)
-        return f(*args)
-
-    args_wrapped_f.__name__ = f.__name__
-
-    return func_op_ctor(
-        *[(an.mlir_type if isinstance(an, Annot) else an) for an in annots]
-    )(args_wrapped_f)
+    return func_ctor(f, **kwargs)
 
 
 def call_func(symbol_name, call_args, return_types):
@@ -355,3 +451,7 @@ def declare(
         return res_vals
 
     return callable
+
+
+def visibility_attr(visibility):
+    return StringAttr.get(visibility)

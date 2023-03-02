@@ -38,7 +38,8 @@ jobs:
       - name: Install
         run: |
           CMAKE_GENERATOR=Ninja pip install . -v
+          
 
       - name: Test
         run: |
-          pytest --ignore-glob=*test_nns* --ignore-glob=*test_vulkan* tests
+          pytest --ignore-glob=*test_nns* --ignore-glob=*test_vulkan* --ignore-glob=*test_gpu* tests

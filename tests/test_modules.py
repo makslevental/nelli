@@ -3,28 +3,58 @@ from textwrap import dedent
 from nelli import F32
 from nelli.mlir._mlir.dialects import linalg
 from nelli.mlir.arith import constant
-from nelli.mlir.func import declare
-from nelli.mlir.gpu import Module as GPUModule, FuncOp as GPUFuncOp
+from nelli.mlir.func import declare, mlir_func
+from nelli.mlir.gpu import (
+    Module as GPUModule,
+)
 from nelli.mlir.memref import (
     MemRefValue as MemRef,
     UnrankedMemRefValue as UnrankedMemRef,
     cast,
 )
-from nelli.mlir.modules import Module, mlir_class_method
+from nelli.mlir.module import Module
 from nelli.mlir.tensor import TensorValue as Tensor
-from nelli.mlir.transform import sequence, match, tile_linalg_to_scf_for
+from nelli.mlir.transform import match, tile_linalg_to_scf_for, lazy_sequence
+from nelli.utils import mlir_mod_ctx
 from util import check_correct
 
 
 class TestModules:
     def test_basic(self):
-        class MyClass1(metaclass=Module):
-            def method(cls):
-                constant(1.0, type=F32)
+        with mlir_mod_ctx() as module:
+
+            class MyClass1(Module):
+                def method(self):
+                    constant(1.0, type=F32)
+
+            m = MyClass1()
 
         correct = dedent(
             """\
-        module attributes {nelli.debug_module_name = "MyClass1"} {
+        module {
+          module @MyClass1 {
+            func.func @method() {
+              %cst = arith.constant 1.000000e+00 : f32
+              return
+            }
+          }
+        }
+        """
+        )
+        check_correct(correct, module)
+
+    def test_basic2(self):
+        with mlir_mod_ctx() as module:
+
+            class MyClass1(Module):
+                def method(self):
+                    constant(1.0, type=F32)
+
+            m = MyClass1()
+
+        correct = dedent(
+            """\
+        module @MyClass1 {
           func.func @method() {
             %cst = arith.constant 1.000000e+00 : f32
             return
@@ -32,17 +62,51 @@ class TestModules:
         }
         """
         )
-        check_correct(correct, str(MyClass1))
+        check_correct(correct, m.mlir_module)
+
+    def test_basic_call(self):
+        with mlir_mod_ctx() as module:
+
+            class MyClass1(Module):
+                def __init__(self):
+                    self.test = "test"
+                    super().__init__(mlir_module=module)
+
+                def method(self):
+                    constant(1.0, type=F32)
+
+            mod = MyClass1()
+            mod.method()
+
+        correct = dedent(
+            """\
+        module @MyClass1 {
+          func.func @method() {
+            %cst = arith.constant 1.000000e+00 : f32
+            return
+          }
+          func.call @method() : () -> ()
+        }
+        """
+        )
+        print(module)
+        check_correct(correct, module)
 
     def test_hand_def(self):
-        class MyClass1(metaclass=Module):
-            @mlir_class_method(rewrite_ast_=True)
-            def method1(cls):
-                constant(1.0, type=F32)
+        with mlir_mod_ctx() as module:
+
+            class MyClass1(Module):
+                def __init__(self):
+                    super().__init__(mlir_module=module)
+
+                def method1(self):
+                    constant(1.0, type=F32)
+
+            MyClass1()
 
         correct = dedent(
             """\
-        module attributes {nelli.debug_module_name = "MyClass1"} {
+        module @MyClass1 {
           func.func @method1() {
             %cst = arith.constant 1.000000e+00 : f32
             return
@@ -50,45 +114,58 @@ class TestModules:
         }
         """
         )
-        check_correct(correct, str(MyClass1))
+        check_correct(correct, module)
 
     def test_mixed_def(self):
-        class MyClass1(metaclass=Module):
-            def method2(cls):
-                constant(1.0, type=F32)
+        with mlir_mod_ctx() as module:
 
-            @mlir_class_method
-            def method1(cls):
+            class MyClass1(Module):
+                def method2(self):
+                    constant(1.0, type=F32)
+
+            MyClass1()
+
+            @mlir_func
+            def method1():
                 constant(1.0, type=F32)
 
         correct = dedent(
             """\
-        module attributes {nelli.debug_module_name = "MyClass1"} {
-          func.func @method1() {
-            %cst = arith.constant 1.000000e+00 : f32
-            return
+        module {
+          module @MyClass1 {
+            func.func @method2() {
+              %cst = arith.constant 1.000000e+00 : f32
+              return
+            }
           }
-          func.func @method2() {
+          func.func @method1() {
             %cst = arith.constant 1.000000e+00 : f32
             return
           }
         }
         """
         )
-        check_correct(correct, str(MyClass1))
+        print(module)
+        check_correct(correct, module)
 
     def test_calling_mixed_def(self):
-        class MyClass1(metaclass=Module):
-            @mlir_class_method
-            def method1(cls):
-                constant(1.0, type=F32)
+        with mlir_mod_ctx() as module:
 
-            def method2(cls):
-                cls.method1()
+            class MyClass1(Module):
+                def __init__(self):
+                    super().__init__(mlir_module=module)
+
+                def method1(self):
+                    constant(1.0, type=F32)
+
+                def method2(self):
+                    self.method1()
+
+            MyClass1()
 
         correct = dedent(
             """\
-        module attributes {nelli.debug_module_name = "MyClass1"} {
+        module @MyClass1 {
           func.func @method1() {
             %cst = arith.constant 1.000000e+00 : f32
             return
@@ -100,25 +177,33 @@ class TestModules:
         }
         """
         )
-        check_correct(correct, str(MyClass1))
+        check_correct(correct, module)
 
     def test_args(self):
-        class MyClass1(metaclass=Module):
-            def conv_2d_nhwc_hwcf(
-                input: Tensor[(1, 225, 225, 3), F32],
-                kernel: Tensor[(3, 3, 3, 32), F32],
-                output: Tensor[(1, 112, 112, 32), F32],
-            ):
-                return linalg.conv_2d_nhwc_hwcf(input, kernel, outs=[output])
+        with mlir_mod_ctx() as module:
 
-            @sequence
-            def basic(target, *extra_args):
-                m = match(target, ["linalg.conv_2d_nhwc_hwcf"])
-                tiled = tile_linalg_to_scf_for(m, sizes=[0, 1, 8, 8, 1])
+            class MyClass1(Module):
+                def __init__(self):
+                    super().__init__(mlir_module=module)
+
+                def conv_2d_nhwc_hwcf(
+                    self,
+                    input: Tensor[(1, 225, 225, 3), F32],
+                    kernel: Tensor[(3, 3, 3, 32), F32],
+                    output: Tensor[(1, 112, 112, 32), F32],
+                ):
+                    return linalg.conv_2d_nhwc_hwcf(input, kernel, outs=[output])
+
+                @lazy_sequence
+                def basic(target, *extra_args):
+                    m = match(target, ["linalg.conv_2d_nhwc_hwcf"])
+                    tiled = tile_linalg_to_scf_for(m, sizes=[0, 1, 8, 8, 1])
+
+            MyClass1()
 
         correct = dedent(
             """\
-        module attributes {nelli.debug_module_name = "MyClass1"} {
+        module @MyClass1 {
           transform.sequence  failures(propagate) {
           ^bb0(%arg0: !pdl.operation):
             %0 = transform.structured.match ops{["linalg.conv_2d_nhwc_hwcf"]} in %arg0 : (!pdl.operation) -> !pdl.operation
@@ -131,7 +216,7 @@ class TestModules:
         }
         """
         )
-        check_correct(correct, str(MyClass1))
+        check_correct(correct, module)
 
     def test_declare_calls(self):
         scale = 1
@@ -139,46 +224,51 @@ class TestModules:
         dynamic_2d_memref = MemRef[(-1, -1), F32]
         unranked_memref = UnrankedMemRef[F32]
 
-        class MyClass1(metaclass=Module):
+        with mlir_mod_ctx() as module:
             print_memref_32 = declare("printMemrefF32", [unranked_memref])
             fill_resource_2d_float = declare(
                 "fillResource2DFloat", [dynamic_2d_memref, F32]
             )
 
-            @mlir_class_method
-            def matmul(
-                cls,
-                A: MemRef[(M, N), F32],
-                B: MemRef[(N, K), F32],
-                C: MemRef[(M, K), F32],
-            ):
-                zero = constant(0.0, type=F32)
-                one = constant(1.0, type=F32)
-                two = constant(2.0, type=F32)
+            class MyClass1(Module):
+                def __init__(self):
+                    super().__init__(mlir_module=module)
 
-                A_cast = cast(A, dynamic_2d_memref.mlir_type)
-                B_cast = cast(B, dynamic_2d_memref.mlir_type)
-                C_cast = cast(C, dynamic_2d_memref.mlir_type)
+                def matmul(
+                    self,
+                    A: MemRef[(M, N), F32],
+                    B: MemRef[(N, K), F32],
+                    C: MemRef[(M, K), F32],
+                ):
+                    zero = constant(0.0, type=F32)
+                    one = constant(1.0, type=F32)
+                    two = constant(2.0, type=F32)
 
-                cls.fill_resource_2d_float(A_cast, one)
-                cls.fill_resource_2d_float(B_cast, two)
-                cls.fill_resource_2d_float(C_cast, zero)
+                    A_cast = cast(A, dynamic_2d_memref.mlir_type)
+                    B_cast = cast(B, dynamic_2d_memref.mlir_type)
+                    C_cast = cast(C, dynamic_2d_memref.mlir_type)
 
-                A_cast = cast(A, unranked_memref.mlir_type)
-                B_cast = cast(B, unranked_memref.mlir_type)
-                C_cast = cast(C, unranked_memref.mlir_type)
+                    fill_resource_2d_float(A_cast, one)
+                    fill_resource_2d_float(B_cast, two)
+                    fill_resource_2d_float(C_cast, zero)
 
-                cls.print_memref_32(A_cast)
-                cls.print_memref_32(B_cast)
-                cls.print_memref_32(C_cast)
+                    A_cast = cast(A, unranked_memref.mlir_type)
+                    B_cast = cast(B, unranked_memref.mlir_type)
+                    C_cast = cast(C, unranked_memref.mlir_type)
 
-                linalg.matmul(A, B, outs=[C])
+                    print_memref_32(A_cast)
+                    print_memref_32(B_cast)
+                    print_memref_32(C_cast)
 
-                cls.print_memref_32(C_cast)
+                    linalg.matmul(A, B, outs=[C])
+
+                    print_memref_32(C_cast)
+
+            m = MyClass1()
 
         correct = dedent(
             """\
-        module attributes {nelli.debug_module_name = "MyClass1"} {
+        module @MyClass1 {
           func.func private @printMemrefF32(memref<*xf32>)
           func.func private @fillResource2DFloat(memref<?x?xf32>, f32)
           func.func @matmul(%arg0: memref<4x16xf32>, %arg1: memref<16x8xf32>, %arg2: memref<4x8xf32>) {
@@ -204,19 +294,25 @@ class TestModules:
         }
         """
         )
-        check_correct(correct, str(MyClass1))
+        check_correct(correct, module)
 
     def test_nested(self):
-        class MyClass1(metaclass=Module):
-            class MyClass1(metaclass=GPUModule, func_op_ctor=GPUFuncOp.from_py_func):
+        with mlir_mod_ctx() as module:
+
+            class MyClass1(GPUModule):
+                def __init__(self):
+                    super().__init__()
+
                 def method(cls):
                     constant(1.0, type=F32)
 
+            MyClass1()
+
         correct = dedent(
             """\
-        module attributes {nelli.debug_module_name = "MyClass1"} {
-          gpu.module @MyClass1 attributes {nelli.debug_gpu_module_name = "MyClass1"} {
-            gpu.func @method() {
+        module {
+          gpu.module @MyClass1 {
+            gpu.func @method() kernel {
               %cst = arith.constant 1.000000e+00 : f32
               gpu.return
             }
@@ -224,4 +320,4 @@ class TestModules:
         }
         """
         )
-        check_correct(correct, str(MyClass1))
+        check_correct(correct, module)

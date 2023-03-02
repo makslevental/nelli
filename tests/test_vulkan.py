@@ -1,16 +1,15 @@
+from pathlib import Path
+from textwrap import dedent
+
 import numpy as np
 import pytest
 from scipy import signal
-from pathlib import Path
-from textwrap import dedent
 
 from nelli import F32, I64
 from nelli.mlir._mlir import _mlir_libs
 from nelli.mlir._mlir.dialects import linalg
 from nelli.mlir.arith import constant
-from nelli.mlir.scf import range as scf_range
-from nelli.mlir.tensor import TensorValue as Tensor
-from nelli.mlir.func import mlir_func, declare, call_func
+from nelli.mlir.func import mlir_func, declare, call_func, visibility_attr
 from nelli.mlir.memref import (
     MemRefValue as MemRef,
     UnrankedMemRefValue as UnrankedMemRef,
@@ -20,6 +19,8 @@ from nelli.mlir.passes import Pipeline
 from nelli.mlir.refbackend import (
     LLVMJITBackend,
 )
+from nelli.mlir.scf import scf_range
+from nelli.mlir.tensor import TensorValue as Tensor
 from nelli.mlir.transform import (
     sequence,
     match,
@@ -28,7 +29,7 @@ from nelli.mlir.transform import (
 )
 from nelli.utils import mlir_mod_ctx
 from nelli.utils import shlib_ext
-from tests.test_nns import read_model_ir
+from test_nns import read_model_ir
 
 c_runner_utils_lib_path = (
     Path(_mlir_libs.__file__).parent / f"libmlir_c_runner_utils.{shlib_ext()}"
@@ -55,11 +56,7 @@ class TestVulkan:
     )
     golden_src = dedent(
         """\
-    module attributes {
-      gpu.container_module,
-      spirv.target_env = #spirv.target_env<
-        #spirv.vce<v1.0, [Shader], [SPV_KHR_storage_buffer_storage_class]>, #spirv.resource_limits<>>
-    } {
+    module attributes {gpu.container_module, spirv.target_env = #spirv.target_env<#spirv.vce<v1.0, [Shader], [SPV_KHR_storage_buffer_storage_class]>, #spirv.resource_limits<>>} {
       gpu.module @kernels {
         gpu.func @kernel_mul(%arg0 : memref<4x4xf32>, %arg1 : memref<4x4xf32>, %arg2 : memref<4x4xf32>)
           kernel attributes { spirv.entry_point_abi = #spirv.entry_point_abi<workgroup_size = [1, 1, 1]>} {
@@ -73,33 +70,14 @@ class TestVulkan:
         }
       }
 
-      func.func @main() {
-        %arg0 = memref.alloc() : memref<4x4xf32>
-        %arg1 = memref.alloc() : memref<4x4xf32>
-        %arg2 = memref.alloc() : memref<4x4xf32>
-        %0 = arith.constant 0 : i32
-        %1 = arith.constant 1 : i32
-        %2 = arith.constant 2 : i32
-        %value0 = arith.constant 0.0 : f32
-        %value1 = arith.constant 2.0 : f32
-        %value2 = arith.constant 3.0 : f32
-        %arg3 = memref.cast %arg0 : memref<4x4xf32> to memref<?x?xf32>
-        %arg4 = memref.cast %arg1 : memref<4x4xf32> to memref<?x?xf32>
-        %arg5 = memref.cast %arg2 : memref<4x4xf32> to memref<?x?xf32>
-        call @fillResource2DFloat(%arg3, %value1) : (memref<?x?xf32>, f32) -> ()
-        call @fillResource2DFloat(%arg4, %value2) : (memref<?x?xf32>, f32) -> ()
-        call @fillResource2DFloat(%arg5, %value0) : (memref<?x?xf32>, f32) -> ()
-
+      func.func @main(%arg0: memref<4x4xf32>, %arg1: memref<4x4xf32>, %arg2: memref<4x4xf32>) {
         %cst1 = arith.constant 1 : index
         %cst4 = arith.constant 4 : index
-        gpu.launch_func @kernels::@kernel_mul
-            blocks in (%cst4, %cst4, %cst1) threads in(%cst1, %cst1, %cst1)
-            args(%arg0 : memref<4x4xf32>, %arg1 : memref<4x4xf32>, %arg2 : memref<4x4xf32>)
-        %arg6 = memref.cast %arg5 : memref<?x?xf32> to memref<*xf32>
+        gpu.launch_func @kernels::@kernel_mul blocks in (%cst4, %cst4, %cst1) threads in(%cst1, %cst1, %cst1) args(%arg0 : memref<4x4xf32>, %arg1 : memref<4x4xf32>, %arg2 : memref<4x4xf32>)
+        %arg6 = memref.cast %arg2 : memref<4x4xf32> to memref<*xf32>
         call @printMemrefF32(%arg6) : (memref<*xf32>) -> ()
         return
       }
-      func.func private @fillResource2DFloat(%0 : memref<?x?xf32>, %1 : f32)
       func.func private @printMemrefF32(%ptr : memref<*xf32>)
     }
     """
@@ -130,8 +108,13 @@ class TestVulkan:
             .reconcile_unrealized_casts()
             .launch_func_to_vulkan(),
         )
+
+        A = np.random.randint(low=0, high=10, size=(4, 4)).astype(np.float32)
+        B = np.random.randint(low=0, high=10, size=(4, 4)).astype(np.float32)
+        C = np.zeros((4, 4)).astype(np.float32)
         invoker = self.backend.load(module)
-        invoker.main()
+        invoker.main(A, B, C)
+        assert np.allclose(A * B, C)
 
     def test_pipeline(self):
         with mlir_mod_ctx(self.golden_src) as module:
@@ -161,13 +144,15 @@ class TestVulkan:
             .reconcile_unrealized_casts()
             .launch_func_to_vulkan(),
         )
-        # print(module)
+        A = np.random.randint(low=0, high=10, size=(4, 4)).astype(np.float32)
+        B = np.random.randint(low=0, high=10, size=(4, 4)).astype(np.float32)
+        C = np.zeros((4, 4)).astype(np.float32)
         invoker = self.backend.load(module)
-        invoker.main()
+        invoker.main(A, B, C)
+        assert np.allclose(A * B, C)
 
     def test_linalg(self):
         scale = 1
-        tile_x, tile_y = 1, 1
         M, N, K = 4 * scale, 16 * scale, 8 * scale
         dynamic_2d_memref = MemRef[(-1, -1), F32]
         unranked_memref = UnrankedMemRef[F32]
@@ -177,7 +162,7 @@ class TestVulkan:
                 "fillResource2DFloat", [dynamic_2d_memref, F32]
             )
 
-            @mlir_func(visibility="public")
+            @mlir_func(attributes={"visibility": visibility_attr("public")})
             def matmul(
                 A: MemRef[(M, N), F32],
                 B: MemRef[(N, K), F32],
@@ -472,7 +457,7 @@ class TestVulkan:
         with mlir_mod_ctx(read_model_ir("resnet18")) as module:
             timer = declare("_mlir_ciface_nanoTime", [], result_annots=[I64])
 
-            @mlir_func(range_ctor=scf_range, emit_c_interface=True)
+            @mlir_func(range_ctor=scf_range, attributes={"llvm.emit_c_interface": None})
             def timing_wrapper(
                 x: param1_type,
                 times: MemRef[[N_RUNS], I64],

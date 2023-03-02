@@ -3,8 +3,8 @@ from typing import Union, List, Optional
 
 from . import _omp_ops_gen as omp
 from ..arith import constant
-from ...mlir._mlir.ir import Value, InsertionPoint
 from ... import I32
+from ...mlir._mlir.ir import Value, InsertionPoint
 
 
 class ParallelOp(omp.ParallelOp):

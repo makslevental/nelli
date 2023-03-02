@@ -125,6 +125,7 @@ class CMakeBuild(build_ext):
             "gomp",
             "iomp5",
             "omp",
+            "vulkan-runtime-wrappers"
         ]:
             shlib_name = f"lib{shlib}.{shlib_ext}"
             llvm_install_dir = (Path(".").parent / "llvm_install").absolute()
@@ -156,7 +157,7 @@ packages = find_namespace_packages(
     ],
 )
 
-VERSION = "0.0.5"
+VERSION = "0.0.6"
 
 if len(sys.argv) > 1 and sys.argv[1] == "--version":
     print(VERSION)

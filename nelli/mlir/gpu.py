@@ -1,8 +1,8 @@
 import builtins
-import inspect
-from typing import Union, Optional, Sequence
+from typing import Union, Optional, Any
 
 from ._mlir import ir
+from ._mlir._mlir_libs._mlir.ir import UnitAttr
 from ._mlir.dialects._func_ops_ext import ARGUMENT_ATTRIBUTE_NAME, RESULT_ATTRIBUTE_NAME
 from ._mlir.dialects._ods_common import get_default_loc_context
 from ._mlir.ir import (
@@ -12,13 +12,88 @@ from ._mlir.ir import (
     ArrayAttr,
     Type,
     Value,
-    OpView,
-    Operation,
-    FlatSymbolRefAttr,
     InsertionPoint,
+    register_attribute_builder,
+    Attribute,
 )
-from .modules import FakeClassScope, Module
+from .arith import ArithValue, constant
+from .func import MLIRFunc
+from .module import Module
+from .scf import scf_range
 from ..mlir._mlir.dialects import gpu
+
+
+# // CHECK: _ODS_OPERAND_SEGMENTS = [-1,1,0,]
+# def AttrSizedOperandsOp : TestOp<"attr_sized_operands",
+#                                  [AttrSizedOperandSegments]> {
+#   // CHECK: def __init__(self, variadic1, non_variadic, *, variadic2=None, loc=None, ip=None):
+#   // CHECK:   operands = []
+#   // CHECK:   results = []
+#   // CHECK:   attributes = {}
+#   // CHECK:   regions = None
+#   // CHECK:   operands.append(_get_op_results_or_values(variadic1))
+#   // CHECK:   operands.append(_get_op_result_or_value(non_variadic))
+#   // CHECK:   operands.append(_get_op_result_or_value(variadic2) if variadic2 is not None else None)
+#   // CHECK:   _ods_successors = None
+#   // CHECK:   super().__init__(self.build_generic(
+#   // CHECK:     attributes=attributes, results=results, operands=operands,
+#   // CHECK:     successors=_ods_successors, regions=regions, loc=loc, ip=ip))
+
+
+class LaunchFuncOp(gpu.LaunchFuncOp):
+    def __init__(
+        self,
+        kernel: list[str],
+        grid_size: tuple[Any, Any, Any],
+        block_size: tuple[Any, Any, Any],
+        operands: list[Value] = None,
+        asyncDependencies=None,
+        dynamicSharedMemorySize: Optional[Value] = None,
+        *,
+        loc=None,
+        ip=None,
+    ):
+        if asyncDependencies is None:
+            asyncDependencies = []
+        gridSizeX, gridSizeY, gridSizeZ = grid_size
+        blockSizeX, blockSizeY, blockSizeZ = block_size
+        _ods_context = get_default_loc_context(loc)
+        attributes = {
+            "kernel": (
+                kernel
+                if (
+                    issubclass(type(kernel), ir.Attribute)
+                    or not ir.AttrBuilder.contains("SymbolRefAttr")
+                )
+                else ir.AttrBuilder.get("SymbolRefAttr")(kernel, context=_ods_context)
+            )
+        }
+
+        results = [gpu_async_token()]  # GPU_AsyncToken
+        regions = None
+        _ods_context = get_default_loc_context(loc)
+        _ods_successors = None
+        super().__init__(
+            self.build_generic(
+                attributes=attributes,
+                results=results,
+                operands=[
+                    asyncDependencies,
+                    gridSizeX,
+                    gridSizeY,
+                    gridSizeZ,
+                    blockSizeX,
+                    blockSizeY,
+                    blockSizeZ,
+                    dynamicSharedMemorySize,
+                    operands,
+                ],
+                successors=_ods_successors,
+                regions=regions,
+                loc=loc,
+                ip=ip,
+            )
+        )
 
 
 class FuncOp(gpu.GPUFuncOp):
@@ -138,18 +213,6 @@ class FuncOp(FuncOp):
     def __init__(
         self, name, type, *, visibility=None, body_builder=None, loc=None, ip=None
     ):
-        """
-        Create a FuncOp with the provided `name`, `type`, and `visibility`.
-        - `name` is a string representing the function name.
-        - `type` is either a FunctionType or a pair of list describing inputs and
-          results.
-        - `visibility` is a string matching `public`, `private`, or `nested`. None
-          implies private visibility.
-        - `body_builder` is an optional callback, when provided a new entry block
-          is created and the callback is invoked with the new op as argument within
-          an InsertionPoint context already set for the block. The callback is
-          expected to insert a terminator in the block.
-        """
         sym_name = StringAttr.get(str(name))
 
         # If the type is passed as a tuple, build a FunctionType on the fly.
@@ -228,88 +291,6 @@ class FuncOp(FuncOp):
     def result_attrs(self, attribute: ArrayAttr):
         self.attributes[RESULT_ATTRIBUTE_NAME] = attribute
 
-    @classmethod
-    def from_py_func(
-        FuncOp,
-        *inputs: Type,
-        results: Optional[Sequence[Type]] = None,
-        name: Optional[str] = None,
-    ):
-        def decorator(f):
-            # Introspect the callable for optional features.
-            sig = inspect.signature(f)
-            has_arg_func_op = False
-            for param in sig.parameters.values():
-                if param.kind == param.VAR_KEYWORD:
-                    has_arg_func_op = True
-                if param.name == "func_op" and (
-                    param.kind == param.POSITIONAL_OR_KEYWORD
-                    or param.kind == param.KEYWORD_ONLY
-                ):
-                    has_arg_func_op = True
-
-            # Emit the FuncOp.
-            implicit_return = results is None
-            symbol_name = name or f.__name__
-            function_type = FunctionType.get(
-                inputs=inputs, results=[] if implicit_return else results
-            )
-            func_op = FuncOp(name=symbol_name, type=function_type)
-            with InsertionPoint(func_op.add_entry_block()):
-                func_args = func_op.entry_block.arguments
-                func_kwargs = {}
-                if has_arg_func_op:
-                    func_kwargs["func_op"] = func_op
-                return_values = f(*func_args, **func_kwargs)
-                if not implicit_return:
-                    return_types = list(results)
-                    assert return_values is None, (
-                        "Capturing a python function with explicit `results=` "
-                        "requires that the wrapped function returns None."
-                    )
-                else:
-                    # Coerce return values, add ReturnOp and rewrite func type.
-                    if return_values is None:
-                        return_values = []
-                    elif isinstance(return_values, tuple):
-                        return_values = list(return_values)
-                    elif isinstance(return_values, Value):
-                        # Returning a single value is fine, coerce it into a list.
-                        return_values = [return_values]
-                    elif isinstance(return_values, OpView):
-                        # Returning a single operation is fine, coerce its results a list.
-                        return_values = return_values.operation.results
-                    elif isinstance(return_values, Operation):
-                        # Returning a single operation is fine, coerce its results a list.
-                        return_values = return_values.results
-                    else:
-                        return_values = list(return_values)
-                    gpu.ReturnOp(return_values)
-                    # Recompute the function type.
-                    return_types = [v.type for v in return_values]
-                    function_type = FunctionType.get(
-                        inputs=inputs, results=return_types
-                    )
-                    func_op.attributes["function_type"] = TypeAttr.get(function_type)
-
-            def emit_call_op(*call_args):
-                call_op = gpu.LaunchFuncOp(
-                    return_types, FlatSymbolRefAttr.get(symbol_name), call_args
-                )
-                if return_types is None:
-                    return None
-                elif len(return_types) == 1:
-                    return call_op.result
-                else:
-                    return call_op.results
-
-            wrapped = emit_call_op
-            wrapped.__name__ = f.__name__
-            wrapped.func_op = func_op
-            return wrapped
-
-        return decorator
-
 
 class ModuleOp(gpu.GPUModuleOp):
     @builtins.property
@@ -361,18 +342,70 @@ class ModuleOp(ModuleOp):
         return self.regions[0].blocks[0]
 
 
+class MLIRFunc(MLIRFunc):
+    def __init__(
+        self,
+        f,
+        attributes=None,
+        build=True,
+        qualname=None,
+    ):
+        super().__init__(
+            f=f,
+            func_op_ctor=FuncOp,
+            func_op_terminator=gpu.ReturnOp,
+            attributes=attributes,
+            build=build,
+            qualname=qualname,
+        )
+        self.func_op.operation.attributes["gpu.kernel"] = UnitAttr.get()
+
+    def __call__(self, grid_size, block_size, *operands):
+        for size in [grid_size, block_size]:
+            for i, s in enumerate(size):
+                if isinstance(s, int):
+                    size[i] = constant(s, index=True)
+        # hack
+        call_op = LaunchFuncOp(
+            [self.qualname] + [self.f.__name__], grid_size, block_size, operands
+        )
+        return call_op.result
+
+
 class Module(Module):
-    @classmethod
-    def __prepare__(cls, name, bases, **kwargs):
-        cls.__module = ModuleOp()
-        cls.__module.operation.attributes[
-            "nelli.debug_gpu_module_name"
-        ] = StringAttr.get(name)
-        cls.__module.sym_name = StringAttr.get(name)
-        module_ip = InsertionPoint(cls.__module.body)
-        module_ip.__enter__()
-        cls.__module_ip = module_ip
-        cls.__terminator = gpu.ModuleEndOp
-        prev_frame = inspect.currentframe().f_back
-        cls.__fake_module = FakeClassScope(name, file=prev_frame.f_code.co_filename)
-        return {"cls": cls.__fake_module._classdict}
+    def __init__(self, **kwargs):
+        super().__init__(
+            ctor=ModuleOp,
+            func_ctor=MLIRFunc,
+            range_ctor=scf_range,
+            func_qualname=self.__class__.__name__,
+            **kwargs,
+        )
+        with InsertionPoint(self.mlir_module.body):
+            gpu.ModuleEndOp()
+
+
+@register_attribute_builder("GPU_DimensionAttr")
+def _dimAttr(dim, context=None):
+    return Attribute.parse(f"#gpu<dim {dim}>", context=context)
+
+
+def block_id(dim):
+    return ArithValue(gpu.BlockIdOp(dim).result)
+
+
+def block_id_x():
+    return block_id("x")
+
+
+def block_id_y():
+    return block_id("y")
+
+
+def gpu_async_token():
+    return Type.parse("!gpu.async.token")
+
+
+def set_container_module(module):
+    module.operation.attributes["gpu.container_module"] = UnitAttr.get()
+    return module

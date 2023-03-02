@@ -323,7 +323,7 @@ struct TileConsumerFuseAndYieldProducerUsingSCFForOp
     scf::ForOp outermostLoop = tilingResult->loops.front();
     for (auto [index, origVal] : llvm::enumerate(yieldedValuesToOrigValues)) {
       Value replacement = outermostLoop.getResult(index);
-      rewriter.replaceUseIf(origVal, replacement, [&](OpOperand &use) {
+      rewriter.replaceUsesWithIf(origVal, replacement, [&](OpOperand &use) {
         return !isIgnoredUser(use.getOwner(), outermostLoop);
       });
     }

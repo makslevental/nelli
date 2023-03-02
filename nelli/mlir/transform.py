@@ -4,9 +4,8 @@ from typing import (
 )
 
 from nelli.mlir._mlir._mlir_libs._mlir.ir import ArrayAttr, StringAttr
-
 from nelli.mlir._mlir.dialects._ods_common import get_op_result_or_value
-from .utils import doublewrap, get_dense_int64_array_attr
+from .utils import doublewrap, get_dense_int64_array_attr, extract_wrapped
 
 # noinspection PyUnresolvedReferences
 from ..mlir._mlir._mlir_libs._nelli_mlir import TensorValue
@@ -33,6 +32,18 @@ def sequence(
     with InsertionPoint(sequence.body):
         f(sequence.bodyTarget, *sequence.bodyExtraArgs)
         transform_dialect.YieldOp()
+
+
+@doublewrap
+def lazy_sequence(
+    f, target: Optional[Union[Operation, Value, Type, str]] = pdl.OperationType.get()
+):
+    unwrapped_sequence = extract_wrapped(sequence)
+
+    def wrapped():
+        unwrapped_sequence(f, target)
+
+    return wrapped
 
 
 def match_name(target, name):
