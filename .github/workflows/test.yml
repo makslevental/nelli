@@ -102,6 +102,6 @@ jobs:
             auditwheel repair --plat manylinux_2_35_aarch64 wheelhouse/$z3wheel
             
             pip install -r build-requirements.txt
-            pip install . --no-deps --no-build-isolation -v -f wheelhouse
+            pip install . --no-build-isolation -v -f wheelhouse
             pip install pytest
             cd tests && pytest --ignore-glob=*test_nns* --ignore-glob=*test_vulkan* --ignore-glob=*test_gpu* *
