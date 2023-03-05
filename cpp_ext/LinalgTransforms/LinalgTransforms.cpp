@@ -18,8 +18,6 @@
 #include "mlir/Dialect/GPU/IR/GPUDialect.h"
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/Dialect/Linalg/Passes.h"
-#include "mlir/Dialect/Linalg/Transforms/HoistPadding.h"
-#include "mlir/Dialect/Linalg/Transforms/Hoisting.h"
 #include "mlir/Dialect/Linalg/Transforms/Transforms.h"
 #include "mlir/Dialect/Linalg/Utils/Utils.h"
 #include "mlir/Dialect/Vector/IR/VectorOps.h"
@@ -129,6 +127,11 @@ struct LinalgTransforms
       *this, "decompose-convolutions",
       llvm::cl::desc("patterns to decompose convolutions"),
       llvm::cl::init(false)};
+  Option<bool> conv2DToImg2Col{
+      *this, "conv2d-im2col",
+      llvm::cl::desc(
+          "patterns to perform im2col transformations on convolutions"),
+      llvm::cl::init(false)};
 };
 } // namespace
 
@@ -225,6 +228,12 @@ static void applyDecomposeConvolutions(func::FuncOp funcOp) {
   (void)applyPatternsAndFoldGreedily(funcOp, std::move(patterns));
 }
 
+static void applyConv2DToImg2Col(func::FuncOp funcOp) {
+  RewritePatternSet patterns(funcOp.getContext());
+  populateConvertConv2DToImg2ColPatterns(patterns);
+  (void)applyPatternsAndFoldGreedily(funcOp, std::move(patterns));
+}
+
 /// Apply transformations specified as patterns.
 void LinalgTransforms::runOnOperation() {
   if (patterns)
@@ -253,6 +262,8 @@ void LinalgTransforms::runOnOperation() {
     return applyEraseUnnecessaryInputs(getOperation());
   if (decomposeConvolutions)
     return applyDecomposeConvolutions(getOperation());
+  if (conv2DToImg2Col)
+    return applyConv2DToImg2Col(getOperation());
 }
 
 namespace nelli {

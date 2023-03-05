@@ -98,3 +98,19 @@ def pad(source, low, high, pad_value):
         tensor_dialect.YieldOp(pad_value)
 
     return pad_op.result
+
+
+def expand_shape(tensor, reassociation_map: list[list[int]], shape: list[int]):
+    orig_type = RankedTensorType(tensor.type)
+    res_type = RankedTensorType.get(shape, orig_type.element_type)
+    return tensor_dialect.ExpandShapeOp(
+        res_type, tensor, reassociation=reassociation_map
+    ).result
+
+
+def collapse_shape(tensor, reassociation_map: list[list[int]], shape: list[int]):
+    orig_type = RankedTensorType(tensor.type)
+    res_type = RankedTensorType.get(shape, orig_type.element_type)
+    return tensor_dialect.CollapseShapeOp(
+        res_type, tensor, reassociation=reassociation_map
+    ).result

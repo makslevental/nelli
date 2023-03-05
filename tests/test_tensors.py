@@ -11,7 +11,7 @@ from nelli.mlir._mlir.dialects.linalg import BinaryFn, TypeFn
 from nelli.mlir._mlir.dialects import linalg
 from nelli import F32, allow_unregistered_dialects
 from nelli.mlir.arith import constant
-from nelli.mlir.tensor import TensorValue as Tensor, pad
+from nelli.mlir.tensor import TensorValue as Tensor, pad, expand_shape, collapse_shape
 from nelli.mlir.func import mlir_func
 from nelli.mlir.refbackend import LLVMJITBackend
 from nelli.utils import mlir_mod_ctx, shlib_ext
@@ -205,3 +205,45 @@ class TestTensor:
             )
 
             check_correct(correct, module)
+
+    def test_expand(self):
+        with mlir_mod_ctx() as module:
+
+            @mlir_func
+            def expand(
+                input: Tensor[(1, 9), F32],
+            ):
+                y = expand_shape(input, [[0, 1], [2, 3]], [1, 1, 3, 3])
+
+        correct = dedent(
+            """\
+        module {
+          func.func @expand(%arg0: tensor<1x9xf32>) {
+            %expanded = tensor.expand_shape %arg0 [[0, 1], [2, 3]] : tensor<1x9xf32> into tensor<1x1x3x3xf32>
+            return
+          }
+        }
+        """
+        )
+        check_correct(correct, module)
+
+    def test_collapse(self):
+        with mlir_mod_ctx() as module:
+
+            @mlir_func
+            def expand(
+                input: Tensor[(1, 1, 3, 3), F32],
+            ):
+                y = collapse_shape(input, [[0, 1], [2, 3]], [1, 9])
+
+        correct = dedent(
+            """\
+        module {
+          func.func @expand(%arg0: tensor<1x1x3x3xf32>) {
+            %collapsed = tensor.collapse_shape %arg0 [[0, 1], [2, 3]] : tensor<1x1x3x3xf32> into tensor<1x9xf32>
+            return
+          }
+        }
+        """
+        )
+        check_correct(correct, module)

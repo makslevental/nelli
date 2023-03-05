@@ -5,23 +5,25 @@ from typing import (
 
 from nelli.mlir._mlir._mlir_libs._mlir.ir import ArrayAttr, StringAttr
 from nelli.mlir._mlir.dialects._ods_common import get_op_result_or_value
-from .utils import doublewrap, get_dense_int64_array_attr, extract_wrapped
+from ..utils import doublewrap, get_dense_int64_array_attr, extract_wrapped
 
 # noinspection PyUnresolvedReferences
-from ..mlir._mlir._mlir_libs._nelli_mlir import TensorValue
-from ..mlir._mlir.dialects import pdl
-from ..mlir._mlir.dialects import transform as transform_dialect
-from ..mlir._mlir.dialects.transform import (
+from ...mlir._mlir._mlir_libs._nelli_mlir import TensorValue
+from ...mlir._mlir.dialects import pdl
+from ...mlir._mlir.dialects import transform as transform_dialect
+from ...mlir._mlir.dialects.transform import (
     loop as loop_ext,
     structured as structured_ext,
 )
-from ..mlir._mlir.ir import Type, Operation, Value, InsertionPoint
+from ...mlir._mlir.ir import Type, Operation, Value, InsertionPoint
+from .gpu import MapForeachToBlocks, MapNestedForeachToThreads
 
 
 @doublewrap
 def sequence(
     f,
     target: Optional[Union[Operation, Value, Type, str]] = pdl.OperationType.get(),
+    target_tag=None,
 ):
     if isinstance(target, str):
         target = transform_dialect.OperationType.get(target)
@@ -29,6 +31,12 @@ def sequence(
     sequence = transform_dialect.SequenceOp(
         transform_dialect.FailurePropagationMode.PROPAGATE, [], target
     )
+    # this is a misnomer - it's not about targeting a particular op
+    # but about picking which transform sequence runs using
+    # transform_dialect_interpreter(debug_transform_root_tag="")
+    if target_tag is None:
+        target_tag = f.__name__
+    sequence.operation.attributes["transform.target_tag"] = StringAttr.get(target_tag)
     with InsertionPoint(sequence.body):
         f(sequence.bodyTarget, *sequence.bodyExtraArgs)
         transform_dialect.YieldOp()
@@ -87,7 +95,7 @@ def tile_linalg_to_scf_for(target, sizes: list[int]):
     )
 
 
-def tile_to_scf_forall(target, sizes: list[int]):
+def tile_to_scf_forall(target, sizes: list[int], mapping=None):
     return structured_ext.TileToForallOp(
         target.type,
         target.type,
@@ -95,7 +103,18 @@ def tile_to_scf_forall(target, sizes: list[int]):
         num_threads=[],
         tile_sizes=[],
         static_tile_sizes=get_dense_int64_array_attr(sizes),
+        mapping=mapping,
     )
+
+
+def map_nested_foreach_to_threads(target, block_dims: list[int]):
+    return MapNestedForeachToThreads(target.type, target, blockDim=block_dims).result
+
+
+def map_foreach_to_blocks(target, grid_dims: list[int], generate_gpu_launch=True):
+    return MapForeachToBlocks(
+        target.type, target, gridDim=grid_dims, generate_gpu_launch=generate_gpu_launch
+    ).result
 
 
 def pack_greedily(

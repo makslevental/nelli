@@ -32,8 +32,8 @@
 #include "RefBackend/RefBackend.h"
 #include "TilingInterface/TilingInterface.h"
 #include "Transform/TransformDialectInterpreter.h"
+#include "PDLByteCodeInterpreter/PDLByteCodeInterpreter.h"
 #include "utils.h"
-#include <string>
 
 namespace py = pybind11;
 using namespace mlir::python;
@@ -317,4 +317,5 @@ PYBIND11_MODULE(_nelli_mlir, m) {
   nelli::registerTransformDialectEraseSchedulePass();
   nelli::registerTransformDialectInterpreterPass();
   nelli::registerMapMemRefStorageClassPass();
+  nelli::registerPDLByteCodePass();
 }

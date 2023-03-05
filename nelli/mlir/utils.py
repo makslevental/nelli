@@ -7,7 +7,12 @@ from io import StringIO
 from types import FunctionType
 from typing import Optional, Sequence
 
-from ._mlir._mlir_libs._mlir.ir import FlatSymbolRefAttr, Attribute
+from ._mlir._mlir_libs._mlir.ir import (
+    FlatSymbolRefAttr,
+    Attribute,
+    ArrayAttr,
+)
+from ._mlir.dialects._structured_transform_ops_ext import _get_int64_attr
 from .. import (
     disable_multithreading as disable_multithreading_mgr,
 )
@@ -124,6 +129,55 @@ def get_dense_int64_array_attr(
     if values is None:
         return DenseI64ArrayAttr.get([], context)
     return DenseI64ArrayAttr.get(values, context)
+
+
+@register_attribute_builder("I64ArrayAttr")
+def get_int64_array_attr(
+    values: Sequence[int], context: Optional[Context] = None
+) -> ArrayAttr:
+    from .. import DefaultContext
+
+    if context is None:
+        context = DefaultContext
+    if values is None:
+        return ArrayAttr.get([])
+    if isinstance(values, ArrayAttr):
+        return values
+
+    return ArrayAttr.get([_get_int64_attr(v) for v in values], context=context)
+
+
+@register_attribute_builder("DeviceMappingArrayAttr")
+def get_device_mapping_array_attr(
+    mapping: dict[int, Attribute], context: Optional[Context] = None
+) -> ArrayAttr:
+    from .. import DefaultContext
+
+    if context is None:
+        context = DefaultContext
+    if isinstance(mapping, ArrayAttr):
+        return mapping
+
+    mapping = [mapping[i] for i in range(len(mapping))]
+    return ArrayAttr.get(mapping, context=context)
+
+
+@register_attribute_builder("IndexListArrayAttr")
+def get_index_list_array_attr(
+    index_list: list[list[int]], context: Optional[Context] = None
+) -> ArrayAttr:
+    from .. import DefaultContext
+
+    if context is None:
+        context = DefaultContext
+    if isinstance(index_list, ArrayAttr):
+        return index_list
+
+    index_list = [
+        ArrayAttr.get([_get_int64_attr(v) for v in group], context=context)
+        for group in index_list
+    ]
+    return ArrayAttr.get(index_list, context=context)
 
 
 @register_attribute_builder("FlatSymbolRefAttr")

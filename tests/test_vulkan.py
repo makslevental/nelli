@@ -5,11 +5,12 @@ import numpy as np
 import pytest
 from scipy import signal
 
-from nelli import F32, I64
+from nelli import F32, I64, enable_debug
 from nelli.mlir._mlir import _mlir_libs
 from nelli.mlir._mlir.dialects import linalg
 from nelli.mlir.arith import constant
 from nelli.mlir.func import mlir_func, declare, call_func, visibility_attr
+from nelli.mlir.gpu import block_attr, thread_attr
 from nelli.mlir.memref import (
     MemRefValue as MemRef,
     UnrankedMemRefValue as UnrankedMemRef,
@@ -26,7 +27,9 @@ from nelli.mlir.transform import (
     match,
     tile_linalg_to_scf_for,
     tile_to_scf_forall,
+    map_nested_foreach_to_threads,
 )
+from nelli.mlir.transform.transform import map_foreach_to_blocks
 from nelli.utils import mlir_mod_ctx
 from nelli.utils import shlib_ext
 from test_nns import read_model_ir
@@ -302,64 +305,106 @@ class TestVulkan:
     @pytest.mark.xfail()
     def test_conv_2d_nhwc_hwcf(self):
         with mlir_mod_ctx() as module:
+            N, H, W = 1, 66, 66
+            C_i, C_o = 1, 3
+            K = 3
 
             @mlir_func
             def conv_2d_nhwc_hwcf(
-                input: Tensor[(1, 225, 225, 3), F32],
-                kernel: Tensor[(3, 3, 3, 32), F32],
-                output: Tensor[(1, 112, 112, 32), F32],
+                input: Tensor[(N, C_i, H, W), F32],
+                kernel: Tensor[(C_o, C_i, K, K), F32],
+                output: Tensor[(N, C_o, H - 2, W - 2), F32],
             ):
-                return linalg.conv_2d_nhwc_hwcf(input, kernel, outs=[output])
+                return linalg.conv_2d_nchw_fchw(input, kernel, outs=[output])
 
             @sequence
-            def basic(target, *extra_args):
-                m = match(target, ["linalg.conv_2d_nhwc_hwcf"])
-                tiled = tile_linalg_to_scf_for(m, sizes=[0, 1, 8, 8, 1])
+            def tile_outer(target, *extra_args):
+                m = match(target, ["linalg.conv_2d_nchw_fchw"])
+                tiled = tile_to_scf_forall(
+                    m,
+                    sizes=[0, 1, 8, 8],
+                    mapping={
+                        0: block_attr("x"),
+                        1: block_attr("y"),
+                        2: block_attr("z"),
+                    },
+                )
 
-        module = self.backend.compile(
-            module,
-            kernel_name="conv_2d_nhwc_hwcf",
-            pipeline=Pipeline()
-            .transform_dialect_interpreter()
-            .transform_dialect_erase_schedule()
-            .FUNC()
-            .linalg_transform_patterns(decompose_convolutions=True)
-            .CNUF()
-            ############
-            .bufferize()
-            .FUNC()
-            .convert_linalg_to_parallel_loops()
-            .gpu_map_parallel_loops()
-            .convert_parallel_loops_to_gpu()
-            .canonicalize()
-            .lower_affine()
-            .CNUF()
-            .gpu_launch_sink_index_computations()
-            .gpu_kernel_outlining()
-            .fold_memref_alias_ops()
-            .canonicalize()
-            ##########
-            .set_spirv_capabilities(client_api="vulkan")
-            .GPU()
-            .set_spirv_abi_attrs()
-            .UPG()
-            ##########
-            .convert_gpux_to_spirv(map_memory_space=True).canonicalize()
-            ##########
-            .SPIRV().spirv_lower_abi_attrs().spirv_update_vce().VRIPS()
-            ##########
-            .convert_gpu_launch_to_vulkan_launch()
-            .bufferize()
-            .finalize_memref_to_llvm()
-            .FUNC()
-            .llvm_request_c_wrappers()
-            .CNUF()
-            .convert_func_to_llvm(index_bitwidth=64)
-            .reconcile_unrealized_casts()
-            .launch_func_to_vulkan(),
-            enable_ir_printing=False,
-        )
-        # print(module)
+            @sequence
+            def tile_inner(target, *extra_args):
+                m = match(target, ["linalg.conv_2d_nchw_fchw"])
+                tiled = tile_to_scf_forall(
+                    m,
+                    sizes=[0, 1, 1, 1],
+                    mapping={
+                        0: thread_attr("x"),
+                        1: thread_attr("y"),
+                        2: thread_attr("z"),
+                    },
+                )
+
+            @sequence
+            def map_foreach(target, *extra_args):
+                m = match(target, ["func.func"])
+                gpu_launch = map_foreach_to_blocks(
+                    m, grid_dims=[3, 8, 8], generate_gpu_launch=True
+                )
+                map_nested_foreach_to_threads(gpu_launch, block_dims=[1, 8, 8])
+
+        with enable_debug():
+            module = self.backend.compile(
+                module,
+                kernel_name="conv_2d_nhwc_hwcf",
+                pipeline=Pipeline()
+                .transform_dialect_interpreter(debug_transform_root_tag="tile_outer")
+                .transform_dialect_interpreter(debug_transform_root_tag="tile_inner")
+                .FUNC()
+                # .buffer_hoisting()
+                # .buffer_loop_hoisting()
+                # # .linalg_transform_patterns(decompose_convolutions=True)
+                .linalg_transform_patterns(conv2d_im2col=True)
+                .empty_tensor_to_alloc_tensor()
+                .CNUF()
+                .one_shot_bufferize(
+                    allow_return_allocs=True, bufferize_function_boundaries=True
+                )
+                .transform_dialect_interpreter(debug_transform_root_tag="map_foreach")
+                .transform_dialect_erase_schedule()
+                # ############
+                # .FUNC()
+                # # .gpu_map_parallel_loops()
+                # # .convert_parallel_loops_to_gpu()
+                # .canonicalize()
+                # .lower_affine()
+                # .CNUF()
+                # #########
+                # .gpu_launch_sink_index_computations()
+                # .gpu_kernel_outlining()
+                # .fold_memref_alias_ops()
+                # .canonicalize()
+                # #########
+                # .set_spirv_capabilities(client_api="vulkan")
+                # .GPU()
+                # .set_spirv_abi_attrs()
+                # .UPG()
+                #########
+                # .convert_gpux_to_spirv(map_memory_space=True).canonicalize()
+                #########
+                # .SPIRV().spirv_lower_abi_attrs().spirv_update_vce().VRIPS()
+                #########
+                # .convert_gpu_launch_to_vulkan_launch()
+                # .bufferize()
+                # .finalize_memref_to_llvm()
+                # .FUNC()
+                # .llvm_request_c_wrappers()
+                # .CNUF()
+                # .convert_func_to_llvm(index_bitwidth=64)
+                # .reconcile_unrealized_casts()
+                # .launch_func_to_vulkan()
+                ,
+                enable_ir_printing=False,
+            )
+            print(module)
 
     def test_conv_2d_nhwc_hwcf_parallel(self):
         with mlir_mod_ctx() as module:
