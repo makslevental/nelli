@@ -190,7 +190,7 @@ class TestModules:
         correct = dedent(
             """\
         module @MyClass1 {
-          transform.sequence  failures(propagate) {
+          transform.sequence  failures(propagate) attributes {transform.target_tag = "basic"} {
           ^bb0(%arg0: !pdl.operation):
             %0 = transform.structured.match ops{["linalg.conv_2d_nhwc_hwcf"]} in %arg0 : (!pdl.operation) -> !pdl.operation
             %tiled_linalg_op, %loops:4 = transform.structured.tile %0[0, 1, 8, 8, 1] : (!pdl.operation) -> (!pdl.operation, !transform.op<"scf.for">, !transform.op<"scf.for">, !transform.op<"scf.for">, !transform.op<"scf.for">)

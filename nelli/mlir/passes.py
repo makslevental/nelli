@@ -603,11 +603,16 @@ class Pipeline:
         self._add_pass("convert-gpu-launch-to-vulkan-launch")
         return self
 
-    def convert_gpu_to_nvvm(self, has_redux=None, index_bitwidth=None):
+    def convert_gpu_to_nvvm(
+        self, has_redux=None, index_bitwidth=None, use_opaque_pointers=None
+    ):
         if index_bitwidth is not None and isinstance(index_bitwidth, (list, tuple)):
             index_bitwidth = ",".join(map(str, index_bitwidth))
         self._add_pass(
-            "convert-gpu-to-nvvm", has_redux=has_redux, index_bitwidth=index_bitwidth
+            "convert-gpu-to-nvvm",
+            has_redux=has_redux,
+            index_bitwidth=index_bitwidth,
+            use_opaque_pointers=use_opaque_pointers,
         )
         return self
 
@@ -617,6 +622,7 @@ class Pipeline:
         index_bitwidth=None,
         runtime=None,
         use_bare_ptr_memref_call_conv=None,
+        use_opaque_pointers=None,
     ):
         if chipset is not None and isinstance(chipset, (list, tuple)):
             chipset = ",".join(map(str, chipset))
@@ -630,11 +636,12 @@ class Pipeline:
             index_bitwidth=index_bitwidth,
             runtime=runtime,
             use_bare_ptr_memref_call_conv=use_bare_ptr_memref_call_conv,
+            use_opaque_pointers=use_opaque_pointers,
         )
         return self
 
-    def convert_gpu_to_spirv(self):
-        self._add_pass("convert-gpu-to-spirv")
+    def convert_gpu_to_spirv(self, use_64bit_index=None):
+        self._add_pass("convert-gpu-to-spirv", use_64bit_index=use_64bit_index)
         return self
 
     def convert_gpux_to_spirv(
@@ -663,8 +670,10 @@ class Pipeline:
         self._add_pass("convert-linalg-to-affine-loops")
         return self
 
-    def convert_linalg_to_llvm(self):
-        self._add_pass("convert-linalg-to-llvm")
+    def convert_linalg_to_llvm(self, use_opaque_pointers=None):
+        self._add_pass(
+            "convert-linalg-to-llvm", use_opaque_pointers=use_opaque_pointers
+        )
         return self
 
     def convert_linalg_to_loops(self):
@@ -696,8 +705,8 @@ class Pipeline:
         self._add_pass("convert-math-to-libm")
         return self
 
-    def convert_math_to_llvm(self):
-        self._add_pass("convert-math-to-llvm")
+    def convert_math_to_llvm(self, approximate_log1p=None):
+        self._add_pass("convert-math-to-llvm", approximate_log1p=approximate_log1p)
         return self
 
     def convert_math_to_spirv(self):
@@ -710,12 +719,14 @@ class Pipeline:
         self._add_pass("convert-memref-to-spirv", bool_num_bits=bool_num_bits)
         return self
 
-    def convert_nvgpu_to_nvvm(self):
-        self._add_pass("convert-nvgpu-to-nvvm")
+    def convert_nvgpu_to_nvvm(self, use_opaque_pointers=None):
+        self._add_pass("convert-nvgpu-to-nvvm", use_opaque_pointers=use_opaque_pointers)
         return self
 
-    def convert_openacc_to_llvm(self):
-        self._add_pass("convert-openacc-to-llvm")
+    def convert_openacc_to_llvm(self, use_opaque_pointers=None):
+        self._add_pass(
+            "convert-openacc-to-llvm", use_opaque_pointers=use_opaque_pointers
+        )
         return self
 
     def convert_openacc_to_scf(self):
@@ -893,7 +904,10 @@ class Pipeline:
         return self
 
     def gpu_to_llvm(
-        self, gpu_binary_annotation=None, use_bare_pointers_for_kernels=None
+        self,
+        gpu_binary_annotation=None,
+        use_bare_pointers_for_kernels=None,
+        use_opaque_pointers=None,
     ):
         if gpu_binary_annotation is not None and isinstance(
             gpu_binary_annotation, (list, tuple)
@@ -903,6 +917,7 @@ class Pipeline:
             "gpu-to-llvm",
             gpu_binary_annotation=gpu_binary_annotation,
             use_bare_pointers_for_kernels=use_bare_pointers_for_kernels,
+            use_opaque_pointers=use_opaque_pointers,
         )
         return self
 
@@ -931,8 +946,8 @@ class Pipeline:
         self._add_pass("int-range-optimizations")
         return self
 
-    def launch_func_to_vulkan(self):
-        self._add_pass("launch-func-to-vulkan")
+    def launch_func_to_vulkan(self, use_opaque_pointers=None):
+        self._add_pass("launch-func-to-vulkan", use_opaque_pointers=use_opaque_pointers)
         return self
 
     def linalg_bufferize(self):
@@ -978,6 +993,7 @@ class Pipeline:
     def linalg_transform_patterns(
         self,
         bubble_up_extract_slice_op_pattern=None,
+        conv2d_im2col=None,
         decompose_convolutions=None,
         erase_unnecessary_inputs=None,
         erase_unused_operands_and_results=None,
@@ -1004,6 +1020,7 @@ class Pipeline:
         self._add_pass(
             "linalg-transform-patterns",
             bubble_up_extract_slice_op_pattern=bubble_up_extract_slice_op_pattern,
+            conv2d_im2col=conv2d_im2col,
             decompose_convolutions=decompose_convolutions,
             erase_unnecessary_inputs=erase_unnecessary_inputs,
             erase_unused_operands_and_results=erase_unused_operands_and_results,
@@ -1147,6 +1164,10 @@ class Pipeline:
 
     def outline_shape_computation(self):
         self._add_pass("outline-shape-computation")
+        return self
+
+    def pdl_bytecode_pass(self):
+        self._add_pass("pdl-bytecode-pass")
         return self
 
     def post_sparsification_rewrite(

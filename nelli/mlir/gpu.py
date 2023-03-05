@@ -402,6 +402,16 @@ def block_id_y():
     return block_id("y")
 
 
+def block_attr(dim):
+    assert dim in {"x", "y", "z"}
+    return Attribute.parse(f"#gpu.block<{dim}>")
+
+
+def thread_attr(dim):
+    assert dim in {"x", "y", "z"}
+    return Attribute.parse(f"#gpu.thread<{dim}>")
+
+
 def gpu_async_token():
     return Type.parse("!gpu.async.token")
 

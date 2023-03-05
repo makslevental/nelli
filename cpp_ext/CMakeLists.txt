@@ -18,6 +18,7 @@ add_subdirectory(RaiseToAffine)
 add_subdirectory(LinalgTransforms)
 add_subdirectory(FakeQuantize)
 add_subdirectory(GPUTransforms)
+add_subdirectory(PDLByteCodeInterpreter)
 declare_mlir_python_extension(NelliPythonSources.Extension
         MODULE_NAME _nelli_mlir
         ADD_TO_PARENT NelliPythonSources
@@ -38,6 +39,7 @@ declare_mlir_python_extension(NelliPythonSources.Extension
         LinalgTransforms
         FakeQuantize
         GPUTransforms
+        PDLByteCodeInterpreter
         )
 
 #add_subdirectory(openmp_translation)

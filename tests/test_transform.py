@@ -17,8 +17,6 @@ from nelli.mlir.refbackend import (
 from nelli.mlir.scf import scf_range
 from nelli.mlir.tensor import TensorValue as Tensor, pad
 from nelli.mlir.transform import (
-    loop_ext,
-    transform_dialect,
     sequence,
     match,
     get_parent_for_loop,
@@ -27,6 +25,9 @@ from nelli.mlir.transform import (
     tile_to_scf_forall,
     tile_to_scf_for,
 )
+from nelli.mlir._mlir.dialects import transform as transform_dialect
+from nelli.mlir._mlir.dialects.transform import loop
+
 from nelli.mlir.utils import run_pipeline_with_repro_report
 from nelli.utils import mlir_mod_ctx
 from util import check_correct
@@ -43,7 +44,7 @@ class TestTiling:
                 transform_dialect.OperationType.get("scf.for"),
             )
             with InsertionPoint(sequence.body):
-                loop_ext.LoopUnrollOp(sequence.bodyTarget, factor=42)
+                loop.LoopUnrollOp(sequence.bodyTarget, factor=42)
                 transform_dialect.YieldOp()
 
         correct = dedent(
@@ -63,12 +64,12 @@ class TestTiling:
 
             @sequence(target="scf.for")
             def basic(target, *extra_args):
-                loop_ext.LoopUnrollOp(target, factor=42)
+                loop.LoopUnrollOp(target, factor=42)
 
         correct = dedent(
             """\
         module {
-          transform.sequence  failures(propagate) {
+          transform.sequence  failures(propagate) attributes {transform.target_tag = "basic"} {
           ^bb0(%arg0: !transform.op<"scf.for">):
             transform.loop.unroll %arg0 {factor = 42 : i64} : !transform.op<"scf.for">
           }
@@ -103,7 +104,7 @@ class TestTiling:
             }
             return
           }
-          transform.sequence  failures(propagate) {
+          transform.sequence  failures(propagate) attributes {transform.target_tag = "basic"} {
           ^bb0(%arg0: !pdl.operation):
             %0 = transform.structured.match ops{["arith.addi"]} in %arg0 : (!pdl.operation) -> !pdl.operation
             %1 = transform.loop.get_parent_for %0 : (!pdl.operation) -> !transform.op<"scf.for">
@@ -175,7 +176,7 @@ class TestTiling:
             } : tensor<4x16xf32> to tensor<12x23xf32>
             return %padded : tensor<12x23xf32>
           }
-          transform.sequence  failures(propagate) {
+          transform.sequence  failures(propagate) attributes {transform.target_tag = "basic"} {
           ^bb0(%arg0: !pdl.operation):
             %0 = transform.structured.match ops{["tensor.pad"]} in %arg0 : (!pdl.operation) -> !pdl.operation
             %tiled_linalg_op, %loops:2 = transform.structured.tile_to_scf_for %0[2, 3]
@@ -303,7 +304,7 @@ class TestTiling:
             %0 = linalg.matmul {cast = #linalg.type_fn<cast_signed>} ins(%arg0, %arg1 : tensor<4x16xf32>, tensor<16x8xf32>) outs(%arg2 : tensor<4x8xf32>) -> tensor<4x8xf32>
             return %0 : tensor<4x8xf32>
           }
-          transform.sequence  failures(propagate) {
+          transform.sequence  failures(propagate) attributes {transform.target_tag = "basic"} {
           ^bb0(%arg0: !pdl.operation):
             %0 = transform.structured.match ops{["linalg.matmul"]} in %arg0 : (!pdl.operation) -> !pdl.operation
             %tiled_linalg_op, %loops:2 = transform.structured.tile %0[2, 3] : (!pdl.operation) -> (!pdl.operation, !transform.op<"scf.for">, !transform.op<"scf.for">)
@@ -456,7 +457,7 @@ class TestTiling:
             %0 = linalg.matmul {cast = #linalg.type_fn<cast_signed>} ins(%arg0, %arg1 : tensor<4x16xf32>, tensor<16x8xf32>) outs(%arg2 : tensor<4x8xf32>) -> tensor<4x8xf32>
             return %0 : tensor<4x8xf32>
           }
-          transform.sequence  failures(propagate) {
+          transform.sequence  failures(propagate) attributes {transform.target_tag = "basic"} {
           ^bb0(%arg0: !pdl.operation):
             %0 = transform.structured.match ops{["linalg.matmul"]} in %arg0 : (!pdl.operation) -> !pdl.operation
             %forall_op, %tiled_op = transform.structured.tile_to_forall_op %0   tile_sizes [2, 3]
