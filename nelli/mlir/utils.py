@@ -66,7 +66,7 @@ def run_pipeline_with_repro_report(
                 stack.enter_context(disable_multithreading_mgr())
                 pm.enable_ir_printing()
 
-            pm.run(module)
+            pm.run(module.operation)
     except Exception as e:
         print(e, file=sys.stderr)
         filename = os.path.join(tempfile.gettempdir(), module_name + ".mlir")
