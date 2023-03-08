@@ -190,86 +190,68 @@ class TestTiling:
             Pipeline()
             .transform_dialect_interpreter()
             .transform_dialect_erase_schedule()
+            .canonicalize()
             .materialize(),
         )
         correct = dedent(
             """\
-        #map = affine_map<(d0) -> (3, -d0 + 23)>
-        #map1 = affine_map<(d0, d1) -> (d0 - d1)>
-        #map2 = affine_map<(d0, d1) -> (0, d1)>
-        #map3 = affine_map<(d0, d1) -> (d0, 0)>
-        #map4 = affine_map<(d0, d1) -> (d0, 4)>
-        #map5 = affine_map<(d0, d1) -> (d0 + d1)>
-        #map6 = affine_map<(d0, d1) -> (d0, 16)>
+        #map = affine_map<(d0) -> (-d0 + 23, 3)>
+        #map1 = affine_map<(d0) -> (-d0 + 3, 0)>
+        #map2 = affine_map<(d0) -> (0, d0 - 3)>
+        #map3 = affine_map<(d0) -> (4, d0)>
+        #map4 = affine_map<(d0) -> (0, d0 - 1)>
+        #map5 = affine_map<(d0, d1) -> (d0 - d1)>
+        #map6 = affine_map<(d0, d1, d2) -> (-d0 - d1 + d2 + 2)>
+        #map7 = affine_map<(d0) -> (-d0 + 4, 0)>
+        #map8 = affine_map<(d0) -> (0, d0 - 4)>
+        #map9 = affine_map<(d0) -> (16, d0)>
+        #map10 = affine_map<(d0, d1) -> (0, d0 + d1 - 4)>
+        #map11 = affine_map<(d0, d1, d2, d3) -> (-d0 + d1 - d2 + d3)>
         module {
           func.func @pad_tensor_3_4(%arg0: tensor<4x16xf32>, %arg1: f32) -> tensor<12x23xf32> {
-            %0 = tensor.empty() : tensor<12x23xf32>
-            %c0 = arith.constant 0 : index
-            %c4 = arith.constant 4 : index
-            %c12 = arith.constant 12 : index
-            %c1 = arith.constant 1 : index
-            %c16 = arith.constant 16 : index
             %c23 = arith.constant 23 : index
-            %c0_0 = arith.constant 0 : index
-            %c1_1 = arith.constant 1 : index
-            %c2 = arith.constant 2 : index
+            %c12 = arith.constant 12 : index
             %c3 = arith.constant 3 : index
-            %1 = scf.for %arg2 = %c0_0 to %c12 step %c2 iter_args(%arg3 = %0) -> (tensor<12x23xf32>) {
-              %2 = scf.for %arg4 = %c0_0 to %c23 step %c3 iter_args(%arg5 = %arg3) -> (tensor<12x23xf32>) {
+            %c2 = arith.constant 2 : index
+            %c0 = arith.constant 0 : index
+            %0 = tensor.empty() : tensor<12x23xf32>
+            %1 = scf.for %arg2 = %c0 to %c12 step %c2 iter_args(%arg3 = %0) -> (tensor<12x23xf32>) {
+              %2 = scf.for %arg4 = %c0 to %c23 step %c3 iter_args(%arg5 = %arg3) -> (tensor<12x23xf32>) {
                 %3 = affine.min #map(%arg4)
-                %c0_2 = arith.constant 0 : index
-                %c3_3 = arith.constant 3 : index
-                %c5 = arith.constant 5 : index
-                %c0_4 = arith.constant 0 : index
-                %c4_5 = arith.constant 4 : index
-                %4 = affine.apply #map1(%c3_3, %arg2)
-                %5 = affine.max #map2(%c0_2, %4)
-                %6 = affine.apply #map1(%arg2, %c3_3)
-                %7 = affine.max #map3(%6, %c0_2)
-                %8 = affine.min #map4(%7, %c4_5)
-                %9 = affine.apply #map1(%arg2, %c3_3)
-                %10 = affine.apply #map5(%9, %c2)
-                %11 = affine.max #map3(%10, %c0_2)
-                %12 = affine.min #map4(%11, %c4_5)
-                %13 = affine.apply #map1(%12, %8)
-                %14 = arith.cmpi eq, %13, %c0_2 : index
-                %15 = affine.apply #map1(%c2, %13)
-                %16 = affine.apply #map1(%15, %5)
-                %c4_6 = arith.constant 4 : index
-                %c3_7 = arith.constant 3 : index
-                %c1_8 = arith.constant 1 : index
-                %c16_9 = arith.constant 16 : index
-                %17 = affine.apply #map1(%c4_6, %arg4)
-                %18 = affine.max #map2(%c0_2, %17)
-                %19 = affine.apply #map1(%arg4, %c4_6)
-                %20 = affine.max #map3(%19, %c0_2)
-                %21 = affine.min #map6(%20, %c16_9)
-                %22 = affine.apply #map1(%arg4, %c4_6)
-                %23 = affine.apply #map5(%22, %3)
-                %24 = affine.max #map3(%23, %c0_2)
-                %25 = affine.min #map6(%24, %c16_9)
-                %26 = affine.apply #map1(%25, %21)
-                %27 = arith.cmpi eq, %26, %c0_2 : index
-                %28 = arith.ori %27, %14 : i1
-                %29 = affine.apply #map1(%3, %26)
-                %30 = affine.apply #map1(%29, %18)
-                %31 = scf.if %28 -> (tensor<?x?xf32>) {
-                  %generated = tensor.generate %c2, %3 {
+                %4 = affine.max #map1(%arg2)
+                %5 = affine.max #map2(%arg2)
+                %6 = affine.min #map3(%5)
+                %7 = affine.max #map4(%arg2)
+                %8 = affine.min #map3(%7)
+                %9 = affine.apply #map5(%8, %6)
+                %10 = arith.cmpi eq, %9, %c0 : index
+                %11 = affine.apply #map6(%4, %8, %6)
+                %12 = affine.max #map7(%arg4)
+                %13 = affine.max #map8(%arg4)
+                %14 = affine.min #map9(%13)
+                %15 = affine.max #map10(%3, %arg4)
+                %16 = affine.min #map9(%15)
+                %17 = affine.apply #map5(%16, %14)
+                %18 = arith.cmpi eq, %17, %c0 : index
+                %19 = arith.ori %18, %10 : i1
+                %20 = affine.apply #map11(%12, %3, %16, %14)
+                %21 = scf.if %19 -> (tensor<?x?xf32>) {
+                  %generated = tensor.generate %3 {
                   ^bb0(%arg6: index, %arg7: index):
                     tensor.yield %arg1 : f32
-                  } : tensor<?x?xf32>
-                  %cast = tensor.cast %generated : tensor<?x?xf32> to tensor<?x?xf32>
-                  scf.yield %cast : tensor<?x?xf32>
+                  } : tensor<2x?xf32>
+                  %cast_0 = tensor.cast %generated : tensor<2x?xf32> to tensor<?x?xf32>
+                  scf.yield %cast_0 : tensor<?x?xf32>
                 } else {
-                  %extracted_slice = tensor.extract_slice %arg0[%8, %21] [%13, %26] [1, 1] : tensor<4x16xf32> to tensor<?x?xf32>
-                  %padded = tensor.pad %extracted_slice low[%5, %18] high[%16, %30] {
+                  %extracted_slice = tensor.extract_slice %arg0[%6, %14] [%9, %17] [1, 1] : tensor<4x16xf32> to tensor<?x?xf32>
+                  %padded = tensor.pad %extracted_slice low[%4, %12] high[%11, %20] {
                   ^bb0(%arg6: index, %arg7: index):
                     tensor.yield %arg1 : f32
                   } : tensor<?x?xf32> to tensor<?x?xf32>
-                  %cast = tensor.cast %padded : tensor<?x?xf32> to tensor<?x?xf32>
-                  scf.yield %cast : tensor<?x?xf32>
+                  scf.yield %padded : tensor<?x?xf32>
                 }
-                %inserted_slice = tensor.insert_slice %31 into %arg5[%arg2, %arg4] [%c2, %3] [1, 1] : tensor<?x?xf32> into tensor<12x23xf32>
+                %cast = tensor.cast %21 : tensor<?x?xf32> to tensor<2x?xf32>
+                %inserted_slice = tensor.insert_slice %cast into %arg5[%arg2, %arg4] [2, %3] [1, 1] : tensor<2x?xf32> into tensor<12x23xf32>
                 scf.yield %inserted_slice : tensor<12x23xf32>
               }
               scf.yield %2 : tensor<12x23xf32>
