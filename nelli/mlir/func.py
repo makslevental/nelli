@@ -47,7 +47,7 @@ from ..mlir._mlir.dialects._ods_common import (
 from .memref import MemRefValue
 from .affine import RankedAffineMemRefValue
 from .tensor import TensorValue
-from .utils import doublewrap
+from .utils import doublewrap, extract_wrapped
 from .annot import Annot
 
 
@@ -386,6 +386,23 @@ def mlir_func(
         f = rewrite_bytecode(f)
 
     return func_ctor(f, **kwargs)
+
+
+@doublewrap
+def lazy_mlir_func(*args, **kwargs):
+    unwrapped_sequence = extract_wrapped(mlir_func)
+
+    assert (
+        "mlir_module" in kwargs
+    ), f"lazy eval necessitates providing a container module"
+    mlir_module = kwargs.pop("mlir_module")
+
+    def wrapped(*call_args):
+        with InsertionPoint(mlir_module.body):
+            func_op = unwrapped_sequence(*args, **kwargs)
+        return func_op(*call_args)
+
+    return wrapped
 
 
 def call_func(symbol_name, call_args, return_types):

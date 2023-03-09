@@ -43,13 +43,11 @@ def sequence(
 
 
 @doublewrap
-def lazy_sequence(
-    f, target: Optional[Union[Operation, Value, Type, str]] = pdl.OperationType.get()
-):
+def lazy_sequence(*args, **kwargs):
     unwrapped_sequence = extract_wrapped(sequence)
 
     def wrapped():
-        unwrapped_sequence(f, target)
+        unwrapped_sequence(*args, **kwargs)
 
     return wrapped
 
