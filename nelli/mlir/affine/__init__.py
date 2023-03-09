@@ -1,6 +1,6 @@
 from .affine import (
     Apply,
-    range,
+    affine_range,
     end_for,
     LoadOp,
     StoreOp,

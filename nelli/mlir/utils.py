@@ -92,6 +92,8 @@ def run_pipeline_with_repro_report(
     finally:
         sys.stderr = original_stderr
 
+    return module
+
 
 def doublewrap(f):
     """

@@ -84,7 +84,7 @@ class TestTiling:
             @mlir_func(range_ctor=scf_range)
             def loop_unroll_op():
                 for i in range(0, 42, 5):
-                    v = arith.add(i, i)
+                    v = i + i
 
             @sequence
             def basic(target, *extra_args):

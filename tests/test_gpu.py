@@ -56,8 +56,8 @@ class TestGPU:
         with mlir_mod_ctx() as module:
 
             class MyClass1(GPUModule):
-                def method(
-                    cls,
+                def mat_product_kernel(
+                    self,
                     A: MemRef[(M, N), F32],
                     B: MemRef[(N, K), F32],
                     C: MemRef[(M, K), F32],

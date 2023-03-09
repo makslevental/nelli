@@ -52,7 +52,7 @@ jobs:
         run: |
           git clone https://github.com/google/swiftshader.git && cd swiftshader/build
           export PATH="/usr/lib/ccache:/usr/local/opt/ccache/libexec:$PATH"
-          cmake .. && cmake --build . --parallel
+          cmake .. && cmake --build . --parallel 4
 
       - name: Test
         run: |
