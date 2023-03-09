@@ -155,8 +155,13 @@ class StoreOp(affine.AffineStoreOp):
 _for_ip = None
 
 
-def range(start, stop, step=1):
+def affine_range(start, stop=None, step=1):
     global _for_ip
+
+    if stop is None:
+        stop = start
+        start = 0
+
     for_op = AffineForOp(start, stop, step)
     _for_ip = InsertionPoint(for_op.body)
     _for_ip.__enter__()

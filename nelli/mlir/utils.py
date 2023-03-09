@@ -40,7 +40,7 @@ def get_module_name_for_debug_dump(module):
     return StringAttr(module.operation.attributes["nelli.debug_module_name"]).value
 
 
-def run_pipeline_with_repro_report(
+def run_pipeline(
     module,
     pipeline: str,
     description: Optional[str] = None,
@@ -91,6 +91,8 @@ def run_pipeline_with_repro_report(
         raise NelliMlirCompilerError(trimmed_message) from None
     finally:
         sys.stderr = original_stderr
+
+    return module
 
 
 def doublewrap(f):

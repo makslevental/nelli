@@ -360,7 +360,7 @@ class MLIRFunc(MLIRFunc):
         )
         self.func_op.operation.attributes["gpu.kernel"] = UnitAttr.get()
 
-    def __call__(self, grid_size, block_size, *operands):
+    def __call__(self, *operands, grid_size=None, block_size=None):
         for size in [grid_size, block_size]:
             for i, s in enumerate(size):
                 if isinstance(s, int):

@@ -1,17 +1,241 @@
 - [Nelli](#nelli)
+- [Examples](#examples)
 - [Installing](#installing)
-- [Example](#example)
 - [Development](#development)
-    * [Generating MLIR Python bindings by hand](#generating-mlir-python-bindings-by-hand)
-    * [ARM Docker](#arm-docker)
-    * [Conda](#conda)
+  * [Generating MLIR Python bindings by hand](#generating-mlir-python-bindings-by-hand)
+  * [ARM Docker](#arm-docker)
+  * [Conda](#conda)
 
 # Nelli
 
-Loop analysis for the polyhedrally challenged.
+`Nelli` builds on top of existing MLIR Python bindings (and a few other MLIR-related projects) to map Python primitives (such as `if`s, `for`s, and `class`es) to various MLIR dialects.
+The goal is to both be "Pythonic" *and* preserve the semantics of MLIR vis-a-vis the in-tree Python bindings.
 
 [![Test](https://github.com/makslevental/nelli/actions/workflows/test.yml/badge.svg)](https://github.com/makslevental/nelli/actions/workflows/test.yml)
 [![Build](https://github.com/makslevental/nelli/actions/workflows/build.yml/badge.svg)](https://github.com/makslevental/nelli/actions/workflows/build.yml)
+
+# Examples
+
+Examples abound in the [tests](./tests) directory; a few that demonstrate the key value proposition:
+
+```python
+@mlir_func
+def ifs(M: F64, N: F64):
+    one = constant(1.0)
+    if M < N:
+        two = constant(2.0)
+        mem = MemRef.alloca([3, 3], F64)
+    else:
+        six = constant(6.0)
+        mem = MemRef.alloca([7, 7], F64)
+```
+
+lowers to 
+
+```mlir
+func.func @ifs(%arg0: f64, %arg1: f64) {
+  %cst = arith.constant 1.000000e+00 : f64
+  %0 = arith.cmpf olt, %arg0, %arg1 : f64
+  scf.if %0 {
+    %cst_0 = arith.constant 2.000000e+00 : f64
+    %1 = memref.alloca() : memref<3x3xf64>
+  } else {
+    %cst_0 = arith.constant 6.000000e+00 : f64
+    %1 = memref.alloca() : memref<7x7xf64>
+  }
+  return
+}
+```
+
+and 
+
+```python
+M, N, K = 4, 16, 8
+
+@mlir_func
+def matmul(A: MemRef[(M, N), F32], B: MemRef[(N, K), F32], C: MemRef[(M, K), F32]):
+    for i in range(M):
+        for j in range(N):
+            for k in range(K):
+                a = A[i, j]
+                b = B[i, j]
+                c = C[i, k]
+                d = a * b
+                e = c + d
+                C[i, k] = e
+```
+
+lowers to 
+
+```mlir
+func.func @matmul(%arg0: memref<4x16xf32>, %arg1: memref<16x8xf32>, %arg2: memref<4x8xf32>) {
+  affine.for %arg3 = 0 to 4 {
+    affine.for %arg4 = 0 to 16 {
+      affine.for %arg5 = 0 to 8 {
+        %0 = memref.load %arg0[%arg3, %arg4] : memref<4x16xf32>
+        %1 = memref.load %arg1[%arg3, %arg4] : memref<16x8xf32>
+        %2 = memref.load %arg2[%arg3, %arg5] : memref<4x8xf32>
+        %3 = arith.mulf %0, %1 : f32
+        %4 = arith.addf %2, %3 : f32
+        memref.store %4, %arg2[%arg3, %arg5] : memref<4x8xf32>
+      }
+    }
+  }
+  return
+}
+```
+
+There are lots of knobs and switches;
+
+```python
+@mlir_func(range_ctor=parfor)
+def mat_product(A: MemRef[(4, 16), F32], B: MemRef[(16, 8), F32], C: MemRef[(4, 8), F32]):
+    for i, j in range([0, 0], [4, 8]):
+        a = A[i, j]
+        b = B[i, j]
+        C[i, j] = a * b
+```
+
+lowers to
+
+```mlir
+func.func @mat_product(%arg0: memref<4x16xf32>, %arg1: memref<16x8xf32>, %arg2: memref<4x8xf32>) {
+  %c0 = arith.constant 0 : index
+  %c4 = arith.constant 4 : index
+  %c8 = arith.constant 8 : index
+  %c1 = arith.constant 1 : index
+  scf.parallel (%arg3, %arg4) = (%c0, %c0) to (%c4, %c8) step (%c1, %c1) {
+    %0 = memref.load %arg0[%arg3, %arg4] : memref<4x16xf32>
+    %1 = memref.load %arg1[%arg3, %arg4] : memref<16x8xf32>
+    %2 = arith.mulf %0, %1 : f32
+    memref.store %2, %arg2[%arg3, %arg4] : memref<4x8xf32>
+    scf.yield
+  }
+  return
+}
+```
+
+There is also limited (but constantly improving) support for nested modules;
+
+```python
+M, N, K = 4, 16, 8
+class MyClass1(GPUModule):
+    def kernel(self, A: MemRef[(M, N), F32], B: MemRef[(N, K), F32], C: MemRef[(M, K), F32]):
+        x = block_id_x()
+        y = block_id_y()
+        a = A[x, y]
+        b = B[x, y]
+        C[x, y] = a * b
+        return
+
+m = MyClass1()
+
+@mlir_func
+def main(A: MemRef[(M, N), F32], B: MemRef[(N, K), F32], C: MemRef[(M, K), F32]):
+    m.kernel(A, B, C, grid_size=[4, 4, 1], block_size=[1, 1, 1])
+```
+
+lowers to 
+
+```mlir
+module {
+  gpu.module @MyClass1 {
+    gpu.func @kernel(%arg0: memref<4x16xf32>, %arg1: memref<16x8xf32>, %arg2: memref<4x8xf32>) kernel {
+      %0 = gpu.block_id  x
+      %1 = gpu.block_id  y
+      %2 = memref.load %arg0[%0, %1] : memref<4x16xf32>
+      %3 = memref.load %arg1[%0, %1] : memref<16x8xf32>
+      %4 = arith.mulf %2, %3 : f32
+      memref.store %4, %arg2[%0, %1] : memref<4x8xf32>
+      gpu.return
+    }
+  }
+  func.func @main(%arg0: memref<4x16xf32>, %arg1: memref<16x8xf32>, %arg2: memref<4x8xf32>) {
+    %c4 = arith.constant 4 : index
+    %c1 = arith.constant 1 : index
+    %0 = gpu.launch_func async @MyClass1::@kernel blocks in (%c4, %c4, %c1) threads in (%c1, %c1, %c1) args(%arg0 : memref<4x16xf32>, %arg1 : memref<16x8xf32>, %arg2 : memref<4x8xf32>)
+    return
+  }
+}
+```
+
+and 
+
+```python
+@mlir_func(range_ctor=scf_range)
+def loop_unroll_op():
+    for i in range(0, 42, 5):
+        v = i + i
+
+@sequence
+def basic(target, *extra_args):
+    m = match(target, ["arith.addi"])
+    loop = get_parent_for_loop(m)
+    unroll(loop, 4)
+```
+
+lowers to 
+
+```mlir
+module {
+  func.func @loop_unroll_op() {
+    %c0 = arith.constant 0 : index
+    %c42 = arith.constant 42 : index
+    %c5 = arith.constant 5 : index
+    scf.for %arg0 = %c0 to %c42 step %c5 {
+      %0 = arith.addi %arg0, %arg0 : index
+    }
+    return
+  }
+  transform.sequence  failures(propagate) attributes {transform.target_tag = "basic"} {
+  ^bb0(%arg0: !pdl.operation):
+    %0 = transform.structured.match ops{["arith.addi"]} in %arg0 : (!pdl.operation) -> !pdl.operation
+    %1 = transform.loop.get_parent_for %0 : (!pdl.operation) -> !transform.op<"scf.for">
+    transform.loop.unroll %1 {factor = 4 : i64} : !transform.op<"scf.for">
+  }
+}
+```
+
+In addition, running pass pipelines is also supported; 
+
+```python
+run_pipeline(
+    module,
+    Pipeline()
+    .transform_dialect_interpreter()
+    .transform_dialect_erase_schedule()
+    .materialize(),
+)
+```
+
+in the context of the just prior example produces
+
+```mlir
+func.func @loop_unroll_op() {
+  %c0 = arith.constant 0 : index
+  %c42 = arith.constant 42 : index
+  %c5 = arith.constant 5 : index
+  %c40 = arith.constant 40 : index
+  %c20 = arith.constant 20 : index
+  scf.for %arg0 = %c0 to %c40 step %c20 {
+    %1 = arith.addi %arg0, %arg0 : index
+    %c1 = arith.constant 1 : index
+    %2 = arith.muli %c5, %c1 : index
+    %3 = arith.addi %arg0, %2 : index
+    %4 = arith.addi %3, %3 : index
+    %c2 = arith.constant 2 : index
+    %5 = arith.muli %c5, %c2 : index
+    %6 = arith.addi %arg0, %5 : index
+    %7 = arith.addi %6, %6 : index
+    %c3 = arith.constant 3 : index
+    %8 = arith.muli %c5, %c3 : index
+    %9 = arith.addi %arg0, %8 : index
+    %10 = arith.addi %9, %9 : index
+  }
+  %0 = arith.addi %c40, %c40 : index
+  return
+}
+```
 
 # Installing
 
@@ -22,139 +246,16 @@ pip install . -v
 ```
 
 or peruse the [release page](https://github.com/makslevental/nelli/releases).
-In fact, you can pip install directly from such a release:
+In fact, you can `pip install` directly from such a release:
 
 ```shell
-pip install nelli -f https://github.com/makslevental/nelli/releases/expanded_assets/0.0.3
+pip install nelli -f https://github.com/makslevental/nelli/releases/expanded_assets/0.0.6
 ```
 
 For Raspberry Pi (`linux-aarch64`) prefix `pip install` with these CMake args (in order to prevent OOMing with GNU's `ld`):
 
 ```shell
 CMAKE_ARGS="-DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_EXE_LINKER_FLAGS_INIT=-fuse-ld=lld -DCMAKE_MODULE_LINKER_FLAGS_INIT=-fuse-ld=lld -DCMAKE_SHARED_LINKER_FLAGS_INIT=-fuse-ld=lld"
-```
-
-# Example
-
-[dependence_check.py](examples/dependence_check.py) demos this example: from this
-
-
-```python
-@mlir_func
-def has_dep(M: Index, N: Index, K: Index):
-    mem = MemRef.alloca([4, 4], F64)
-    zero = constant(0.0)
-    for i in range(0, 100):
-        for j in range(0, 50):
-            ii = (d0 * 2 - d1 * 4 + s1) @ (i, j, N)
-            jj = (d1 * 3 - s0) @ (j, M)
-            mem[ii, jj] = zero
-    for i in range(0, 100):
-        for j in range(0, 50):
-            ii = (d0 * 7 + d1 * 9 - s1) @ (i, j, M)
-            jj = (d1 * 11 + s0) @ (j, K)
-            v = mem[ii, jj]
-```
-
-to this
-
-```
-constraint system for store op:
-
-2 = arg1 + 2*arg3 - 4*arg4
-3 = -arg0 + 3*arg4
-0 <= arg3
-arg3 <= 99
-0 <= arg4
-arg4 <= 49
-
-constraint system for load op:
-
-2' = -arg0 + 7*arg3' + 9*arg4'
-3' = arg2 + 11*arg4'
-0 <= arg3'
-arg3' <= 99
-0 <= arg4'
-arg4' <= 49
-
-composed constraint system: {
-   arg1 + 2*arg3 + -4*arg4 + arg0 + -7*arg3' + -9*arg4' == 0, 
-   3*arg4 + -1*arg0 + -11*arg4' + -1*arg2 == 0, 
-   arg3 >= 0, 
-   arg3 <= 99, 
-   arg4 >= 0, 
-   arg4 <= 49, 
-   arg3' >= 0, 
-   arg3' <= 99, 
-   arg4' >= 0, 
-   arg4' <= 49
-}
-
-dependence found @ {
-   arg4' -> 0, 
-   arg1 -> 0, 
-   arg0 -> 0, 
-   arg3 -> 0, 
-   arg3' -> 0, 
-   arg2 -> 0, 
-   arg4 -> 0
-}
-```
-
-and from this (can you spot the difference?)
-
-
-```python
-def hasnt_dep(M: Index, N: Index, K: Index):
-    mem = MemRef.alloca([4, 4], F64)
-    zero = constant(0.0)
-    for i in range(0, 100):
-        for j in range(0, 50):
-            ii = 2 * (d0 * 2 - d1 * 4 + s1) @ (i, j, N)
-            jj = 2 * (d1 * 3 - s0) @ (j, M)
-            mem[ii, jj] = zero
-    for i in range(0, 100):
-        for j in range(0, 50):
-            ii = (2 * (d0 * 7 + d1 * 9 - s1) + 1) @ (i, j, M)
-            jj = (2 * (d1 * 11 + s0) + 1) @ (j, K)
-            v = mem[ii, jj]
-```
-
-to this
-
-```
-constraint system for store op:
-
-2 = 2*arg1 + 4*arg3 - 8*arg4
-3 = -2*arg0 + 6*arg4
-0 <= arg3
-arg3 <= 99
-0 <= arg4
-arg4 <= 49
-
-constraint system for load op:
-
-2' = -2*arg0 + 14*arg3' + 18*arg4' + 1
-3' = 2*arg2 + 22*arg4' + 1
-0 <= arg3'
-arg3' <= 99
-0 <= arg4'
-arg4' <= 49
-
-composed constraint system: {
-   2*arg1 + 4*arg3 + -8*arg4 + 2*arg0 + -14*arg3' + -18*arg4' == 1, 
-   6*arg4 + -2*arg0 + -2*arg2 + -22*arg4' == 1, 
-   arg3 >= 0, 
-   arg3 <= 99, 
-   arg4 >= 0, 
-   arg4 <= 49, 
-   arg3' >= 0, 
-   arg3' <= 99, 
-   arg4' >= 0, 
-   arg4' <= 49
-}
-
-no dependency
 ```
 
 # Development

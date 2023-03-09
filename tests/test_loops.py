@@ -2,14 +2,21 @@ from textwrap import dedent
 
 from nelli import F64, Index, F32
 from nelli.mlir.affine import (
-    range as affine_range,
+    affine_range,
     end_for as affine_endfor,
     RankedAffineMemRefValue as AffineMemRef,
 )
 from nelli.mlir.arith import constant, ArithValue
 from nelli.mlir.func import mlir_func
 from nelli.mlir.memref import MemRefValue as MemRef
-from nelli.mlir.scf import scf_if, scf_endif_branch, scf_endif, par_range as parfor
+from nelli.mlir.passes import Pipeline
+from nelli.mlir.scf import (
+    scf_if,
+    scf_endif_branch,
+    scf_endif,
+    par_range as parfor,
+)
+from nelli.mlir.utils import run_pipeline
 from nelli.utils import mlir_mod_ctx
 from util import check_correct
 
@@ -335,14 +342,81 @@ class TestLoops:
         with mlir_mod_ctx() as module:
 
             @mlir_func(range_ctor=parfor)
-            def matmul(
+            def mat_product(
                 A: MemRef[(4, 16), F32],
                 B: MemRef[(16, 8), F32],
                 C: MemRef[(4, 8), F32],
             ):
-                for i, j in parfor([0, 0], [4, 8]):
+                for i, j in range([0, 0], [4, 8]):
                     a = A[i, j]
                     b = B[i, j]
                     C[i, j] = a * b
 
-            # print(module)
+        module = run_pipeline(
+            module, Pipeline().canonicalize().materialize()
+        )
+        correct = dedent(
+            """\
+        module {
+          func.func @mat_product(%arg0: memref<4x16xf32>, %arg1: memref<16x8xf32>, %arg2: memref<4x8xf32>) {
+            %c0 = arith.constant 0 : index
+            %c4 = arith.constant 4 : index
+            %c8 = arith.constant 8 : index
+            %c1 = arith.constant 1 : index
+            scf.parallel (%arg3, %arg4) = (%c0, %c0) to (%c4, %c8) step (%c1, %c1) {
+              %0 = memref.load %arg0[%arg3, %arg4] : memref<4x16xf32>
+              %1 = memref.load %arg1[%arg3, %arg4] : memref<16x8xf32>
+              %2 = arith.mulf %0, %1 : f32
+              memref.store %2, %arg2[%arg3, %arg4] : memref<4x8xf32>
+              scf.yield
+            }
+            return
+          }
+        }
+        """
+        )
+        check_correct(correct, module)
+
+    def test_matmul(self):
+        with mlir_mod_ctx() as module:
+
+            M, N, K = 4, 16, 8
+
+            @mlir_func
+            def matmul(
+                A: MemRef[(M, N), F32],
+                B: MemRef[(N, K), F32],
+                C: MemRef[(M, K), F32],
+            ):
+                for i in range(M):
+                    for j in range(N):
+                        for k in range(K):
+                            a = A[i, j]
+                            b = B[i, j]
+                            c = C[i, k]
+                            d = a * b
+                            e = c + d
+                            C[i, k] = e
+
+        correct = dedent(
+            """\
+        module {
+          func.func @matmul(%arg0: memref<4x16xf32>, %arg1: memref<16x8xf32>, %arg2: memref<4x8xf32>) {
+            affine.for %arg3 = 0 to 4 {
+              affine.for %arg4 = 0 to 16 {
+                affine.for %arg5 = 0 to 8 {
+                  %0 = memref.load %arg0[%arg3, %arg4] : memref<4x16xf32>
+                  %1 = memref.load %arg1[%arg3, %arg4] : memref<16x8xf32>
+                  %2 = memref.load %arg2[%arg3, %arg5] : memref<4x8xf32>
+                  %3 = arith.mulf %0, %1 : f32
+                  %4 = arith.addf %2, %3 : f32
+                  memref.store %4, %arg2[%arg3, %arg5] : memref<4x8xf32>
+                }
+              }
+            }
+            return
+          }
+        }
+        """
+        )
+        check_correct(correct, module)

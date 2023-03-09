@@ -1,6 +1,6 @@
 from textwrap import dedent
 
-from nelli.mlir.utils import run_pipeline_with_repro_report
+from nelli.mlir.utils import run_pipeline
 from nelli.utils import mlir_mod_ctx
 
 src = dedent(
@@ -64,7 +64,7 @@ with mlir_mod_ctx() as module:
 
 print("*" * 10, "before", "*" * 10, "\n")
 print(module)
-run_pipeline_with_repro_report(
+run_pipeline(
     module, "builtin.module(transform-dialect-interpreter,transform-dialect-erase-schedule)"
 )
 print("*" * 10, "after", "*" * 10, "\n")

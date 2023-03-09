@@ -28,7 +28,7 @@ from nelli.mlir.transform import (
 from nelli.mlir._mlir.dialects import transform as transform_dialect
 from nelli.mlir._mlir.dialects.transform import loop
 
-from nelli.mlir.utils import run_pipeline_with_repro_report
+from nelli.mlir.utils import run_pipeline
 from nelli.utils import mlir_mod_ctx
 from util import check_correct
 
@@ -84,7 +84,7 @@ class TestTiling:
             @mlir_func(range_ctor=scf_range)
             def loop_unroll_op():
                 for i in range(0, 42, 5):
-                    v = arith.add(i, i)
+                    v = i + i
 
             @sequence
             def basic(target, *extra_args):
@@ -115,7 +115,7 @@ class TestTiling:
         )
         check_correct(correct, module)
 
-        run_pipeline_with_repro_report(
+        run_pipeline(
             module,
             Pipeline()
             .transform_dialect_interpreter()
@@ -185,7 +185,7 @@ class TestTiling:
         """
         )
         check_correct(correct, module)
-        run_pipeline_with_repro_report(
+        run_pipeline(
             module,
             Pipeline()
             .transform_dialect_interpreter()
@@ -296,7 +296,7 @@ class TestTiling:
         )
         check_correct(correct, module)
 
-        run_pipeline_with_repro_report(
+        run_pipeline(
             module,
             Pipeline()
             .transform_dialect_interpreter()
@@ -448,7 +448,7 @@ class TestTiling:
         """
         )
         check_correct(correct, module)
-        run_pipeline_with_repro_report(
+        run_pipeline(
             module,
             Pipeline()
             .transform_dialect_interpreter()
@@ -519,7 +519,7 @@ class TestTiling:
                 )
             )
 
-        run_pipeline_with_repro_report(
+        run_pipeline(
             module,
             Pipeline()
             .transform_dialect_interpreter()
@@ -626,7 +626,7 @@ class TestTiling:
             """
                 )
             )
-        run_pipeline_with_repro_report(
+        run_pipeline(
             module,
             Pipeline()
             .transform_dialect_interpreter()

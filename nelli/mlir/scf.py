@@ -48,8 +48,12 @@ def scf_endif():
 _for_ip = None
 
 
-def scf_range(start, stop, step=1):
+def scf_range(start, stop=None, step=1):
     global _for_ip
+    if stop is None:
+        stop = start
+        start = 0
+
     if isinstance(start, int):
         start = constant(start, index=True)
     if isinstance(stop, int):

@@ -27,7 +27,7 @@ from ..mlir._mlir.runtime import (
 )
 from ..mlir._mlir.ir import Module, UnitAttr
 
-from .utils import run_pipeline_with_repro_report
+from .utils import run_pipeline
 
 
 def assert_arg_type_is_supported(ty):
@@ -177,13 +177,12 @@ class LLVMJITBackend:
             assert len(kernel_func) == 1, f"kernel func {kernel_func} not found"
             kernel_func[0].attributes["llvm.emit_c_interface"] = UnitAttr.get()
 
-        run_pipeline_with_repro_report(
+        return run_pipeline(
             module,
             pipeline=pipeline_str,
             description="Lowering IR",
             enable_ir_printing=enable_ir_printing,
         )
-        return module
 
     def load(
         self, module, consume_return_func=None, opt_level=2

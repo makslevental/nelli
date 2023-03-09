@@ -18,7 +18,7 @@ from types import FunctionType, CodeType
 
 from bytecode import ConcreteBytecode, ConcreteInstr
 
-from .affine import end_for as affine_endfor, range as affine_range
+from .affine import end_for as affine_endfor, affine_range
 from .scf import (
     scf_endif_branch,
     scf_if,

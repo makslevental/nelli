@@ -22,6 +22,7 @@ from nelli.mlir.memref import (
 from nelli.mlir.passes import Pipeline
 from nelli.mlir.refbackend import LLVMJITBackend
 from nelli.mlir.spirv import set_module_target_env
+from nelli.mlir.utils import run_pipeline
 from nelli.utils import shlib_ext, mlir_mod_ctx
 from util import check_correct
 
@@ -56,8 +57,8 @@ class TestGPU:
         with mlir_mod_ctx() as module:
 
             class MyClass1(GPUModule):
-                def method(
-                    cls,
+                def mat_product_kernel(
+                    self,
                     A: MemRef[(M, N), F32],
                     B: MemRef[(N, K), F32],
                     C: MemRef[(M, K), F32],
@@ -131,9 +132,10 @@ class TestGPU:
                 B: MemRef[(N, K), F32],
                 C: MemRef[(M, K), F32],
             ):
-                m.kernel([4, 4, 1], [1, 1, 1], A, B, C)
+                m.kernel(A, B, C, grid_size=[4, 4, 1], block_size=[1, 1, 1])
 
         module = set_container_module(module)
+        module = self.backend.compile(module, Pipeline().canonicalize())
 
         correct = dedent(
             """\
@@ -151,18 +153,13 @@ class TestGPU:
           }
           func.func @main(%arg0: memref<4x16xf32>, %arg1: memref<16x8xf32>, %arg2: memref<4x8xf32>) {
             %c4 = arith.constant 4 : index
-            %c4_0 = arith.constant 4 : index
             %c1 = arith.constant 1 : index
-            %c1_1 = arith.constant 1 : index
-            %c1_2 = arith.constant 1 : index
-            %c1_3 = arith.constant 1 : index
-            %0 = gpu.launch_func async @MyClass1::@kernel blocks in (%c4, %c4_0, %c1) threads in (%c1_1, %c1_2, %c1_3) args(%arg0 : memref<4x16xf32>, %arg1 : memref<16x8xf32>, %arg2 : memref<4x8xf32>)
+            %0 = gpu.launch_func async @MyClass1::@kernel blocks in (%c4, %c4, %c1) threads in (%c1, %c1, %c1) args(%arg0 : memref<4x16xf32>, %arg1 : memref<16x8xf32>, %arg2 : memref<4x8xf32>)
             return
           }
         }
         """
         )
-        # print(module)
         check_correct(correct, module)
 
     @pytest.mark.xfail()
@@ -205,7 +202,7 @@ class TestGPU:
                 B: MemRef[(N, K), F32],
                 C: MemRef[(M, K), F32],
             ):
-                m.matmul([4, 4, 1], [1, 1, 1], A, B, C)
+                m.matmul(A, B, C, grid_size=[4, 4, 1], block_size=[1, 1, 1])
                 C_cast = cast(C, unranked_memref.mlir_type)
                 print_memref_32(C_cast)
 
