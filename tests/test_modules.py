@@ -137,7 +137,6 @@ class TestModules:
         }
         """
         )
-        print(module)
         check_correct(correct, module)
 
     def test_calling_mixed_def(self):
@@ -283,10 +282,7 @@ class TestModules:
         with mlir_mod_ctx() as module:
 
             class MyClass1(GPUModule):
-                def __init__(self):
-                    super().__init__()
-
-                def method(cls):
+                def method(self):
                     constant(1.0, type=F32)
 
             MyClass1()
@@ -299,6 +295,36 @@ class TestModules:
               %cst = arith.constant 1.000000e+00 : f32
               gpu.return
             }
+          }
+        }
+        """
+        )
+        check_correct(correct, module)
+
+    def test_lazy(self):
+        with mlir_mod_ctx() as module:
+
+            class MyClass1(Module):
+                def method(self):
+                    constant(1.0, type=F32)
+
+            m = MyClass1(lazy=True, mlir_module=module)
+
+        correct = dedent(
+            """\
+        module @MyClass1 {
+        }
+        """
+        )
+        check_correct(correct, module)
+
+        m.method()
+        correct = dedent(
+            """\
+        module @MyClass1 {
+          func.func @method() {
+            %cst = arith.constant 1.000000e+00 : f32
+            return
           }
         }
         """

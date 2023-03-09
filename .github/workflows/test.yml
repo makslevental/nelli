@@ -30,6 +30,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
 
+      - name: Set up ccache
+        uses: hendrikmuhs/ccache-action@v1.2
+
+      - name: Set up Clang
+        uses: egor-tensin/setup-clang@v1
+        with:
+          version: latest
+          platform: x64
+
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
@@ -39,10 +48,16 @@ jobs:
         run: |
           CMAKE_GENERATOR=Ninja pip install . -v
 
+      - name: Build SwiftShader
+        run: |
+          git clone https://github.com/google/swiftshader.git && cd swiftshader/build
+          export PATH="/usr/lib/ccache:/usr/local/opt/ccache/libexec:$PATH"
+          cmake .. && cmake --build . --parallel
 
       - name: Test
         run: |
-          pytest --ignore-glob=*test_nns* --ignore-glob=*test_vulkan* --ignore-glob=*test_gpu* tests
+          export VK_ICD_FILENAMES=$PWD/swiftshader/build/Linux/vk_swiftshader_icd.json
+          pytest --ignore-glob=*test_nns* tests
 
 
 #  test-aarch64:
