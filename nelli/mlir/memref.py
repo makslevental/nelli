@@ -8,7 +8,7 @@ from typing import (
 
 from ._mlir._mlir_libs._mlir.ir import Attribute, ShapedType
 from .annot import Annot
-from .arith import ArithValue
+from .arith import ArithValue, constant
 
 # noinspection PyUnresolvedReferences
 from ..mlir._mlir._mlir_libs._nelli_mlir import MemRefValue
@@ -134,14 +134,21 @@ class MemRefValue(MemRefValue):
                 dim_sizes[i] = ShapedType.get_dynamic_size()
         return Annot(cls, cls.memref_type.get(dim_sizes, el_type))
 
+    def __map_tuple_ints_to_indices(self, tup):
+        if not isinstance(tup, tuple):
+            tup = tuple([tup])
+        tup = list(tup)
+        for i, l in enumerate(tup):
+            if isinstance(l, int):
+                tup[i] = constant(l, index=True)
+        return tuple(tup)
+
     def __getitem__(self, item):
-        if not isinstance(item, tuple):
-            item = tuple([item])
+        item = self.__map_tuple_ints_to_indices(item)
         return ArithValue(self.load_op(self, item).result)
 
     def __setitem__(self, indices, value):
-        if not isinstance(indices, tuple):
-            indices = tuple([indices])
+        indices = self.__map_tuple_ints_to_indices(indices)
         # store op has no result...
         self.most_recent_store = self.store_op(self, value, indices)
 

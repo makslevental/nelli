@@ -2,7 +2,7 @@ import builtins
 from typing import Union, Optional, Any
 
 from ._mlir import ir
-from ._mlir._mlir_libs._mlir.ir import UnitAttr
+from ._mlir._mlir_libs._mlir.ir import UnitAttr, IndexType
 from ._mlir.dialects._func_ops_ext import ARGUMENT_ATTRIBUTE_NAME, RESULT_ATTRIBUTE_NAME
 from ._mlir.dialects._ods_common import get_default_loc_context
 from ._mlir.ir import (
@@ -20,6 +20,7 @@ from .arith import ArithValue, constant
 from .func import MLIRFunc
 from .module import Module
 from .scf import scf_range
+from .utils import doublewrap
 from ..mlir._mlir.dialects import gpu
 
 
@@ -43,9 +44,9 @@ from ..mlir._mlir.dialects import gpu
 class LaunchFuncOp(gpu.LaunchFuncOp):
     def __init__(
         self,
-        kernel: list[str],
         grid_size: tuple[Any, Any, Any],
         block_size: tuple[Any, Any, Any],
+        kernel: list[str] = None,
         operands: list[Value] = None,
         asyncDependencies=None,
         dynamicSharedMemorySize: Optional[Value] = None,
@@ -69,7 +70,10 @@ class LaunchFuncOp(gpu.LaunchFuncOp):
             )
         }
 
-        results = [gpu_async_token()]  # GPU_AsyncToken
+        if asyncDependencies is None:
+            results = []  # GPU_AsyncToken
+        else:
+            results = [gpu_async_token()]  # GPU_AsyncToken
         regions = None
         _ods_context = get_default_loc_context(loc)
         _ods_successors = None
@@ -94,6 +98,80 @@ class LaunchFuncOp(gpu.LaunchFuncOp):
                 ip=ip,
             )
         )
+
+
+class LaunchOp(gpu.LaunchOp):
+    def __init__(
+        self,
+        grid_size: tuple[Any, Any, Any],
+        block_size: tuple[Any, Any, Any],
+        asyncDependencies=None,
+        dynamicSharedMemorySize: Optional[Value] = None,
+        *,
+        loc=None,
+        ip=None,
+    ):
+        if asyncDependencies is None:
+            results = []  # GPU_AsyncToken
+        else:
+            results = [gpu_async_token()]  # GPU_AsyncToken
+        if asyncDependencies is None:
+            asyncDependencies = []
+        gridSizeX, gridSizeY, gridSizeZ = grid_size
+        blockSizeX, blockSizeY, blockSizeZ = block_size
+        _ods_context = get_default_loc_context(loc)
+        attributes = {}
+
+        regions = 1
+        _ods_context = get_default_loc_context(loc)
+        _ods_successors = None
+        super().__init__(
+            self.build_generic(
+                attributes=attributes,
+                results=results,
+                operands=[
+                    asyncDependencies,
+                    gridSizeX,
+                    gridSizeY,
+                    gridSizeZ,
+                    blockSizeX,
+                    blockSizeY,
+                    blockSizeZ,
+                    dynamicSharedMemorySize,
+                ],
+                successors=_ods_successors,
+                regions=regions,
+                loc=loc,
+                ip=ip,
+            )
+        )
+        self.regions[0].blocks.append(*[IndexType.get() for _ in range(12)])
+
+    @property
+    def entry_block(self):
+        return self.regions[0].blocks[0]
+
+    @property
+    def arguments(self):
+        return self.entry_block.arguments
+
+
+@doublewrap
+def gpu_launch(f, grid_size, block_size):
+    grid_size_, block_size_ = [1] * 3, [1] * 3
+    grid_size_[: len(grid_size)], block_size_[: len(grid_size)] = grid_size, block_size
+    for size in [grid_size_, block_size_]:
+        for i, s in enumerate(size):
+            if isinstance(s, int):
+                size[i] = constant(s, index=True)
+    launch_op = LaunchOp(grid_size_, block_size_)
+    with InsertionPoint(launch_op.entry_block):
+
+        f(
+            block_ids=tuple(launch_op.arguments[:3]),
+            thread_ids=tuple(launch_op.arguments[3:6]),
+        )
+        gpu.TerminatorOp()
 
 
 class FuncOp(gpu.GPUFuncOp):
@@ -367,7 +445,10 @@ class MLIRFunc(MLIRFunc):
                     size[i] = constant(s, index=True)
         # hack
         call_op = LaunchFuncOp(
-            [self.qualname] + [self.f.__name__], grid_size, block_size, operands
+            grid_size,
+            block_size,
+            kernel=[self.qualname] + [self.f.__name__],
+            operands=operands,
         )
         return call_op.result
 
@@ -419,3 +500,11 @@ def gpu_async_token():
 def set_container_module(module):
     module.operation.attributes["gpu.container_module"] = UnitAttr.get()
     return module
+
+
+def host_register(memref):
+    return gpu.HostRegisterOp(memref)
+
+
+def all_reduce(op, val, uniform=False):
+    return gpu.AllReduceOp(val, op=op, uniform=uniform).result

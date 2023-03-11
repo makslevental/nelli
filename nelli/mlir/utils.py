@@ -203,3 +203,23 @@ def get_symbol_ref_attr(
         context = DefaultContext
     qualname = "::".join([f"@{q}" for q in symbols])
     return Attribute.parse(qualname, context)
+
+
+# def GPU_AllReduceOpAdd : I32EnumAttrCase<"ADD", 0, "add">;
+# def GPU_AllReduceOpAnd : I32EnumAttrCase<"AND", 1, "and">;
+# def GPU_AllReduceOpMax : I32EnumAttrCase<"MAX", 2, "max">;
+# def GPU_AllReduceOpMin : I32EnumAttrCase<"MIN", 3, "min">;
+# def GPU_AllReduceOpMul : I32EnumAttrCase<"MUL", 4, "mul">;
+# def GPU_AllReduceOpOr  : I32EnumAttrCase<"OR",  5, "or">;
+# def GPU_AllReduceOpXor : I32EnumAttrCase<"XOR", 6, "xor">;
+
+
+@register_attribute_builder("GPU_AllReduceOperationAttr")
+def gpu_all_reduce_op_attr(
+    op: str, context: Optional[Context] = None
+) -> FlatSymbolRefAttr:
+    from .. import DefaultContext
+
+    if context is None:
+        context = DefaultContext
+    return Attribute.parse(f"#gpu<all_reduce_op {op}>", context)

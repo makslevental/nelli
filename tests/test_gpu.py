@@ -5,15 +5,19 @@ from textwrap import dedent
 import numpy as np
 import pytest
 
-from nelli import F32
+from nelli import F32, I32
 from nelli.mlir import spirv
 from nelli.mlir._mlir import _mlir_libs
+from nelli.mlir.arith import constant
 from nelli.mlir.func import declare, mlir_func
 from nelli.mlir.gpu import (
     Module as GPUModule,
     block_id_x,
     block_id_y,
     set_container_module,
+    host_register,
+    gpu_launch,
+    all_reduce,
 )
 from nelli.mlir.memref import (
     MemRefValue as MemRef,
@@ -40,7 +44,6 @@ vulkan_wrapper_library_path = (
     Path(_mlir_libs.__file__).parent / f"libvulkan-runtime-wrappers.{shlib_ext()}"
 )
 assert vulkan_wrapper_library_path.exists()
-
 
 shared_libs = [
     str(vulkan_wrapper_library_path),
@@ -313,6 +316,74 @@ class TestGPU:
 
         with mlir_mod_ctx(src) as module:
             pass
+
+        module = self.backend.compile(
+            module,
+            Pipeline()
+            .gpu_kernel_outlining()
+            .GPU()
+            .strip_debuginfo()
+            .convert_gpu_to_nvvm()
+            .gpu_to_cubin()
+            .UPG()
+            .gpu_to_llvm(),
+        )
+
+        invoker = self.backend.load(module)
+        invoker.main()
+
+        correct = dedent(
+            """\
+        Unranked Memref base@ = 0x5612f9fb6570 rank = 1 offset = 0 sizes = [2] strides = [1] data = 
+        [0,  2]
+        """
+        )
+        out, err = capfd.readouterr()
+        check_correct(correct, out)
+
+    @pytest.mark.xfail()
+    def test_cuda_sugar(self, capfd):
+        unranked_memref = UnrankedMemRef[I32]
+        with mlir_mod_ctx() as module:
+            print_memref_i32 = declare("printMemrefI32", [unranked_memref])
+
+            @mlir_func(rewrite_ast_=False, rewrite_bytecode_=False)
+            def main():
+                data = MemRef.alloc((2, 6), I32)
+                sum = MemRef.alloc((2,), I32)
+
+                power_csts = [constant(0, type=I32)] + [
+                    constant(2**i, type=I32) for i in range(5)
+                ]
+                odd_csts = [
+                    constant(3, type=I32),
+                    constant(6, type=I32),
+                    constant(7, type=I32),
+                    constant(10, type=I32),
+                    constant(11, type=I32),
+                ]
+                cast_data = cast(data, unranked_memref.mlir_type)
+                host_register(cast_data)
+                cast_sum = cast(sum, unranked_memref.mlir_type)
+                host_register(cast_sum)
+
+                for i in range(6):
+                    data[0, i] = power_csts[i]
+
+                data[1, 0] = power_csts[2]
+                for i in range(0, 5):
+                    data[1, i + 1] = odd_csts[i]
+
+                @gpu_launch(grid_size=[2, 1, 1], block_size=[6, 1, 1])
+                def kernel(block_ids, thread_ids):
+                    bx, by, bz = block_ids
+                    tx, ty, tz = thread_ids
+
+                    val = data[bx, tx]
+                    reduced = all_reduce("and", val, uniform=True)
+                    sum[bx] = reduced
+
+                print_memref_i32(cast_sum)
 
         module = self.backend.compile(
             module,
