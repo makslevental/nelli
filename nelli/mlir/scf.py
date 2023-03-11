@@ -1,7 +1,10 @@
+from typing import Optional, Union, Sequence
+
 from ._mlir.dialects._ods_common import get_op_results_or_values
 from .arith import ArithValue, constant
-from ..mlir._mlir.dialects import scf
-from ..mlir._mlir.ir import InsertionPoint, IndexType
+from .utils import doublewrap
+from ._mlir.dialects import scf
+from ._mlir.ir import InsertionPoint, IndexType, Operation, OpView, Value
 
 
 class IfOp(scf.IfOp):
@@ -156,3 +159,21 @@ def end_parfor():
     scf.YieldOp([])
     global _parfor_ip
     _parfor_ip.__exit__(None, None, None)
+
+
+# @doublewrap
+# def forall(f, grid_size, block_size):
+#     grid_size_, block_size_ = [1] * 3, [1] * 3
+#     grid_size_[: len(grid_size)], block_size_[: len(grid_size)] = grid_size, block_size
+#     for size in [grid_size_, block_size_]:
+#         for i, s in enumerate(size):
+#             if isinstance(s, int):
+#                 size[i] = constant(s, index=True)
+#     launch_op = scf.ForallOp(grid_size_, block_size_)
+#     with InsertionPoint(launch_op.entry_block):
+#
+#         f(
+#             block_ids=tuple(launch_op.arguments[:3]),
+#             thread_ids=tuple(launch_op.arguments[3:6]),
+#         )
+#         gpu.TerminatorOp()

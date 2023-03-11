@@ -187,6 +187,13 @@ def ceil(x) -> OpView:
     raise NotImplementedError("Unsupported 'ceil' operand: {x}")
 
 
+def select(test, true, false) -> OpView:
+    test = get_op_result_or_value(test)
+    true = get_op_result_or_value(true)
+    false = get_op_result_or_value(false)
+    return arith.SelectOp(test, true, false).result
+
+
 def floor(x) -> OpView:
     x = get_op_result_or_value(x)
     if _is_floating_point_type(x.type):
@@ -297,6 +304,17 @@ def le(lhs, rhs) -> OpView:
     raise NotImplementedError("Unsupported 'le' operands: {lhs}, {rhs}")
 
 
+def eq(lhs, rhs) -> OpView:
+    lhs = get_op_result_or_value(lhs)
+    rhs = get_op_result_or_value(rhs)
+
+    if _is_floating_point_type(lhs.type):
+        return CmpFOp("oeq", lhs, rhs)
+    if _is_integer_type(lhs.type) or _is_index_type(lhs.type):
+        return CmpIOp("eq", lhs, rhs)
+    raise NotImplementedError("Unsupported 'eq' operands: {lhs}, {rhs}")
+
+
 class ArithValue(ArithValue):
     def __abs__(self):
         return ArithValue(abs(self).result)
@@ -339,6 +357,9 @@ class ArithValue(ArithValue):
 
     def __le__(self, other):
         return ArithValue(le(self, other).result)
+
+    def __eq__(self, other):
+        return ArithValue(eq(self, other).result)
 
 
 def infer_mlir_type(py_val) -> Type:

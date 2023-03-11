@@ -7,12 +7,12 @@ from ..arith import ArithValue, constant
 from ..memref import MemRefValue, AllocaOp
 
 # noinspection PyUnresolvedReferences
-from ...mlir._mlir.dialects._ods_common import _cext
-from ...mlir._mlir.dialects._ods_common import (
+from .._mlir.dialects._ods_common import _cext
+from .._mlir.dialects._ods_common import (
     get_op_result_or_value,
     get_op_results_or_values,
 )
-from ...mlir._mlir.ir import (
+from .._mlir.ir import (
     AffineMap,
     AffineMapAttr,
     IndexType,

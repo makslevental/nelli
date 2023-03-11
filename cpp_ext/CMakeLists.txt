@@ -19,6 +19,8 @@ add_subdirectory(LinalgTransforms)
 add_subdirectory(FakeQuantize)
 add_subdirectory(GPUTransforms)
 add_subdirectory(PDLByteCodeInterpreter)
+add_subdirectory(CommonExtensions)
+
 declare_mlir_python_extension(NelliPythonSources.Extension
         MODULE_NAME _nelli_mlir
         ADD_TO_PARENT NelliPythonSources
@@ -44,17 +46,17 @@ declare_mlir_python_extension(NelliPythonSources.Extension
 
 #add_subdirectory(openmp_translation)
 
-declare_mlir_python_extension(NelliPythonSources.Dialects.OpenMP.Pybind
+declare_mlir_python_extension(NelliPythonSources.SiteInitialize
         MODULE_NAME _site_initialize_0
         ADD_TO_PARENT NelliPythonSources
         SOURCES
-        DialectOpenMP.cpp
+        SiteInitialize.cpp
 
         PRIVATE_LINK_LIBS
         LLVMSupport
         MLIRIR
         )
-target_link_libraries(NelliPythonSources.Dialects.OpenMP.Pybind INTERFACE MLIROpenMPToLLVMIRTranslation)
+target_link_libraries(NelliPythonSources.SiteInitialize INTERFACE MLIROpenMPToLLVMIRTranslation CommonExtensions)
 
 get_target_property(mlir_python_sources MLIRPythonExtension.Core INTERFACE_SOURCES)
 list(GET mlir_python_sources 0 HEADER)

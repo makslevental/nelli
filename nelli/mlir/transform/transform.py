@@ -3,19 +3,20 @@ from typing import (
     Optional,
 )
 
-from nelli.mlir._mlir._mlir_libs._mlir.ir import ArrayAttr, StringAttr
-from nelli.mlir._mlir.dialects._ods_common import get_op_result_or_value
+from .._mlir._mlir_libs._mlir.ir import ArrayAttr, StringAttr
+from .._mlir.dialects._ods_common import get_op_result_or_value
 from ..utils import doublewrap, get_dense_int64_array_attr, extract_wrapped
 
 # noinspection PyUnresolvedReferences
-from ...mlir._mlir._mlir_libs._nelli_mlir import TensorValue
-from ...mlir._mlir.dialects import pdl
-from ...mlir._mlir.dialects import transform as transform_dialect
-from ...mlir._mlir.dialects.transform import (
+from .._mlir._mlir_libs._nelli_mlir import TensorValue
+from .._mlir.dialects import pdl
+from .._mlir.dialects import transform as transform_dialect
+from .._mlir.dialects.transform import (
     loop as loop_ext,
     structured as structured_ext,
 )
-from ...mlir._mlir.ir import Type, Operation, Value, InsertionPoint
+from . import common as common_ext
+from .._mlir.ir import Type, Operation, Value, InsertionPoint
 from .gpu import MapForeachToBlocks, MapNestedForeachToThreads
 
 
@@ -143,4 +144,59 @@ def lower_unpack(target):
         transform_dialect.OperationType.get("tensor.collapse_shape"),
         transform_dialect.OperationType.get("tensor.extract_slice"),
         target,
+    )
+
+
+def apply_patterns(
+    target,
+    additional_patterns=None,
+    bubble_collapse=None,
+    bubble_expand=None,
+    bubble_pack_un_pack=None,
+    canonicalization=None,
+    cse=None,
+    erase_unnecessary_tensor_operands=None,
+    expand_memref_strided_metadata=None,
+    fold_memref_aliases=None,
+    fold_reassociative_reshapes=None,
+    fold_tensor_empty_extract=None,
+    licm=None,
+    linalg_elementwise_greedy_fusion=None,
+    lower_transfer_op_permutations=None,
+    lower_vector_masks=None,
+    rank_reducing_linalg=None,
+    rank_reducing_linalg_via_reshapes=None,
+    rank_reducing_vector=None,
+    swap_padding_elide_conditional=None,
+    swapping_patterns=None,
+    tiling_canonicalization=None,
+    unroll_vectors_gpu_mma_sync=None,
+    unroll_vectors_gpu_wmma=None,
+):
+    return common_ext.ApplyPatternsOp(
+        pdl.OperationType.get(),
+        target,
+        additional_patterns=additional_patterns,
+        bubble_collapse=bubble_collapse,
+        bubble_expand=bubble_expand,
+        bubble_pack_un_pack=bubble_pack_un_pack,
+        canonicalization=canonicalization,
+        cse=cse,
+        erase_unnecessary_tensor_operands=erase_unnecessary_tensor_operands,
+        expand_memref_strided_metadata=expand_memref_strided_metadata,
+        fold_memref_aliases=fold_memref_aliases,
+        fold_reassociative_reshapes=fold_reassociative_reshapes,
+        fold_tensor_empty_extract=fold_tensor_empty_extract,
+        licm=licm,
+        linalg_elementwise_greedy_fusion=linalg_elementwise_greedy_fusion,
+        lower_transfer_op_permutations=lower_transfer_op_permutations,
+        lower_vector_masks=lower_vector_masks,
+        rank_reducing_linalg=rank_reducing_linalg,
+        rank_reducing_linalg_via_reshapes=rank_reducing_linalg_via_reshapes,
+        rank_reducing_vector=rank_reducing_vector,
+        swap_padding_elide_conditional=swap_padding_elide_conditional,
+        swapping_patterns=swapping_patterns,
+        tiling_canonicalization=tiling_canonicalization,
+        unroll_vectors_gpu_mma_sync=unroll_vectors_gpu_mma_sync,
+        unroll_vectors_gpu_wmma=unroll_vectors_gpu_wmma,
     )

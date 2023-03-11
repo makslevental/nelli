@@ -2,8 +2,9 @@ from textwrap import dedent
 
 import numpy as np
 
-from nelli import F32
+from nelli import F32, I64
 from nelli.mlir import arith
+from nelli.mlir.tensor import TensorValue as Tensor
 from nelli.mlir._mlir.dialects import linalg
 from nelli.mlir._mlir.ir import InsertionPoint
 from nelli.mlir._mlir.runtime import unranked_memref_to_numpy
@@ -27,6 +28,7 @@ from nelli.mlir.transform import (
 )
 from nelli.mlir._mlir.dialects import transform as transform_dialect
 from nelli.mlir._mlir.dialects.transform import loop
+from nelli.mlir.transform.transform import apply_patterns
 
 from nelli.mlir.utils import run_pipeline
 from nelli.utils import mlir_mod_ctx
@@ -699,3 +701,237 @@ class TestTiling:
         C = np.zeros((10, 10)).astype(np.float32)
         invoker.contraction_matmul(A, B, C)
         assert np.allclose(A @ B, C)
+
+    def test_contraction_matmul(self):
+        with mlir_mod_ctx() as module:
+            module = module.parse(
+                dedent(
+                    """\
+            func.func @contraction_matmul(%A: memref<10x10xf32>, %B: memref<10x10xf32>, %C: memref<10x10xf32>) {
+              linalg.matmul ins(%A, %B: memref<10x10xf32>, memref<10x10xf32>)
+                        outs(%C: memref<10x10xf32>)
+              return
+            }
+
+            transform.sequence failures(propagate) {
+            ^bb1(%arg1: !pdl.operation):
+              %0 = transform.structured.match ops{["linalg.matmul"]} in %arg1 : (!pdl.operation) -> !pdl.operation
+              %1 = get_closest_isolated_parent %0 : (!pdl.operation) -> !pdl.operation
+              %2 = transform.structured.vectorize %1  { disable_multi_reduction_to_contract_patterns }
+            } 
+            """
+                )
+            )
+        run_pipeline(
+            module,
+            Pipeline()
+            .transform_dialect_interpreter()
+            .transform_dialect_erase_schedule()
+            .materialize(),
+        )
+
+        correct = dedent(
+            """\
+        module {
+          func.func @contraction_matmul(%arg0: memref<10x10xf32>, %arg1: memref<10x10xf32>, %arg2: memref<10x10xf32>) {
+            %c0 = arith.constant 0 : index
+            %cst = arith.constant 0.000000e+00 : f32
+            %0 = vector.transfer_read %arg0[%c0, %c0], %cst {in_bounds = [true, true]} : memref<10x10xf32>, vector<10x10xf32>
+            %1 = vector.broadcast %0 : vector<10x10xf32> to vector<10x10x10xf32>
+            %2 = vector.transpose %1, [1, 0, 2] : vector<10x10x10xf32> to vector<10x10x10xf32>
+            %3 = vector.transfer_read %arg1[%c0, %c0], %cst {in_bounds = [true, true]} : memref<10x10xf32>, vector<10x10xf32>
+            %4 = vector.broadcast %3 : vector<10x10xf32> to vector<10x10x10xf32>
+            %5 = vector.transpose %4, [0, 2, 1] : vector<10x10x10xf32> to vector<10x10x10xf32>
+            %6 = vector.transfer_read %arg2[%c0, %c0], %cst {in_bounds = [true, true]} : memref<10x10xf32>, vector<10x10xf32>
+            %7 = arith.mulf %2, %5 : vector<10x10x10xf32>
+            %8 = vector.multi_reduction <add>, %7, %6 [2] : vector<10x10x10xf32> to vector<10x10xf32>
+            vector.transfer_write %8, %arg2[%c0, %c0] {in_bounds = [true, true]} : vector<10x10xf32>, memref<10x10xf32>
+            return
+          }
+        }
+        """
+        )
+        check_correct(correct, module)
+
+    def test_common_extension_with_pdl_patterns(self):
+        with mlir_mod_ctx() as module:
+            module = module.parse(
+                dedent(
+                    """\
+            func.func @select_cmp_eq_select(%arg0: i64, %arg1: i64) -> i64 {
+              %0 = arith.cmpi eq, %arg0, %arg1 : i64
+              %1 = arith.select %0, %arg0, %arg1 : i64
+              return %1 : i64
+            }
+
+            transform.with_pdl_patterns {
+            ^bb0(%arg0: !pdl.operation):
+              transform.sequence %arg0 : !pdl.operation failures(propagate) {
+              ^bb1(%arg1: !pdl.operation):
+                %0 = transform.structured.match ops{["func.func"]} in %arg1 : (!pdl.operation) -> !pdl.operation
+                transform.apply_patterns %0 { canonicalization }
+              }
+            }
+            """
+                )
+            )
+
+        module = self.backend.compile(
+            module,
+            pipeline=Pipeline()
+            .transform_dialect_interpreter()
+            .transform_dialect_erase_schedule(),
+        )
+
+        correct = dedent(
+            """\
+        module {
+          func.func @select_cmp_eq_select(%arg0: i64, %arg1: i64) -> i64 {
+            return %arg1 : i64
+          }
+        }
+        """
+        )
+        check_correct(correct, module)
+
+    def test_common_extension_sequence(self):
+        with mlir_mod_ctx() as module:
+            module = module.parse(
+                dedent(
+                    """\
+            func.func @select_cmp_eq_select(%arg0: i64, %arg1: i64) -> i64 {
+              %0 = arith.cmpi eq, %arg0, %arg1 : i64
+              %1 = arith.select %0, %arg0, %arg1 : i64
+              return %1 : i64
+            }
+            
+            transform.sequence  failures(propagate) {
+            ^bb0(%arg0: !pdl.operation):
+              %0 = transform.structured.match ops{["func.func"]} in %arg0 : (!pdl.operation) -> !pdl.operation
+              transform.apply_patterns %0 { canonicalization }
+            }
+            """
+                )
+            )
+
+        module = self.backend.compile(
+            module,
+            pipeline=Pipeline()
+            .transform_dialect_interpreter()
+            .transform_dialect_erase_schedule(),
+        )
+
+        correct = dedent(
+            """\
+        module {
+          func.func @select_cmp_eq_select(%arg0: i64, %arg1: i64) -> i64 {
+            return %arg1 : i64
+          }
+        }
+        """
+        )
+        check_correct(correct, module)
+
+    def test_common_extension_sugar(self):
+        with mlir_mod_ctx() as module:
+
+            @mlir_func
+            def select_cmp_eq_select(arg0: I64, arg1: I64):
+                a = arg0 == arg1
+                b = arith.select(a, arg0, arg1)
+                return b
+
+            @sequence
+            def basic(target, *extra_args):
+                m = match(target, ["func.func"])
+                n = apply_patterns(m, canonicalization=True)
+
+        correct = dedent(
+            """\
+        module {
+          func.func @select_cmp_eq_select(%arg0: i64, %arg1: i64) -> i64 {
+            %0 = arith.cmpi eq, %arg0, %arg1 : i64
+            %1 = arith.select %0, %arg0, %arg1 : i64
+            return %1 : i64
+          }
+          transform.sequence  failures(propagate) attributes {transform.target_tag = "basic"} {
+          ^bb0(%arg0: !pdl.operation):
+            %0 = transform.structured.match ops{["func.func"]} in %arg0 : (!pdl.operation) -> !pdl.operation
+            %1 = apply_patterns %0 {canonicalization}
+          }
+        }
+        """
+        )
+        check_correct(correct, module)
+        module = self.backend.compile(
+            module,
+            pipeline=Pipeline()
+            .transform_dialect_interpreter()
+            .transform_dialect_erase_schedule(),
+        )
+
+        correct = dedent(
+            """\
+        module {
+          func.func @select_cmp_eq_select(%arg0: i64, %arg1: i64) -> i64 {
+            return %arg1 : i64
+          }
+        }
+        """
+        )
+        check_correct(correct, module)
+
+    def test_common_ext_2(self):
+        src = dedent(
+            """\
+        #map0 = affine_map<(d0, d1) -> (d0, d1)>
+        #map2 = affine_map<(d0) -> (d0 * 4)>
+
+        func.func @promote() -> (tensor<16x128xf32>) {
+          %c0 = arith.constant 0 : index
+          %f0 = arith.constant 0.000000e+00 : f32
+          %c16 = arith.constant 16 : index
+          %c32 = arith.constant 32 : index
+
+          %empty = tensor.empty() : tensor<16x128xf32>
+          %filled = linalg.fill ins(%f0 : f32) outs(%empty : tensor<16x128xf32>) -> tensor<16x128xf32>
+
+          %10 = scf.forall (%arg0, %arg1) in (%c16, %c32) shared_outs(%arg2 = %filled) -> (tensor<16x128xf32>) {
+            %11 = affine.apply #map2(%arg1)
+            %extracted_slice = tensor.extract_slice %filled[%arg0, %11] [1, 4] [1, 1] : tensor<16x128xf32> to tensor<1x4xf32>
+            %extracted_slice_2 = tensor.extract_slice %arg2[%arg0, %11] [1, 4] [1, 1] : tensor<16x128xf32> to tensor<1x4xf32>
+            %13 = linalg.generic {indexing_maps = [#map0, #map0], iterator_types = ["parallel", "parallel"]} ins(%extracted_slice : tensor<1x4xf32>) outs(%extracted_slice_2 : tensor<1x4xf32>) {
+            ^bb0(%in: f32, %out: f32):
+              %res = arith.addf %in, %in: f32
+              linalg.yield %res : f32
+            } -> tensor<1x4xf32>
+            scf.forall.in_parallel {
+              tensor.parallel_insert_slice %13 into %arg2[%arg0, %11] [1, 4] [1, 1] : tensor<1x4xf32> into tensor<16x128xf32>
+            }
+          }
+          return %10 : tensor<16x128xf32>
+        }
+
+        transform.sequence failures(propagate) {
+        ^bb1(%arg1: !pdl.operation):
+          %0 = transform.structured.match ops{["scf.forall"]} in %arg1 : (!pdl.operation) -> !pdl.operation
+          %1 = transform.cast %0 : !pdl.operation to !transform.op<"scf.forall">
+          transform.share_forall_operands %1 share_operands = [0] : (!transform.op<"scf.forall">) -> !transform.op<"scf.forall">
+        }
+        """
+        )
+        with mlir_mod_ctx(src) as module:
+            pass
+
+    def test_common_ext_2_sugar(self):
+        with mlir_mod_ctx() as module:
+
+            @mlir_func
+            def promote():
+                c0 = arith.constant(0, index=True)
+                f0 = arith.constant(0, type=F32)
+                c16 = arith.constant(16, index=True)
+                c32 = arith.constant(32, index=True)
+
+                empty = Tensor.empty([16, 128], F32)
+                filled = linalg.fill(f0, outs=[empty])
