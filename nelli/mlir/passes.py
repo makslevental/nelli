@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import platform
 
 logger = logging.getLogger(__name__)
 
@@ -835,6 +836,10 @@ class Pipeline:
         self._add_pass("drop-equivalent-buffer-results")
         return self
 
+    def duplicate_function_elimination(self):
+        self._add_pass("duplicate-function-elimination")
+        return self
+
     def eliminate_empty_tensors(self):
         self._add_pass("eliminate-empty-tensors")
         return self
@@ -902,6 +907,30 @@ class Pipeline:
     def gpu_map_parallel_loops(self):
         self._add_pass("gpu-map-parallel-loops")
         return self
+
+    if platform.system() == "Linux" and platform.processor() == "x86_64":
+
+        def gpu_to_cubin(
+            self, chip=None, features=None, gpu_binary_annotation=None, triple=None
+        ):
+            if chip is not None and isinstance(chip, (list, tuple)):
+                chip = ",".join(map(str, chip))
+            if features is not None and isinstance(features, (list, tuple)):
+                features = ",".join(map(str, features))
+            if gpu_binary_annotation is not None and isinstance(
+                gpu_binary_annotation, (list, tuple)
+            ):
+                gpu_binary_annotation = ",".join(map(str, gpu_binary_annotation))
+            if triple is not None and isinstance(triple, (list, tuple)):
+                triple = ",".join(map(str, triple))
+            self._add_pass(
+                "gpu-to-cubin",
+                chip=chip,
+                features=features,
+                gpu_binary_annotation=gpu_binary_annotation,
+                triple=triple,
+            )
+            return self
 
     def gpu_to_llvm(
         self,
@@ -1183,6 +1212,10 @@ class Pipeline:
 
     def pre_sparsification_rewrite(self):
         self._add_pass("pre-sparsification-rewrite")
+        return self
+
+    def print_ir(self):
+        self._add_pass("print-ir")
         return self
 
     def print_op_stats(self, json=None):
