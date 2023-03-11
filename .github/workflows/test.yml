@@ -33,6 +33,33 @@ jobs:
       - name: Set up ccache
         uses: hendrikmuhs/ccache-action@v1.2
 
+      - name: Install CUDA
+        run: |
+          sudo apt install -y build-essential kmod
+          
+          wget -q https://developer.download.nvidia.com/compute/cuda/11.7.1/local_installers/cuda_11.7.1_515.65.01_linux.run
+          sudo sh cuda_11.7.1_515.65.01_linux.run --silent
+          if [[ $? -ne 0 ]]; then
+              echo "CUDA Installation Error."
+              exit 1
+          fi
+          
+          CUDA_PATH=/usr/local/cuda
+          echo "CUDA_PATH=${CUDA_PATH}"
+          export CUDA_PATH=${CUDA_PATH}
+          export PATH="$CUDA_PATH/bin:$PATH"
+          export LD_LIBRARY_PATH="$CUDA_PATH/lib:$LD_LIBRARY_PATH"
+          export LD_LIBRARY_PATH="$CUDA_PATH/lib64:$LD_LIBRARY_PATH"
+          # Check nvcc is now available.
+          nvcc -V
+          # If executed on github actions, make the appropriate echo statements to update the environment
+          # Set paths for subsequent steps, using ${CUDA_PATH}
+          echo "Adding CUDA to CUDA_PATH, PATH and LD_LIBRARY_PATH"
+          echo "CUDA_PATH=${CUDA_PATH}" >> $GITHUB_ENV
+          echo "${CUDA_PATH}/bin" >> $GITHUB_PATH
+          echo "LD_LIBRARY_PATH=${CUDA_PATH}/lib:${LD_LIBRARY_PATH}" >> $GITHUB_ENV
+          echo "LD_LIBRARY_PATH=${CUDA_PATH}/lib64:${LD_LIBRARY_PATH}" >> $GITHUB_ENV
+
       - name: Set up Clang
         uses: egor-tensin/setup-clang@v1
         with:

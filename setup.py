@@ -20,7 +20,7 @@ PLAT_TO_CMAKE = {
 
 def get_llvm_url():
     system = platform.system()
-    system_suffix = {"Linux": "linux-gnu-ubuntu-20.04", "Darwin": "apple-darwin"}[
+    system_suffix = {"Linux": "linux-gnu-ubuntu-22.04", "Darwin": "apple-darwin"}[
         system
     ]
     LIB_ARCH = os.environ.get("LIB_ARCH", platform.machine())
@@ -115,7 +115,7 @@ class CMakeBuild(build_ext):
         mlir_libs_dir = Path(
             f"{ext_build_lib_dir}/{PACKAGE_NAME}/mlir/_mlir/_mlir_libs"
         )
-        for shlib in [
+        shlibs = [
             "LTO",
             "MLIR-C",
             "mlir_async_runtime",
@@ -125,8 +125,12 @@ class CMakeBuild(build_ext):
             "gomp",
             "iomp5",
             "omp",
-            "vulkan-runtime-wrappers"
-        ]:
+            "vulkan-runtime-wrappers",
+        ]
+        if platform.system() == "Linux" and platform.processor() == "x86_64":
+            shlibs += ["mlir_cuda_runtime"]
+
+        for shlib in shlibs:
             shlib_name = f"lib{shlib}.{shlib_ext}"
             llvm_install_dir = (Path(".").parent / "llvm_install").absolute()
             assert llvm_install_dir.exists()

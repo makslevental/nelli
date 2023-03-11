@@ -17,7 +17,8 @@ elif platform.system() == "Linux":
 else:
     raise NotImplementedError(f"unknown platform {platform.system()}")
 
-for shlib in [
+
+shlibs = [
     "LTO",
     "MLIR-C",
     "mlir_async_runtime",
@@ -28,7 +29,12 @@ for shlib in [
     "iomp5",
     "omp",
     "vulkan-runtime-wrappers",
-]:
+]
+
+if platform.system() == "Linux" and platform.processor() == "x86_64":
+    shlibs += ["mlir_cuda_runtime"]
+
+for shlib in shlibs:
     shlib_name = f"lib{shlib}.{shlib_ext}"
     assert llvm_install_dir.exists(), f"{llvm_install_dir}"
     llvm_install_fp = (llvm_install_dir / "lib" / shlib_name).absolute()
