@@ -53,6 +53,9 @@ jobs:
             apt-get install build-essential ccache -q -y
             /usr/sbin/update-ccache-symlinks
             echo 'export PATH="/usr/lib/ccache:$PATH"' | tee -a ~/.bashrc
+                     
+            export PATH="/usr/lib/ccache:$PATH"
+            export CMAKE_BUILD_PARALLEL_LEVEL=$(nproc)
             pip install cmake auditwheel patchelf wheel
             echo 'CMAKE_BUILD_PARALLEL_LEVEL=$(nproc)' | tee -a ~/.bashrc
             mkdir /wheelhouse
@@ -120,3 +123,20 @@ jobs:
           name: "${{ steps.setup_release.outputs.release_title }}"
           allowUpdates: true
           replacesArtifacts: true
+
+
+#            apt-get install -y linux-headers-generic
+#            wget -q https://developer.download.nvidia.com/compute/cuda/11.7.0/local_installers/cuda_11.7.0_515.43.04_linux_sbsa.run
+#            sh cuda_11.7.0_515.43.04_linux_sbsa.run --silent --override --kernel-source-path="/usr/src/$(ls /usr/src | head -1)"-generic
+#            if [[ $? -ne 0 ]]; then
+#              echo "CUDA Installation Error."
+#              exit 1
+#            fi
+#
+#            CUDA_PATH=/usr/local/cuda
+#            echo "CUDA_PATH=${CUDA_PATH}"
+#            echo 'export CUDA_PATH=${CUDA_PATH}' | tee -a ~/.bashrc
+#            echo 'export PATH="$CUDA_PATH/bin:$PATH"' | tee -a ~/.bashrc
+#            echo 'export LD_LIBRARY_PATH="$CUDA_PATH/lib:$LD_LIBRARY_PATH"' | tee -a ~/.bashrc
+#            echo 'export LD_LIBRARY_PATH="$CUDA_PATH/lib64:$LD_LIBRARY_PATH"' | tee -a ~/.bashrc
+

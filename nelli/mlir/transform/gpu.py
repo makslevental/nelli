@@ -1,13 +1,13 @@
-from ...mlir._mlir.dialects._ods_common import (
+from .._mlir.dialects._ods_common import (
     _cext as _ods_cext,
     get_default_loc_context,
 )
-from ...mlir._mlir.dialects._ods_common import (
+from .._mlir.dialects._ods_common import (
     extend_opview_class,
     get_op_result_or_value,
     get_op_results_or_values,
 )
-from ...mlir._mlir.dialects._transform_ops_gen import _Dialect
+from .._mlir.dialects._transform_ops_gen import _Dialect
 
 _ods_ir = _ods_cext.ir
 

@@ -1,8 +1,8 @@
 #include "mlir-c/IR.h"
-#include "mlir-c/RegisterEverything.h"
 #include "mlir/Bindings/Python/PybindAdaptors.h"
 #include "mlir/CAPI/IR.h"
 #include "mlir/Target/LLVMIR/Dialect/OpenMP/OpenMPToLLVMIRTranslation.h"
+#include "CommonExtensions/CommonExtensions.h"
 
 namespace py = pybind11;
 using namespace llvm;
@@ -26,5 +26,6 @@ PYBIND11_MODULE(_site_initialize_0, m) {
   m.def("context_init_hook", [](MlirContext &ctx) {
     auto context = unwrap(ctx);
     mlir::registerOpenMPDialectTranslation(*context);
+    mlir::registerTransformDialectCommonExtension(*context);
   });
 }

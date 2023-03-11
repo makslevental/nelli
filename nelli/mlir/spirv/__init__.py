@@ -1,6 +1,6 @@
 from typing import Optional, Union
 
-from ...mlir._mlir.ir import Attribute
+from .._mlir.ir import Attribute
 
 
 def entry_point_abi(workgroup_size: Optional[Union[tuple[int, ...], list[int]]] = None):
