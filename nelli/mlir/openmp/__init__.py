@@ -1,8 +1,8 @@
 from . import _omp_ops_gen
-from ...mlir._mlir import ir
+from .._mlir import ir
 
 # noinspection PyUnresolvedReferences
-from ...mlir._mlir._mlir_libs._site_initialize_0 import (
+from .._mlir._mlir_libs._site_initialize_0 import (
     register_openmp_dialect_translation,
 )
 
