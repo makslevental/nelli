@@ -22,6 +22,7 @@ jobs:
         os: [ ubuntu-latest ]
         arch: [ x86_64 ]
         python_version: [
+          "3.9",
           "3.10",
           "3.11"
         ]

@@ -15,6 +15,7 @@ jobs:
       fail-fast: false
       matrix:
         base_image: [
+          "balenalib/raspberrypi4-64-ubuntu-python:3.9-jammy-build",
           "balenalib/raspberrypi4-64-ubuntu-python:3.10-jammy-build",
           "balenalib/raspberrypi4-64-ubuntu-python:3.11-jammy-build"
         ]

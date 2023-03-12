@@ -204,16 +204,15 @@ class MemOp(Op):
         ]
         for sym, bounds in self.domain_bounds.items():
             for bound_type, bound in bounds.items():
-                match bound_type:
-                    case "LB":
-                        constraints.append(bound <= sym)
-                    case "UB":
-                        constraints.append(sym <= bound)
-                    case "EQ":
-                        if bound is not None:
-                            constraints.append(Eq(bound, sym))
-                    case _:
-                        raise Exception(f"unknown bound type: {bound_type}")
+                if bound_type == "LB":
+                    constraints.append(bound <= sym)
+                elif bound_type == "UB":
+                    constraints.append(sym <= bound)
+                elif bound_type == "EQ":
+                    if bound is not None:
+                        constraints.append(Eq(bound, sym))
+                else:
+                    raise Exception(f"unknown bound type: {bound_type}")
 
         return constraints
 
