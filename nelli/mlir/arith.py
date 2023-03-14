@@ -80,11 +80,9 @@ class CmpFOp(arith_dialect.CmpFOp):
             "true": 15,
         }
         assert predicate in predicates, f"predicate {predicate} not in predicates"
-        context = get_default_loc_context(loc)
         lhs = get_op_result_or_value(lhs)
         rhs = get_op_result_or_value(rhs)
         predicate = IntegerAttr.get(IntegerType.get_signless(64), predicates[predicate])
-        # result_type = IntegerType.get_signless(1, context=context)
         super().__init__(predicate, lhs, rhs, loc=loc, ip=ip)
 
 
