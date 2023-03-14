@@ -4,7 +4,13 @@ from typing import (
 )
 
 from .common import ShareForallOperandsOp
-from .._mlir._mlir_libs._mlir.ir import ArrayAttr, StringAttr
+from .._mlir._mlir_libs._mlir.ir import (
+    ArrayAttr,
+    StringAttr,
+    Context,
+    IntegerType,
+    IntegerAttr,
+)
 from .._mlir.dialects._ods_common import get_op_result_or_value
 from ..utils import doublewrap, get_dense_int64_array_attr, extract_wrapped
 
@@ -16,8 +22,15 @@ from .._mlir.dialects.transform import (
     loop as loop_ext,
     structured as structured_ext,
 )
-from . import common as common_ext
-from .._mlir.ir import Type, Operation, Value, InsertionPoint
+
+from . import common as common_ext, vector as vector_ext
+from .._mlir.ir import (
+    Type,
+    Operation,
+    Value,
+    InsertionPoint,
+    register_attribute_builder,
+)
 from .gpu import MapForeachToBlocks, MapNestedForeachToThreads
 
 
@@ -77,13 +90,15 @@ def unroll(target, factor):
     loop_ext.LoopUnrollOp(target, factor=factor)
 
 
-def tile_to_scf_for(target, sizes: list[int]):
-    return structured_ext.TileToScfForOp(
-        target.type,
-        [target.type] * len(sizes),
-        target,
-        [],
-        static_sizes=sizes,
+def tile_to_scf_for(target, tile_sizes: list[int]):
+    return tuple(
+        structured_ext.TileToScfForOp(
+            target.type,
+            [target.type] * len(tile_sizes),
+            target,
+            [],
+            static_sizes=tile_sizes,
+        ).results
     )
 
 
@@ -95,15 +110,17 @@ def tile_linalg_to_scf_for(target, sizes: list[int]):
     )
 
 
-def tile_to_scf_forall(target, sizes: list[int], mapping=None):
-    return structured_ext.TileToForallOp(
-        target.type,
-        target.type,
-        target,
-        num_threads=[],
-        tile_sizes=[],
-        static_tile_sizes=get_dense_int64_array_attr(sizes),
-        mapping=mapping,
+def tile_to_scf_forall(target, tile_sizes: list[int], mapping=None):
+    return tuple(
+        structured_ext.TileToForallOp(
+            target.type,
+            target.type,
+            target,
+            num_threads=[],
+            tile_sizes=[],
+            static_tile_sizes=get_dense_int64_array_attr(tile_sizes),
+            mapping=mapping,
+        ).results
     )
 
 
@@ -215,3 +232,123 @@ def share_forall_operands(forall_op, share_operands: list[int]):
         forall_op,
         share_operands=share_operands,
     ).result
+
+
+def generalize(target):
+    return structured_ext.GeneralizeOp(target).result
+
+
+class VectorizeOp(structured_ext.VectorizeOp.__bases__[1]):
+    def __init__(
+        self,
+        target: Union[Operation, Value],
+        *,
+        vectorize_padding=None,
+        vectorize_nd_extract=None,
+        disable_multi_reduction_to_contract_patterns=None,
+        disable_transfer_permutation_map_lowering_patterns=None,
+        loc=None,
+        ip=None,
+    ):
+        pdl_operation_type = pdl.OperationType.get()
+        super().__init__(
+            pdl_operation_type,
+            get_op_result_or_value(target),
+            vectorize_padding=vectorize_padding,
+            vectorize_nd_extract=vectorize_nd_extract,
+            disable_multi_reduction_to_contract_patterns=disable_multi_reduction_to_contract_patterns,
+            disable_transfer_permutation_map_lowering_patterns=disable_transfer_permutation_map_lowering_patterns,
+            loc=loc,
+            ip=ip,
+        )
+
+
+def vectorize(
+    target,
+    vectorize_padding=None,
+    vectorize_nd_extract=None,
+    disable_multi_reduction_to_contract_patterns=None,
+    disable_transfer_permutation_map_lowering_patterns=None,
+):
+    return VectorizeOp(
+        target,
+        vectorize_padding=vectorize_padding,
+        vectorize_nd_extract=vectorize_nd_extract,
+        disable_multi_reduction_to_contract_patterns=disable_multi_reduction_to_contract_patterns,
+        disable_transfer_permutation_map_lowering_patterns=disable_transfer_permutation_map_lowering_patterns,
+    ).result
+
+
+def hoist_redundant_tensor_subsets(target):
+    pdl_operation_type = pdl.OperationType.get()
+    structured_ext.HoistRedundantTensorSubsetsOp(pdl_operation_type, target)
+
+
+def bufferize(target):
+    return common_ext.TransformBufferizeOp(
+        result=pdl.OperationType.get(),
+        target=target,
+        target_gpu=None,
+        test_analysis_only=None,
+        print_conflicts=None,
+    ).result
+
+
+# def VectorContractLowering_Dot: I32EnumAttrCase<"Dot", 0, "dot">;
+# def VectorContractLowering_Matmul: I32EnumAttrCase<"Matmul", 1, "matmulintrinsics">;
+# def VectorContractLowering_OuterProduct: I32EnumAttrCase<"OuterProduct", 2, "outerproduct">;
+# def VectorContractLowering_ParallelArith: I32EnumAttrCase<"ParallelArith", 3, "parallelarith">;
+
+
+@register_attribute_builder("VectorContractLoweringAttr")
+def get_vector_lowering_attr(op: str, context: Optional[Context] = None):
+    from ... import DefaultContext
+
+    if context is None:
+        context = DefaultContext
+
+    enum = {"dot": 0, "matmulintrinsics": 1, "outerproduct": 2, "parallelarith": 3}
+    return IntegerAttr.get(IntegerType.get_signless(32, context=context), enum[op])
+
+
+@register_attribute_builder("VectorTransposeLoweringAttr")
+def get_transpose_lowering_attr(op: str, context: Optional[Context] = None):
+    from ... import DefaultContext
+
+    if context is None:
+        context = DefaultContext
+
+    enum = {"eltwise": 0, "flat_transpose": 1, "shuffle": 2}
+    return IntegerAttr.get(IntegerType.get_signless(32, context=context), enum[op])
+
+
+@register_attribute_builder("VectorTransferSplitAttr")
+def get_transfer_split_lowering_attr(op: str, context: Optional[Context] = None):
+    from ... import DefaultContext
+
+    if context is None:
+        context = DefaultContext
+
+    enum = {"none": 0, "vector-transfer": 1, "linalg-copy": 2, "force-in-bounds": 3}
+    return IntegerAttr.get(IntegerType.get_signless(32, context=context), enum[op])
+
+
+def lower_vectors(
+    target,
+    contraction_lowering=None,
+    multireduction_lowering=None,
+    split_transfers=None,
+    transpose_lowering=None,
+    transpose_avx2_lowering=None,
+    unroll_vector_transfers=None,
+):
+    return vector_ext.LowerVectorsOp(
+        results_=pdl.OperationType.get(),
+        target=target,
+        contraction_lowering=contraction_lowering,
+        multireduction_lowering=multireduction_lowering,
+        split_transfers=split_transfers,
+        transpose_lowering=transpose_lowering,
+        transpose_avx2_lowering=transpose_avx2_lowering,
+        unroll_vector_transfers=unroll_vector_transfers,
+    ).results_

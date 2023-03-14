@@ -4,6 +4,7 @@ import numpy as np
 
 from nelli import F32, I64
 from nelli.mlir import arith
+from nelli.mlir.gpu import block_attr
 from nelli.mlir.tensor import (
     parallel_insert_slice,
     extract_slice,
@@ -31,7 +32,16 @@ from nelli.mlir.transform import (
 )
 from nelli.mlir._mlir.dialects import transform as transform_dialect
 from nelli.mlir._mlir.dialects.transform import loop
-from nelli.mlir.transform.transform import apply_patterns, cast, share_forall_operands
+from nelli.mlir.transform.transform import (
+    apply_patterns,
+    cast,
+    share_forall_operands,
+    generalize,
+    vectorize,
+    hoist_redundant_tensor_subsets,
+    bufferize,
+    lower_vectors,
+)
 
 from nelli.mlir.utils import run_pipeline
 from nelli.utils import mlir_mod_ctx
@@ -169,7 +179,7 @@ class TestTiling:
             @sequence
             def basic(target, *extra_args):
                 m = match(target, ["tensor.pad"])
-                tiled = tile_to_scf_for(m, sizes=[2, 3])
+                tiled = tile_to_scf_for(m, tile_sizes=[2, 3])
 
         correct = dedent(
             """\
@@ -435,7 +445,7 @@ class TestTiling:
             @sequence
             def basic(target, *extra_args):
                 m = match(target, ["linalg.matmul"])
-                tiled = tile_to_scf_forall(m, sizes=[2, 3])
+                tiled = tile_to_scf_forall(m, tile_sizes=[2, 3])
 
         correct = dedent(
             """\
@@ -1070,3 +1080,76 @@ class TestTiling:
         """
         )
         check_correct(correct, module)
+
+    def test_conv_2d_nhwc_hwcf_codegen_spec(self):
+        with mlir_mod_ctx() as module:
+            N, H, W, C = 1, 41, 140, 1
+            KH, KW, F = 1, 140, 128
+            OH, OW = 41, 1
+
+            @mlir_func
+            def conv_2d_nhwc_hwcf(
+                input: Tensor[(N, H, W, C), F32],
+                kernel: Tensor[(KH, KW, C, F), F32],
+                output: Tensor[(N, OH, OW, F), F32],
+            ):
+                return linalg.conv_2d_nhwc_hwcf(input, kernel, outs=[output])
+
+            @sequence
+            def basic(variant_op, *extra_args):
+                named_conv = match(variant_op, ["linalg.conv_2d_nhwc_hwcf"])
+                conv = generalize(named_conv)
+                func = match(variant_op, ["func.func"])
+                apply_patterns(func, rank_reducing_linalg=True)
+                apply_patterns(
+                    variant_op, canonicalization=True, tiling_canonicalization=True
+                )
+
+                # Step 1. Tile to forall and sequential scf.for.
+                forall_l1, conv_l1 = tile_to_scf_forall(
+                    conv,
+                    tile_sizes=[1],
+                    mapping={
+                        0: block_attr("x"),
+                    },
+                )
+                apply_patterns(
+                    variant_op,
+                    canonicalization=True,
+                    cse=True,
+                    tiling_canonicalization=True,
+                )
+
+                # Step 2. Tile to sequential scf.for
+                matmul_l2, *loops_l1_3 = tile_to_scf_for(conv_l1, tile_sizes=[1, 4, 4])
+                apply_patterns(variant_op, canonicalization=True, cse=True, licm=True)
+
+                # Step 3. Vectorize
+                func_v = match(variant_op, ["func.func"])
+                apply_patterns(func_v, rank_reducing_linalg=True)
+                func_v_2 = vectorize(func_v)
+                apply_patterns(func_v_2, canonicalization=True, cse=True, licm=True)
+                hoist_redundant_tensor_subsets(func_v_2)
+
+                # Bufferization
+                apply_patterns(variant_op, canonicalization=True, cse=True, licm=True)
+                variant_op_2 = bufferize(variant_op)
+
+            @sequence
+            def final(variant_op, *extra_args):
+                func_e = match(variant_op, ["func.func"])
+                lower_vectors(
+                    func_e,
+                    contraction_lowering="outerproduct",
+                    transpose_lowering="shuffle",
+                )
+
+        module = self.backend.compile(
+            module,
+            pipeline=Pipeline()
+            .transform_dialect_interpreter(debug_transform_root_tag="basic")
+            .bufferize()
+            .transform_dialect_interpreter(debug_transform_root_tag="final")
+            .transform_dialect_erase_schedule(),
+        )
+        print(module)

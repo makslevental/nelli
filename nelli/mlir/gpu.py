@@ -2,7 +2,12 @@ import builtins
 from typing import Union, Optional, Any
 
 from ._mlir import ir
-from ._mlir._mlir_libs._mlir.ir import UnitAttr, IndexType
+from ._mlir._mlir_libs._mlir.ir import (
+    UnitAttr,
+    IndexType,
+    Context,
+    FlatSymbolRefAttr,
+)
 from ._mlir.dialects._func_ops_ext import ARGUMENT_ATTRIBUTE_NAME, RESULT_ATTRIBUTE_NAME
 from ._mlir.dialects._ods_common import get_default_loc_context
 from ._mlir.ir import (
@@ -507,3 +512,23 @@ def host_register(memref):
 
 def all_reduce(op, val, uniform=False):
     return gpu.AllReduceOp(val, op=op, uniform=uniform).result
+
+
+# def GPU_AllReduceOpAdd : I32EnumAttrCase<"ADD", 0, "add">;
+# def GPU_AllReduceOpAnd : I32EnumAttrCase<"AND", 1, "and">;
+# def GPU_AllReduceOpMax : I32EnumAttrCase<"MAX", 2, "max">;
+# def GPU_AllReduceOpMin : I32EnumAttrCase<"MIN", 3, "min">;
+# def GPU_AllReduceOpMul : I32EnumAttrCase<"MUL", 4, "mul">;
+# def GPU_AllReduceOpOr  : I32EnumAttrCase<"OR",  5, "or">;
+# def GPU_AllReduceOpXor : I32EnumAttrCase<"XOR", 6, "xor">;
+
+
+@register_attribute_builder("GPU_AllReduceOperationAttr")
+def gpu_all_reduce_op_attr(
+    op: str, context: Optional[Context] = None
+) -> FlatSymbolRefAttr:
+    from .. import DefaultContext
+
+    if context is None:
+        context = DefaultContext
+    return Attribute.parse(f"#gpu<all_reduce_op {op}>", context)

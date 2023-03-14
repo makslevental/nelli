@@ -322,7 +322,7 @@ class TestVulkan:
                 m = match(target, ["linalg.conv_2d_nchw_fchw"])
                 tiled = tile_to_scf_forall(
                     m,
-                    sizes=[0, 1, 8, 8],
+                    tile_sizes=[0, 1, 8, 8],
                     mapping={
                         0: block_attr("x"),
                         1: block_attr("y"),
@@ -335,7 +335,7 @@ class TestVulkan:
                 m = match(target, ["linalg.conv_2d_nchw_fchw"])
                 tiled = tile_to_scf_forall(
                     m,
-                    sizes=[0, 1, 1, 1],
+                    tile_sizes=[0, 1, 1, 1],
                     mapping={
                         0: thread_attr("x"),
                         1: thread_attr("y"),
@@ -420,7 +420,7 @@ class TestVulkan:
             @sequence
             def basic(target, *extra_args):
                 m = match(target, ["linalg.conv_2d_nhwc_hwcf"])
-                tiled = tile_to_scf_forall(m, sizes=[0, 1, 8, 8, 1])
+                tiled = tile_to_scf_forall(m, tile_sizes=[0, 1, 8, 8, 1])
 
         module = self.backend.compile(
             module,
