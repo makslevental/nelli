@@ -141,15 +141,14 @@ def rewrite_ast(f, range_ctor, endfor):
     tree = InsertEndIfs().visit(tree)
     tree.body[0].body.append(ast.Return(value=ast.Constant(value=None)))
 
-    ast.fix_missing_locations(tree)
-    # TODO(max): it's annoying that this ruins debugging - maybe line numbers?
+    tree = ast.fix_missing_locations(tree)
+    tree = ast.increment_lineno(tree, f.__code__.co_firstlineno - 1)
     module_code_o = compile(tree, f.__code__.co_filename, "exec")
     f_code_o = next(
         c
         for c in module_code_o.co_consts
         if type(c) is CodeType and c.co_name == f.__name__
     )
-    f_code_o = f_code_o.replace(co_firstlineno=f.__code__.co_firstlineno)
 
     # TODO(max): handle other ifs/for loops here
     updated_f = FunctionType(

@@ -2,6 +2,7 @@ from typing import (
     Union,
     Tuple,
 )
+import numpy as np
 
 from .annot import Annot
 from .arith import constant
@@ -63,6 +64,17 @@ def extract(tensor, dims: list):
     return tensor_dialect.ExtractOp(tensor, dims).result
 
 
+def get_tensor_type(source):
+    if RankedTensorType.isinstance(source.type):
+        source_type = RankedTensorType(source.type)
+    elif UnrankedTensorType.isinstance(source.type):
+        source_type = UnrankedTensorType(source.type)
+    else:
+        raise RuntimeError(f"source is not a tensor type: {source.type=}")
+
+    return source_type
+
+
 # TODO(max): this needs to be a tensor pad ext
 def pad(source, low, high, pad_value):
     assert all(
@@ -72,12 +84,7 @@ def pad(source, low, high, pad_value):
         isinstance(l, int) for l in high
     ), f"only literal pad values supported: {high=}"
 
-    if RankedTensorType.isinstance(source.type):
-        source_type = RankedTensorType(source.type)
-    elif UnrankedTensorType.isinstance(source.type):
-        source_type = UnrankedTensorType(source.type)
-    else:
-        raise RuntimeError(f"source is not a tensor type: {source.type=}")
+    source_type = get_tensor_type(source)
 
     if not isinstance(pad_value, (Value, Operation)):
         pad_value = constant(pad_value, type=source_type.element_type)
@@ -114,3 +121,86 @@ def collapse_shape(tensor, reassociation_map: list[list[int]], shape: list[int])
     return tensor_dialect.CollapseShapeOp(
         res_type, tensor, reassociation=reassociation_map
     ).result
+
+
+def parallel_insert_slice(
+    source,
+    dest,
+    static_offsets=None,
+    static_sizes=None,
+    static_strides=None,
+    offsets=None,
+    sizes=None,
+    strides=None,
+):
+    if static_offsets is None:
+        assert offsets is not None
+        static_offsets = [np.iinfo(np.int64).min, np.iinfo(np.int64).min]
+    if static_sizes is None:
+        assert sizes is not None
+        static_sizes = [np.iinfo(np.int64).min, np.iinfo(np.int64).min]
+    if static_strides is None:
+        assert strides is not None
+        static_strides = [np.iinfo(np.int64).min, np.iinfo(np.int64).min]
+    if offsets is None:
+        assert static_offsets
+        offsets = []
+    if sizes is None:
+        assert static_sizes
+        sizes = []
+    if strides is None:
+        assert static_strides
+        strides = []
+
+    return lambda: tensor_dialect.ParallelInsertSliceOp(
+        source,
+        dest,
+        offsets,
+        sizes,
+        strides,
+        static_offsets,
+        static_sizes,
+        static_strides,
+    )
+
+
+def extract_slice(
+    source,
+    static_offsets=None,
+    static_sizes=None,
+    static_strides=None,
+    offsets=None,
+    sizes=None,
+    strides=None,
+):
+    if static_offsets is None:
+        assert offsets is not None
+        static_offsets = [np.iinfo(np.int64).min, np.iinfo(np.int64).min]
+    if static_sizes is None:
+        assert sizes is not None
+        static_sizes = [np.iinfo(np.int64).min, np.iinfo(np.int64).min]
+    if static_strides is None:
+        assert strides is not None
+        static_strides = [np.iinfo(np.int64).min, np.iinfo(np.int64).min]
+    if offsets is None:
+        assert static_offsets
+        offsets = []
+    if sizes is None:
+        assert static_sizes
+        sizes = []
+    if strides is None:
+        assert static_strides
+        strides = []
+
+    source_type = get_tensor_type(source)
+    result = TensorValue[static_sizes, source_type.element_type].mlir_type
+    return tensor_dialect.ExtractSliceOp(
+        result,
+        source,
+        offsets,
+        sizes,
+        strides,
+        static_offsets,
+        static_sizes,
+        static_strides,
+    )

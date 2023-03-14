@@ -166,7 +166,6 @@ def gpu_launch(f, grid_size, block_size):
                 size[i] = constant(s, index=True)
     launch_op = LaunchOp(grid_size_, block_size_)
     with InsertionPoint(launch_op.entry_block):
-
         f(
             block_ids=tuple(launch_op.arguments[:3]),
             thread_ids=tuple(launch_op.arguments[3:6]),

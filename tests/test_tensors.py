@@ -11,7 +11,13 @@ from nelli.mlir._mlir.dialects.linalg import BinaryFn, TypeFn
 from nelli.mlir._mlir.dialects import linalg
 from nelli import F32, allow_unregistered_dialects
 from nelli.mlir.arith import constant
-from nelli.mlir.tensor import TensorValue as Tensor, pad, expand_shape, collapse_shape
+from nelli.mlir.tensor import (
+    TensorValue as Tensor,
+    pad,
+    expand_shape,
+    collapse_shape,
+    extract_slice,
+)
 from nelli.mlir.func import mlir_func
 from nelli.mlir.refbackend import LLVMJITBackend
 from nelli.utils import mlir_mod_ctx, shlib_ext
@@ -241,6 +247,28 @@ class TestTensor:
         module {
           func.func @expand(%arg0: tensor<1x1x3x3xf32>) {
             %collapsed = tensor.collapse_shape %arg0 [[0, 1], [2, 3]] : tensor<1x1x3x3xf32> into tensor<1x9xf32>
+            return
+          }
+        }
+        """
+        )
+        check_correct(correct, module)
+
+    def test_extract_slide(self):
+        with mlir_mod_ctx() as module:
+
+            @mlir_func
+            def extract(
+                input: Tensor[(16, 128), F32],
+            ):
+                y = extract_slice(input, [0, 0], [1, 4], [1, 1])
+
+        print(module)
+        correct = dedent(
+            """\
+        module {
+          func.func @extract(%arg0: tensor<16x128xf32>) {
+            %extracted_slice = tensor.extract_slice %arg0[0, 0] [1, 4] [1, 1] : tensor<16x128xf32> to tensor<1x4xf32>
             return
           }
         }

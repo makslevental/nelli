@@ -329,36 +329,52 @@ class ArithValue(ArithValue):
         return ArithValue(neg(self).result)
 
     def __add__(self, other):
+        if isinstance(other, (float, int)):
+            other = constant(other, type=self.type)
         return ArithValue(add(self, other).result)
 
     def __radd__(self, lhs):
         return self + lhs
 
     def __sub__(self, other):
+        if isinstance(other, (float, int)):
+            other = constant(other, type=self.type)
         return ArithValue(sub(self, other).result)
 
     def __rsub__(self, lhs):
         return self - lhs
 
     def __mul__(self, other):
+        if isinstance(other, (float, int)):
+            other = constant(other, type=self.type)
         return ArithValue(mul(self, other).result)
 
     def __rmul__(self, lhs):
-        return self + lhs
+        return self * lhs
 
     def __gt__(self, other):
+        if isinstance(other, (float, int)):
+            other = constant(other, type=self.type)
         return ArithValue(gt(self, other).result)
 
     def __lt__(self, other):
+        if isinstance(other, (float, int)):
+            other = constant(other, type=self.type)
         return ArithValue(lt(self, other).result)
 
     def __ge__(self, other):
+        if isinstance(other, (float, int)):
+            other = constant(other, type=self.type)
         return ArithValue(ge(self, other).result)
 
     def __le__(self, other):
+        if isinstance(other, (float, int)):
+            other = constant(other, type=self.type)
         return ArithValue(le(self, other).result)
 
     def __eq__(self, other):
+        if isinstance(other, (float, int)):
+            other = constant(other, type=self.type)
         return ArithValue(eq(self, other).result)
 
 

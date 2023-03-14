@@ -3,6 +3,7 @@ from typing import (
     Optional,
 )
 
+from .common import ShareForallOperandsOp
 from .._mlir._mlir_libs._mlir.ir import ArrayAttr, StringAttr
 from .._mlir.dialects._ods_common import get_op_result_or_value
 from ..utils import doublewrap, get_dense_int64_array_attr, extract_wrapped
@@ -200,3 +201,17 @@ def apply_patterns(
         unroll_vectors_gpu_mma_sync=unroll_vectors_gpu_mma_sync,
         unroll_vectors_gpu_wmma=unroll_vectors_gpu_wmma,
     )
+
+
+def cast(output, input):
+    return transform_dialect.CastOp(
+        transform_dialect.OperationType.get(output), input
+    ).result
+
+
+def share_forall_operands(forall_op, share_operands: list[int]):
+    return ShareForallOperandsOp(
+        transform_dialect.OperationType.get("scf.forall"),
+        forall_op,
+        share_operands=share_operands,
+    ).result

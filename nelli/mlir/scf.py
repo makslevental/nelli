@@ -2,7 +2,7 @@ from typing import Optional, Union, Sequence
 
 from ._mlir.dialects._ods_common import get_op_results_or_values
 from .arith import ArithValue, constant
-from .utils import doublewrap
+from .utils import doublewrap, get_dense_int64_array_attr
 from ._mlir.dialects import scf
 from ._mlir.ir import InsertionPoint, IndexType, Operation, OpView, Value
 
@@ -161,19 +161,115 @@ def end_parfor():
     _parfor_ip.__exit__(None, None, None)
 
 
-# @doublewrap
-# def forall(f, grid_size, block_size):
-#     grid_size_, block_size_ = [1] * 3, [1] * 3
-#     grid_size_[: len(grid_size)], block_size_[: len(grid_size)] = grid_size, block_size
-#     for size in [grid_size_, block_size_]:
-#         for i, s in enumerate(size):
-#             if isinstance(s, int):
-#                 size[i] = constant(s, index=True)
-#     launch_op = scf.ForallOp(grid_size_, block_size_)
-#     with InsertionPoint(launch_op.entry_block):
-#
-#         f(
-#             block_ids=tuple(launch_op.arguments[:3]),
-#             thread_ids=tuple(launch_op.arguments[3:6]),
-#         )
-#         gpu.TerminatorOp()
+"""
+          %10 = scf.forall (%arg0, %arg1) in (%c16, %c32) shared_outs(%arg2 = %filled) -> (tensor<16x128xf32>) {
+            %11 = affine.apply #map2(%arg1)
+            %extracted_slice = tensor.extract_slice %filled[%arg0, %11] [1, 4] [1, 1] : tensor<16x128xf32> to tensor<1x4xf32>
+            %extracted_slice_2 = tensor.extract_slice %arg2[%arg0, %11] [1, 4] [1, 1] : tensor<16x128xf32> to tensor<1x4xf32>
+            %13 = linalg.generic {indexing_maps = [#map0, #map0], iterator_types = ["parallel", "parallel"]} ins(%extracted_slice : tensor<1x4xf32>) outs(%extracted_slice_2 : tensor<1x4xf32>) {
+            ^bb0(%in: f32, %out: f32):
+              %res = arith.addf %in, %in: f32
+              linalg.yield %res : f32
+            } -> tensor<1x4xf32>
+            scf.forall.in_parallel {
+              tensor.parallel_insert_slice %13 into %arg2[%arg0, %11] [1, 4] [1, 1] : tensor<1x4xf32> into tensor<16x128xf32>
+            }
+          }
+"""
+
+
+class ForallOp(scf.ForallOp):
+    def __init__(
+        self,
+        lower_bounds,
+        upper_bounds,
+        steps,
+        shared_outs: Optional[Union[Operation, OpView, Sequence[Value]]] = None,
+        *,
+        loc=None,
+        ip=None,
+    ):
+        assert len(lower_bounds) == len(upper_bounds) == len(steps)
+        results = [o.type for o in shared_outs]
+        iv_types = [IndexType.get()] * len(lower_bounds)
+        dynamic_lower_bounds = []
+        dynamic_upper_bounds = []
+        dynamic_steps = []
+        attributes = {
+            "staticLowerBound": get_dense_int64_array_attr(lower_bounds),
+            "staticUpperBound": get_dense_int64_array_attr(upper_bounds),
+            "staticStep": get_dense_int64_array_attr(steps),
+        }
+
+        super().__init__(
+            self.build_generic(
+                regions=1,
+                results=results,
+                operands=[
+                    get_op_results_or_values(o)
+                    for o in [
+                        dynamic_lower_bounds,
+                        dynamic_upper_bounds,
+                        dynamic_steps,
+                        # lower_bounds,
+                        # upper_bounds,
+                        # steps,
+                        shared_outs,
+                    ]
+                ],
+                attributes=attributes,
+                loc=loc,
+                ip=ip,
+            )
+        )
+        self.regions[0].blocks.append(*iv_types, *results)
+
+    @property
+    def body(self):
+        """Returns the body (block) of the loop."""
+        return self.regions[0].blocks[0]
+
+    @property
+    def arguments(self):
+        """Returns the induction variable of the loop."""
+        return self.body.arguments
+
+
+class InParallelOp(scf.InParallelOp):
+    def __init__(self, *, loc=None, ip=None):
+        super().__init__(
+            self.build_generic(regions=1, results=[], operands=[], loc=loc, ip=ip)
+        )
+        self.regions[0].blocks.append(*[])
+
+    @property
+    def body(self):
+        """Returns the body (block) of the loop."""
+        return self.regions[0].blocks[0]
+
+
+@doublewrap
+def forall(f, lower_bounds, upper_bounds=None, steps=None, shared_outs=None):
+    if upper_bounds is None:
+        upper_bounds = lower_bounds
+        lower_bounds = [0] * len(upper_bounds)
+    if steps is None:
+        steps = [1] * len(upper_bounds)
+    if shared_outs is None:
+        shared_outs = []
+
+    lower_bounds, upper_bounds, steps, shared_outs = (
+        list(lower_bounds),
+        list(upper_bounds),
+        list(steps),
+        list(shared_outs),
+    )
+
+    launch_op = ForallOp(lower_bounds, upper_bounds, steps, shared_outs)
+    with InsertionPoint(launch_op.body):
+        ivs = list(map(ArithValue, launch_op.arguments[: len(lower_bounds)]))
+        shared_outs_ = launch_op.arguments[len(lower_bounds) :]
+        assert len(shared_outs_) == len(shared_outs)
+        parallel_insert_slice = f(ivs=ivs, shared_outs=shared_outs_)
+        with InsertionPoint(InParallelOp().body):
+            parallel_insert_slice()

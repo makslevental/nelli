@@ -4,7 +4,10 @@ import numpy as np
 
 from nelli import F32, I64
 from nelli.mlir import arith
-from nelli.mlir.tensor import TensorValue as Tensor
+from nelli.mlir.tensor import (
+    parallel_insert_slice,
+    extract_slice,
+)
 from nelli.mlir._mlir.dialects import linalg
 from nelli.mlir._mlir.ir import InsertionPoint
 from nelli.mlir._mlir.runtime import unranked_memref_to_numpy
@@ -15,7 +18,7 @@ from nelli.mlir.refbackend import (
     elemental_type_to_ctype,
     memref_type_to_np_dtype,
 )
-from nelli.mlir.scf import scf_range
+from nelli.mlir.scf import scf_range, forall
 from nelli.mlir.tensor import TensorValue as Tensor, pad
 from nelli.mlir.transform import (
     sequence,
@@ -28,7 +31,7 @@ from nelli.mlir.transform import (
 )
 from nelli.mlir._mlir.dialects import transform as transform_dialect
 from nelli.mlir._mlir.dialects.transform import loop
-from nelli.mlir.transform.transform import apply_patterns
+from nelli.mlir.transform.transform import apply_patterns, cast, share_forall_operands
 
 from nelli.mlir.utils import run_pipeline
 from nelli.utils import mlir_mod_ctx
@@ -923,15 +926,147 @@ class TestTiling:
         with mlir_mod_ctx(src) as module:
             pass
 
+        module = self.backend.compile(
+            module,
+            pipeline=Pipeline()
+            .transform_dialect_interpreter()
+            .transform_dialect_erase_schedule(),
+        )
+        # all it does is replace filled with arg2 in the generic?
+        correct = dedent(
+            """\
+        #map = affine_map<(d0) -> (d0 * 4)>
+        #map1 = affine_map<(d0, d1) -> (d0, d1)>
+        module {
+          func.func @promote() -> tensor<16x128xf32> {
+            %c0 = arith.constant 0 : index
+            %cst = arith.constant 0.000000e+00 : f32
+            %c16 = arith.constant 16 : index
+            %c32 = arith.constant 32 : index
+            %0 = tensor.empty() : tensor<16x128xf32>
+            %1 = linalg.fill ins(%cst : f32) outs(%0 : tensor<16x128xf32>) -> tensor<16x128xf32>
+            %2 = scf.forall (%arg0, %arg1) in (%c16, %c32) shared_outs(%arg2 = %1) -> (tensor<16x128xf32>) {
+              %3 = affine.apply #map(%arg1)
+              %extracted_slice = tensor.extract_slice %arg2[%arg0, %3] [1, 4] [1, 1] : tensor<16x128xf32> to tensor<1x4xf32>
+              %extracted_slice_0 = tensor.extract_slice %arg2[%arg0, %3] [1, 4] [1, 1] : tensor<16x128xf32> to tensor<1x4xf32>
+              %4 = linalg.generic {indexing_maps = [#map1, #map1], iterator_types = ["parallel", "parallel"]} ins(%extracted_slice : tensor<1x4xf32>) outs(%extracted_slice_0 : tensor<1x4xf32>) {
+              ^bb0(%in: f32, %out: f32):
+                %5 = arith.addf %in, %in : f32
+                linalg.yield %5 : f32
+              } -> tensor<1x4xf32>
+              scf.forall.in_parallel {
+                tensor.parallel_insert_slice %4 into %arg2[%arg0, %3] [1, 4] [1, 1] : tensor<1x4xf32> into tensor<16x128xf32>
+              }
+            }
+            return %2 : tensor<16x128xf32>
+          }
+        }
+        """
+        )
+        check_correct(correct, module)
+
     def test_common_ext_2_sugar(self):
         with mlir_mod_ctx() as module:
 
             @mlir_func
             def promote():
-                c0 = arith.constant(0, index=True)
-                f0 = arith.constant(0, type=F32)
-                c16 = arith.constant(16, index=True)
-                c32 = arith.constant(32, index=True)
+                f0 = arith.constant(0.0, type=F32)
 
                 empty = Tensor.empty([16, 128], F32)
                 filled = linalg.fill(f0, outs=[empty])
+
+                @forall((16, 32), shared_outs=[filled])
+                def forall_(ivs, shared_outs):
+                    i, j = ivs
+                    jj = 4 * j
+                    arg2 = shared_outs[0]
+
+                    extracted_slice = extract_slice(
+                        filled,
+                        offsets=[i, jj],
+                        static_sizes=[1, 4],
+                        static_strides=[1, 1],
+                    )
+                    extracted_slice_2 = extract_slice(
+                        arg2,
+                        offsets=[i, jj],
+                        static_sizes=[1, 4],
+                        static_strides=[1, 1],
+                    )
+                    v13 = linalg.elemwise_binary(
+                        extracted_slice, extracted_slice, outs=[extracted_slice_2]
+                    )
+                    extracted_slice = parallel_insert_slice(
+                        v13,
+                        arg2,
+                        offsets=[i, jj],
+                        static_sizes=[1, 4],
+                        static_strides=[1, 1],
+                    )
+                    return extracted_slice
+
+            @sequence
+            def basic(target, *extra_args):
+                m = match(target, ["scf.forall"])
+                k = cast("scf.forall", m)
+                l = share_forall_operands(k, share_operands=[0])
+
+        correct = dedent(
+            """\
+        module {
+          func.func @promote() {
+            %cst = arith.constant 0.000000e+00 : f32
+            %0 = tensor.empty() : tensor<16x128xf32>
+            %1 = linalg.fill ins(%cst : f32) outs(%0 : tensor<16x128xf32>) -> tensor<16x128xf32>
+            %2 = scf.forall (%arg0, %arg1) in (16, 32) shared_outs(%arg2 = %1) -> (tensor<16x128xf32>) {
+              %c4 = arith.constant 4 : index
+              %3 = arith.muli %c4, %arg1 : index
+              %extracted_slice = tensor.extract_slice %1[%arg0, %3] [1, 4] [1, 1] : tensor<16x128xf32> to tensor<1x4xf32>
+              %extracted_slice_0 = tensor.extract_slice %arg2[%arg0, %3] [1, 4] [1, 1] : tensor<16x128xf32> to tensor<1x4xf32>
+              %4 = linalg.elemwise_binary {cast = #linalg.type_fn<cast_signed>, fun = #linalg.binary_fn<add>} ins(%extracted_slice, %extracted_slice : tensor<1x4xf32>, tensor<1x4xf32>) outs(%extracted_slice_0 : tensor<1x4xf32>) -> tensor<1x4xf32>
+              scf.forall.in_parallel {
+                tensor.parallel_insert_slice %4 into %arg2[%arg0, %3] [1, 4] [1, 1] : tensor<1x4xf32> into tensor<16x128xf32>
+              }
+            }
+            return
+          }
+          transform.sequence  failures(propagate) attributes {transform.target_tag = "basic"} {
+          ^bb0(%arg0: !pdl.operation):
+            %0 = transform.structured.match ops{["scf.forall"]} in %arg0 : (!pdl.operation) -> !pdl.operation
+            %1 = cast %0 : !pdl.operation to !transform.op<"scf.forall">
+            %2 = share_forall_operands %1 share_operands = [0] : (!transform.op<"scf.forall">) -> !transform.op<"scf.forall">
+          }
+        }
+        """
+        )
+        check_correct(correct, module)
+
+        module = self.backend.compile(
+            module,
+            pipeline=Pipeline()
+            .transform_dialect_interpreter()
+            .transform_dialect_erase_schedule(),
+        )
+        correct = dedent(
+            """\
+        module {
+          func.func @promote() {
+            %cst = arith.constant 0.000000e+00 : f32
+            %0 = tensor.empty() : tensor<16x128xf32>
+            %1 = linalg.fill ins(%cst : f32) outs(%0 : tensor<16x128xf32>) -> tensor<16x128xf32>
+            %2 = scf.forall (%arg0, %arg1) in (16, 32) shared_outs(%arg2 = %1) -> (tensor<16x128xf32>) {
+              %c4 = arith.constant 4 : index
+              %3 = arith.muli %c4, %arg1 : index
+              %extracted_slice = tensor.extract_slice %arg2[%arg0, %3] [1, 4] [1, 1] : tensor<16x128xf32> to tensor<1x4xf32>
+              %extracted_slice_0 = tensor.extract_slice %arg2[%arg0, %3] [1, 4] [1, 1] : tensor<16x128xf32> to tensor<1x4xf32>
+              %4 = linalg.elemwise_binary {cast = #linalg.type_fn<cast_signed>, fun = #linalg.binary_fn<add>} ins(%extracted_slice, %extracted_slice : tensor<1x4xf32>, tensor<1x4xf32>) outs(%extracted_slice_0 : tensor<1x4xf32>) -> tensor<1x4xf32>
+              scf.forall.in_parallel {
+                tensor.parallel_insert_slice %4 into %arg2[%arg0, %3] [1, 4] [1, 1] : tensor<1x4xf32> into tensor<16x128xf32>
+              }
+            }
+            return
+          }
+        }
+        """
+        )
+        check_correct(correct, module)

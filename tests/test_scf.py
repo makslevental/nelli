@@ -6,8 +6,11 @@ import numpy as np
 from scipy import signal
 
 from nelli import F32
+from nelli.mlir import arith
 from nelli.mlir._mlir import _mlir_libs
 from nelli.mlir._mlir.dialects import linalg
+from nelli.mlir.scf import forall
+from nelli.mlir.tensor import TensorValue as Tensor, parallel_insert_slice
 from nelli.mlir.func import mlir_func
 from nelli.mlir.memref import MemRefValue as MemRef
 from nelli.mlir.passes import Pipeline
@@ -341,6 +344,50 @@ class TestSCF:
                   %4 = arith.addf %2, %3 : vector<8xf32>
                   vector.transfer_write %4, %arg2[%arg3, %arg4] : vector<8xf32>, memref<4x8xf32>
                 }
+              }
+            }
+            return
+          }
+        }
+        """
+        )
+        check_correct(correct, module)
+
+    def test_forall(self):
+        with mlir_mod_ctx() as module:
+
+            @mlir_func
+            def promote():
+                f0 = arith.constant(0.0, type=F32)
+
+                empty = Tensor.empty([16, 128], F32)
+                filled = linalg.fill(f0, outs=[empty])
+
+                @forall((10, 10), shared_outs=[filled])
+                def forall_(ivs, shared_outs):
+                    i, j = ivs
+                    filled = shared_outs[0]
+                    empty = Tensor.empty([1, 4], F32)
+                    extracted_slice = parallel_insert_slice(
+                        empty,
+                        filled,
+                        offsets=[i, j],
+                        static_sizes=[1, 4],
+                        static_strides=[1, 1],
+                    )
+                    return extracted_slice
+
+        correct = dedent(
+            """\
+        module {
+          func.func @promote() {
+            %cst = arith.constant 0.000000e+00 : f32
+            %0 = tensor.empty() : tensor<16x128xf32>
+            %1 = linalg.fill ins(%cst : f32) outs(%0 : tensor<16x128xf32>) -> tensor<16x128xf32>
+            %2 = scf.forall (%arg0, %arg1) in (10, 10) shared_outs(%arg2 = %1) -> (tensor<16x128xf32>) {
+              %3 = tensor.empty() : tensor<1x4xf32>
+              scf.forall.in_parallel {
+                tensor.parallel_insert_slice %3 into %arg2[%arg0, %arg1] [1, 4] [1, 1] : tensor<1x4xf32> into tensor<16x128xf32>
               }
             }
             return
