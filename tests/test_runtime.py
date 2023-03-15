@@ -81,7 +81,6 @@ class TestRuntime:
             kernel_name="matmul",
             pipeline=Pipeline().bufferize().lower_to_llvm(),
         )
-
         A = np.ones((4, 4)).astype(np.float32)
         AA = ctypes.pointer(ctypes.pointer(get_unranked_memref_descriptor(A)))
         self.backend.load(module).matmul(AA)
