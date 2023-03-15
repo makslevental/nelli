@@ -1153,3 +1153,40 @@ class TestTiling:
             .transform_dialect_erase_schedule(),
         )
         print(module)
+
+    def test_matmul(self):
+        with mlir_mod_ctx() as module:
+            M, N, K = 3, 5, 3
+
+            @mlir_func
+            def matmul(
+                A: Tensor[(M, N), F32],
+                B: Tensor[(N, K), F32],
+                C: Tensor[(M, K), F32],
+            ):
+                return linalg.matmul(A, B, outs=[C])
+
+            @sequence
+            def basic(variant_op, *extra_args):
+                matmul = match(variant_op, ["linalg.matmul"])
+
+                # Step 1. Tile to forall with tile_sizes [2].
+                forall, tiled_generic = tile_to_scf_forall(
+                    matmul, tile_sizes=[2], mapping={0: block_attr("x")}
+                )
+                variant_op_2 = apply_patterns(
+                    variant_op,
+                    canonicalization=True,
+                    tiling_canonicalization=True,
+                    cse=True,
+                )
+                variant_op_3 = bufferize(variant_op_2)
+
+        module = self.backend.compile(
+            module,
+            pipeline=Pipeline()
+            .transform_dialect_interpreter()
+            .transform_dialect_erase_schedule()
+            .bufferize(),
+        )
+        print(module)

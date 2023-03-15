@@ -126,6 +126,7 @@ class CMakeBuild(build_ext):
             "iomp5",
             "omp",
             "vulkan-runtime-wrappers",
+            "mlir_async_runtime",
         ]
         if platform.system() == "Linux" and platform.processor() == "x86_64":
             shlibs += ["mlir_cuda_runtime"]

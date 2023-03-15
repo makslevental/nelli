@@ -74,6 +74,7 @@ jobs:
 
       - name: Install
         run: |
+          export PATH="/usr/lib/ccache:/usr/local/opt/ccache/libexec:$PATH"
           CMAKE_GENERATOR=Ninja pip install . -v
 
       - name: Build SwiftShader
