@@ -5,7 +5,7 @@ import numpy as np
 import pytest
 from scipy import signal
 
-from nelli import F32, I64, enable_debug
+from nelli.mlir.utils import F32, I64, enable_debug
 from nelli.mlir._mlir import _mlir_libs
 from nelli.mlir._mlir.dialects import linalg
 from nelli.mlir.arith import constant

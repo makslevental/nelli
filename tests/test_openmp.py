@@ -12,12 +12,12 @@ import numpy as np
 from nelli.mlir._mlir.dialects import _arith_ops_gen as arith_dialect, linalg
 from nelli.mlir._mlir.execution_engine import ExecutionEngine
 from nelli.mlir._mlir.ir import InsertionPoint, Module
-from nelli import F32, I32, Index
+from nelli.mlir.utils import F32, I32, Index
 from nelli.mlir.arith import constant
 from nelli.mlir.func import mlir_func
 from nelli.mlir.memref import MemRefValue as MemRef
-from nelli.mlir.openmp._omp_ops_gen import TerminatorOp, YieldOp
-from nelli.mlir.openmp.omp import (
+from nelli.mlir.omp._omp_ops_gen import TerminatorOp, YieldOp
+from nelli.mlir.omp.omp import (
     ParallelOp,
     WsLoopOp,
     parallel,

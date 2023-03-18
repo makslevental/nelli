@@ -3,7 +3,7 @@ from textwrap import dedent
 
 import numpy as np
 
-from nelli import F32
+from nelli.mlir.utils import F32
 from nelli.mlir._mlir import _mlir_libs
 from nelli.mlir._mlir.dialects import linalg
 from nelli.mlir._mlir.runtime import unranked_memref_to_numpy

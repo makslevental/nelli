@@ -9,7 +9,7 @@ from textwrap import dedent
 
 from nelli.mlir._mlir.dialects.linalg import BinaryFn, TypeFn
 from nelli.mlir._mlir.dialects import linalg
-from nelli import F32, allow_unregistered_dialects
+from nelli.mlir.utils import F32, allow_unregistered_dialects
 from nelli.mlir.arith import constant
 from nelli.mlir.tensor import (
     TensorValue as Tensor,

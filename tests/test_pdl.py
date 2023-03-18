@@ -1,6 +1,6 @@
 from textwrap import dedent
 
-from nelli import allow_unregistered_dialects
+from nelli.mlir.utils import allow_unregistered_dialects
 from nelli.mlir.passes import Pipeline
 from nelli.mlir.refbackend import (
     LLVMJITBackend,

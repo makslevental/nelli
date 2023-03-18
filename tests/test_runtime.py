@@ -6,7 +6,7 @@ import numpy as np
 from numpy import zeros
 from numpy.random import randn
 
-from nelli import F32, F64
+from nelli.mlir.utils import F32, F64
 from nelli.mlir._mlir import _mlir_libs
 from nelli.mlir._mlir.runtime import get_unranked_memref_descriptor
 from nelli.mlir.affine import (

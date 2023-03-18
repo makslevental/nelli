@@ -1,6 +1,6 @@
 from textwrap import dedent
 
-from nelli import F32
+from nelli.mlir.utils import F32
 from nelli.mlir._mlir.dialects import linalg
 from nelli.mlir.arith import constant
 from nelli.mlir.func import declare, mlir_func

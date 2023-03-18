@@ -23,6 +23,10 @@ from .._mlir.dialects import (
     _transform_ops_gen as transform,
     _vector_ops_gen as vector,
 )
+from ..affine import _affine_ops_gen as affine
+from ..async_dialect import _async_ops_gen as async_
+from ..llvm import _llvm_ops_gen as llvm
+from ..omp import _omp_ops_gen as omp
 
 
 class DialectVisitor:
@@ -34,10 +38,17 @@ class DialectVisitor:
         visitor(op)
 
 
+############################
+# autogen starts
+############################
+
+
 class AllDialectVisitor:
     def __init__(
         self,
+        affine_visitor_ctor=None,
         arith_visitor_ctor=None,
+        async_visitor_ctor=None,
         bufferization_visitor_ctor=None,
         builtin_visitor_ctor=None,
         cf_visitor_ctor=None,
@@ -45,9 +56,11 @@ class AllDialectVisitor:
         func_visitor_ctor=None,
         gpu_visitor_ctor=None,
         linalg_visitor_ctor=None,
+        llvm_visitor_ctor=None,
         math_visitor_ctor=None,
         memref_visitor_ctor=None,
         ml_program_visitor_ctor=None,
+        omp_visitor_ctor=None,
         pdl_visitor_ctor=None,
         scf_visitor_ctor=None,
         shape_visitor_ctor=None,
@@ -59,8 +72,12 @@ class AllDialectVisitor:
         transform_structured_visitor_ctor=None,
         vector_visitor_ctor=None,
     ):
+        if affine_visitor_ctor is None:
+            affine_visitor_ctor = AffineDialectVisitor
         if arith_visitor_ctor is None:
             arith_visitor_ctor = ArithDialectVisitor
+        if async_visitor_ctor is None:
+            async_visitor_ctor = AsyncDialectVisitor
         if bufferization_visitor_ctor is None:
             bufferization_visitor_ctor = BufferizationDialectVisitor
         if builtin_visitor_ctor is None:
@@ -75,12 +92,16 @@ class AllDialectVisitor:
             gpu_visitor_ctor = GpuDialectVisitor
         if linalg_visitor_ctor is None:
             linalg_visitor_ctor = LinalgDialectVisitor
+        if llvm_visitor_ctor is None:
+            llvm_visitor_ctor = LlvmDialectVisitor
         if math_visitor_ctor is None:
             math_visitor_ctor = MathDialectVisitor
         if memref_visitor_ctor is None:
             memref_visitor_ctor = MemrefDialectVisitor
         if ml_program_visitor_ctor is None:
             ml_program_visitor_ctor = MlProgramDialectVisitor
+        if omp_visitor_ctor is None:
+            omp_visitor_ctor = OmpDialectVisitor
         if pdl_visitor_ctor is None:
             pdl_visitor_ctor = PdlDialectVisitor
         if scf_visitor_ctor is None:
@@ -101,7 +122,9 @@ class AllDialectVisitor:
             transform_structured_visitor_ctor = TransformStructuredDialectVisitor
         if vector_visitor_ctor is None:
             vector_visitor_ctor = VectorDialectVisitor
+        self.affine_visitor = affine_visitor_ctor(self)
         self.arith_visitor = arith_visitor_ctor(self)
+        self.async_visitor = async_visitor_ctor(self)
         self.bufferization_visitor = bufferization_visitor_ctor(self)
         self.builtin_visitor = builtin_visitor_ctor(self)
         self.cf_visitor = cf_visitor_ctor(self)
@@ -109,9 +132,11 @@ class AllDialectVisitor:
         self.func_visitor = func_visitor_ctor(self)
         self.gpu_visitor = gpu_visitor_ctor(self)
         self.linalg_visitor = linalg_visitor_ctor(self)
+        self.llvm_visitor = llvm_visitor_ctor(self)
         self.math_visitor = math_visitor_ctor(self)
         self.memref_visitor = memref_visitor_ctor(self)
         self.ml_program_visitor = ml_program_visitor_ctor(self)
+        self.omp_visitor = omp_visitor_ctor(self)
         self.pdl_visitor = pdl_visitor_ctor(self)
         self.scf_visitor = scf_visitor_ctor(self)
         self.shape_visitor = shape_visitor_ctor(self)
@@ -135,6 +160,44 @@ class AllDialectVisitor:
                     assert dialect_visitor is not None, f"missing {dialect} visitor"
                     dialect_visitor.visit(o.operation.opview)
                     self.visit(o.operation)
+
+
+class AffineDialectVisitor(DialectVisitor):
+    def visit_AffineApplyOp(self, op: affine.AffineApplyOp):
+        pass
+
+    def visit_AffineForOp(self, op: affine.AffineForOp):
+        pass
+
+    def visit_AffineIfOp(self, op: affine.AffineIfOp):
+        pass
+
+    def visit_AffineLoadOp(self, op: affine.AffineLoadOp):
+        pass
+
+    def visit_AffineMaxOp(self, op: affine.AffineMaxOp):
+        pass
+
+    def visit_AffineMinOp(self, op: affine.AffineMinOp):
+        pass
+
+    def visit_AffineParallelOp(self, op: affine.AffineParallelOp):
+        pass
+
+    def visit_AffinePrefetchOp(self, op: affine.AffinePrefetchOp):
+        pass
+
+    def visit_AffineStoreOp(self, op: affine.AffineStoreOp):
+        pass
+
+    def visit_AffineVectorLoadOp(self, op: affine.AffineVectorLoadOp):
+        pass
+
+    def visit_AffineVectorStoreOp(self, op: affine.AffineVectorStoreOp):
+        pass
+
+    def visit_AffineYieldOp(self, op: affine.AffineYieldOp):
+        pass
 
 
 class ArithDialectVisitor(DialectVisitor):
@@ -277,6 +340,95 @@ class ArithDialectVisitor(DialectVisitor):
         pass
 
     def visit_XOrIOp(self, op: arith.XOrIOp):
+        pass
+
+
+class AsyncDialectVisitor(DialectVisitor):
+    def visit_AddToGroupOp(self, op: async_.AddToGroupOp):
+        pass
+
+    def visit_AwaitAllOp(self, op: async_.AwaitAllOp):
+        pass
+
+    def visit_AwaitOp(self, op: async_.AwaitOp):
+        pass
+
+    def visit_CallOp(self, op: async_.CallOp):
+        pass
+
+    def visit_CoroBeginOp(self, op: async_.CoroBeginOp):
+        pass
+
+    def visit_CoroEndOp(self, op: async_.CoroEndOp):
+        pass
+
+    def visit_CoroFreeOp(self, op: async_.CoroFreeOp):
+        pass
+
+    def visit_CoroIdOp(self, op: async_.CoroIdOp):
+        pass
+
+    def visit_CoroSaveOp(self, op: async_.CoroSaveOp):
+        pass
+
+    def visit_CoroSuspendOp(self, op: async_.CoroSuspendOp):
+        pass
+
+    def visit_CreateGroupOp(self, op: async_.CreateGroupOp):
+        pass
+
+    def visit_ExecuteOp(self, op: async_.ExecuteOp):
+        pass
+
+    def visit_FuncOp(self, op: async_.FuncOp):
+        pass
+
+    def visit_ReturnOp(self, op: async_.ReturnOp):
+        pass
+
+    def visit_RuntimeAddRefOp(self, op: async_.RuntimeAddRefOp):
+        pass
+
+    def visit_RuntimeAddToGroupOp(self, op: async_.RuntimeAddToGroupOp):
+        pass
+
+    def visit_RuntimeAwaitAndResumeOp(self, op: async_.RuntimeAwaitAndResumeOp):
+        pass
+
+    def visit_RuntimeAwaitOp(self, op: async_.RuntimeAwaitOp):
+        pass
+
+    def visit_RuntimeCreateGroupOp(self, op: async_.RuntimeCreateGroupOp):
+        pass
+
+    def visit_RuntimeCreateOp(self, op: async_.RuntimeCreateOp):
+        pass
+
+    def visit_RuntimeDropRefOp(self, op: async_.RuntimeDropRefOp):
+        pass
+
+    def visit_RuntimeIsErrorOp(self, op: async_.RuntimeIsErrorOp):
+        pass
+
+    def visit_RuntimeLoadOp(self, op: async_.RuntimeLoadOp):
+        pass
+
+    def visit_RuntimeNumWorkerThreadsOp(self, op: async_.RuntimeNumWorkerThreadsOp):
+        pass
+
+    def visit_RuntimeResumeOp(self, op: async_.RuntimeResumeOp):
+        pass
+
+    def visit_RuntimeSetAvailableOp(self, op: async_.RuntimeSetAvailableOp):
+        pass
+
+    def visit_RuntimeSetErrorOp(self, op: async_.RuntimeSetErrorOp):
+        pass
+
+    def visit_RuntimeStoreOp(self, op: async_.RuntimeStoreOp):
+        pass
+
+    def visit_YieldOp(self, op: async_.YieldOp):
         pass
 
 
@@ -714,6 +866,227 @@ class LinalgDialectVisitor(DialectVisitor):
         pass
 
 
+class LlvmDialectVisitor(DialectVisitor):
+    def visit_AShrOp(self, op: llvm.AShrOp):
+        pass
+
+    def visit_AccessGroupMetadataOp(self, op: llvm.AccessGroupMetadataOp):
+        pass
+
+    def visit_AddOp(self, op: llvm.AddOp):
+        pass
+
+    def visit_AddrSpaceCastOp(self, op: llvm.AddrSpaceCastOp):
+        pass
+
+    def visit_AddressOfOp(self, op: llvm.AddressOfOp):
+        pass
+
+    def visit_AliasScopeDomainMetadataOp(self, op: llvm.AliasScopeDomainMetadataOp):
+        pass
+
+    def visit_AliasScopeMetadataOp(self, op: llvm.AliasScopeMetadataOp):
+        pass
+
+    def visit_AllocaOp(self, op: llvm.AllocaOp):
+        pass
+
+    def visit_AndOp(self, op: llvm.AndOp):
+        pass
+
+    def visit_AtomicCmpXchgOp(self, op: llvm.AtomicCmpXchgOp):
+        pass
+
+    def visit_AtomicRMWOp(self, op: llvm.AtomicRMWOp):
+        pass
+
+    def visit_BitcastOp(self, op: llvm.BitcastOp):
+        pass
+
+    def visit_BrOp(self, op: llvm.BrOp):
+        pass
+
+    def visit_CallOp(self, op: llvm.CallOp):
+        pass
+
+    def visit_CondBrOp(self, op: llvm.CondBrOp):
+        pass
+
+    def visit_ConstantOp(self, op: llvm.ConstantOp):
+        pass
+
+    def visit_ExtractElementOp(self, op: llvm.ExtractElementOp):
+        pass
+
+    def visit_ExtractValueOp(self, op: llvm.ExtractValueOp):
+        pass
+
+    def visit_FAddOp(self, op: llvm.FAddOp):
+        pass
+
+    def visit_FCmpOp(self, op: llvm.FCmpOp):
+        pass
+
+    def visit_FDivOp(self, op: llvm.FDivOp):
+        pass
+
+    def visit_FMulOp(self, op: llvm.FMulOp):
+        pass
+
+    def visit_FNegOp(self, op: llvm.FNegOp):
+        pass
+
+    def visit_FPExtOp(self, op: llvm.FPExtOp):
+        pass
+
+    def visit_FPToSIOp(self, op: llvm.FPToSIOp):
+        pass
+
+    def visit_FPToUIOp(self, op: llvm.FPToUIOp):
+        pass
+
+    def visit_FPTruncOp(self, op: llvm.FPTruncOp):
+        pass
+
+    def visit_FRemOp(self, op: llvm.FRemOp):
+        pass
+
+    def visit_FSubOp(self, op: llvm.FSubOp):
+        pass
+
+    def visit_FenceOp(self, op: llvm.FenceOp):
+        pass
+
+    def visit_FreezeOp(self, op: llvm.FreezeOp):
+        pass
+
+    def visit_GEPOp(self, op: llvm.GEPOp):
+        pass
+
+    def visit_GlobalCtorsOp(self, op: llvm.GlobalCtorsOp):
+        pass
+
+    def visit_GlobalDtorsOp(self, op: llvm.GlobalDtorsOp):
+        pass
+
+    def visit_GlobalOp(self, op: llvm.GlobalOp):
+        pass
+
+    def visit_ICmpOp(self, op: llvm.ICmpOp):
+        pass
+
+    def visit_InlineAsmOp(self, op: llvm.InlineAsmOp):
+        pass
+
+    def visit_InsertElementOp(self, op: llvm.InsertElementOp):
+        pass
+
+    def visit_InsertValueOp(self, op: llvm.InsertValueOp):
+        pass
+
+    def visit_IntToPtrOp(self, op: llvm.IntToPtrOp):
+        pass
+
+    def visit_InvokeOp(self, op: llvm.InvokeOp):
+        pass
+
+    def visit_LLVMFuncOp(self, op: llvm.LLVMFuncOp):
+        pass
+
+    def visit_LShrOp(self, op: llvm.LShrOp):
+        pass
+
+    def visit_LandingpadOp(self, op: llvm.LandingpadOp):
+        pass
+
+    def visit_LoadOp(self, op: llvm.LoadOp):
+        pass
+
+    def visit_MetadataOp(self, op: llvm.MetadataOp):
+        pass
+
+    def visit_MulOp(self, op: llvm.MulOp):
+        pass
+
+    def visit_NullOp(self, op: llvm.NullOp):
+        pass
+
+    def visit_OrOp(self, op: llvm.OrOp):
+        pass
+
+    def visit_PtrToIntOp(self, op: llvm.PtrToIntOp):
+        pass
+
+    def visit_ResumeOp(self, op: llvm.ResumeOp):
+        pass
+
+    def visit_ReturnOp(self, op: llvm.ReturnOp):
+        pass
+
+    def visit_SDivOp(self, op: llvm.SDivOp):
+        pass
+
+    def visit_SExtOp(self, op: llvm.SExtOp):
+        pass
+
+    def visit_SIToFPOp(self, op: llvm.SIToFPOp):
+        pass
+
+    def visit_SRemOp(self, op: llvm.SRemOp):
+        pass
+
+    def visit_SelectOp(self, op: llvm.SelectOp):
+        pass
+
+    def visit_ShlOp(self, op: llvm.ShlOp):
+        pass
+
+    def visit_ShuffleVectorOp(self, op: llvm.ShuffleVectorOp):
+        pass
+
+    def visit_StoreOp(self, op: llvm.StoreOp):
+        pass
+
+    def visit_SubOp(self, op: llvm.SubOp):
+        pass
+
+    def visit_SwitchOp(self, op: llvm.SwitchOp):
+        pass
+
+    def visit_TBAARootMetadataOp(self, op: llvm.TBAARootMetadataOp):
+        pass
+
+    def visit_TBAATagOp(self, op: llvm.TBAATagOp):
+        pass
+
+    def visit_TBAATypeDescriptorOp(self, op: llvm.TBAATypeDescriptorOp):
+        pass
+
+    def visit_TruncOp(self, op: llvm.TruncOp):
+        pass
+
+    def visit_UDivOp(self, op: llvm.UDivOp):
+        pass
+
+    def visit_UIToFPOp(self, op: llvm.UIToFPOp):
+        pass
+
+    def visit_URemOp(self, op: llvm.URemOp):
+        pass
+
+    def visit_UndefOp(self, op: llvm.UndefOp):
+        pass
+
+    def visit_UnreachableOp(self, op: llvm.UnreachableOp):
+        pass
+
+    def visit_XOrOp(self, op: llvm.XOrOp):
+        pass
+
+    def visit_ZExtOp(self, op: llvm.ZExtOp):
+        pass
+
+
 class MathDialectVisitor(DialectVisitor):
     def visit_AbsFOp(self, op: math.AbsFOp):
         pass
@@ -944,6 +1317,107 @@ class MlProgramDialectVisitor(DialectVisitor):
         pass
 
     def visit_TokenOp(self, op: ml_program.TokenOp):
+        pass
+
+
+class OmpDialectVisitor(DialectVisitor):
+    def visit_AtomicCaptureOp(self, op: omp.AtomicCaptureOp):
+        pass
+
+    def visit_AtomicReadOp(self, op: omp.AtomicReadOp):
+        pass
+
+    def visit_AtomicUpdateOp(self, op: omp.AtomicUpdateOp):
+        pass
+
+    def visit_AtomicWriteOp(self, op: omp.AtomicWriteOp):
+        pass
+
+    def visit_BarrierOp(self, op: omp.BarrierOp):
+        pass
+
+    def visit_CancelOp(self, op: omp.CancelOp):
+        pass
+
+    def visit_CancellationPointOp(self, op: omp.CancellationPointOp):
+        pass
+
+    def visit_CriticalDeclareOp(self, op: omp.CriticalDeclareOp):
+        pass
+
+    def visit_CriticalOp(self, op: omp.CriticalOp):
+        pass
+
+    def visit_DataOp(self, op: omp.DataOp):
+        pass
+
+    def visit_EnterDataOp(self, op: omp.EnterDataOp):
+        pass
+
+    def visit_ExitDataOp(self, op: omp.ExitDataOp):
+        pass
+
+    def visit_FlushOp(self, op: omp.FlushOp):
+        pass
+
+    def visit_MasterOp(self, op: omp.MasterOp):
+        pass
+
+    def visit_OrderedOp(self, op: omp.OrderedOp):
+        pass
+
+    def visit_OrderedRegionOp(self, op: omp.OrderedRegionOp):
+        pass
+
+    def visit_ParallelOp(self, op: omp.ParallelOp):
+        pass
+
+    def visit_ReductionDeclareOp(self, op: omp.ReductionDeclareOp):
+        pass
+
+    def visit_ReductionOp(self, op: omp.ReductionOp):
+        pass
+
+    def visit_SectionOp(self, op: omp.SectionOp):
+        pass
+
+    def visit_SectionsOp(self, op: omp.SectionsOp):
+        pass
+
+    def visit_SimdLoopOp(self, op: omp.SimdLoopOp):
+        pass
+
+    def visit_SingleOp(self, op: omp.SingleOp):
+        pass
+
+    def visit_TargetOp(self, op: omp.TargetOp):
+        pass
+
+    def visit_TaskGroupOp(self, op: omp.TaskGroupOp):
+        pass
+
+    def visit_TaskLoopOp(self, op: omp.TaskLoopOp):
+        pass
+
+    def visit_TaskOp(self, op: omp.TaskOp):
+        pass
+
+    def visit_TaskwaitOp(self, op: omp.TaskwaitOp):
+        pass
+
+    def visit_TaskyieldOp(self, op: omp.TaskyieldOp):
+        pass
+
+    def visit_TerminatorOp(self, op: omp.TerminatorOp):
+        pass
+
+    def visit_ThreadprivateOp(self, op: omp.ThreadprivateOp):
+        pass
+
+    def visit_WsLoopOp(self, op: omp.WsLoopOp):
+        pass
+
+    def visit_YieldOp(self, op: omp.YieldOp):
         pass
 
 
@@ -1215,13 +1689,13 @@ class SparseTensorDialectVisitor(DialectVisitor):
     def visit_StorageSpecifierInitOp(self, op: sparse_tensor.StorageSpecifierInitOp):
         pass
 
-    def visit_ToIndicesBufferOp(self, op: sparse_tensor.ToIndicesBufferOp):
+    def visit_ToCoordinatesBufferOp(self, op: sparse_tensor.ToCoordinatesBufferOp):
         pass
 
-    def visit_ToIndicesOp(self, op: sparse_tensor.ToIndicesOp):
+    def visit_ToCoordinatesOp(self, op: sparse_tensor.ToCoordinatesOp):
         pass
 
-    def visit_ToPointersOp(self, op: sparse_tensor.ToPointersOp):
+    def visit_ToPositionsOp(self, op: sparse_tensor.ToPositionsOp):
         pass
 
     def visit_ToSliceOffsetOp(self, op: sparse_tensor.ToSliceOffsetOp):
@@ -1376,6 +1850,9 @@ class TosaDialectVisitor(DialectVisitor):
         pass
 
     def visit_ExpOp(self, op: tosa.ExpOp):
+        pass
+
+    def visit_FFT2dOp(self, op: tosa.FFT2dOp):
         pass
 
     def visit_FloorOp(self, op: tosa.FloorOp):

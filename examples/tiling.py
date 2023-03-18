@@ -2,7 +2,8 @@ import ctypes
 
 import numpy as np
 
-from nelli import DefaultContext, F32, F64, Index
+from nelli import DefaultContext
+from nelli.mlir.utils import F32, F64, Index
 from nelli.mlir._mlir.execution_engine import ExecutionEngine
 from nelli.mlir._mlir.ir import _stringAttr
 from nelli.mlir._mlir.runtime import get_ranked_memref_descriptor

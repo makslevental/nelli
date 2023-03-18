@@ -5,8 +5,8 @@ from textwrap import dedent
 import numpy as np
 from scipy import signal
 
-from nelli import F32
 from nelli.mlir import arith
+from nelli.mlir.utils import F32
 from nelli.mlir._mlir import _mlir_libs
 from nelli.mlir._mlir.dialects import linalg
 from nelli.mlir.func import mlir_func

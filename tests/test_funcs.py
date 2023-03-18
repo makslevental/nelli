@@ -1,6 +1,6 @@
 from textwrap import dedent
 
-from nelli import F32
+from nelli.mlir.utils import F32
 from nelli.mlir.arith import constant
 from nelli.mlir.func import mlir_func
 from nelli.utils import mlir_mod_ctx
