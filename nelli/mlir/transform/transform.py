@@ -301,7 +301,7 @@ def bufferize(target):
 
 @register_attribute_builder("VectorContractLoweringAttr")
 def get_vector_lowering_attr(op: str, context: Optional[Context] = None):
-    from ... import DefaultContext
+    from .. import DefaultContext
 
     if context is None:
         context = DefaultContext
@@ -312,7 +312,7 @@ def get_vector_lowering_attr(op: str, context: Optional[Context] = None):
 
 @register_attribute_builder("VectorTransposeLoweringAttr")
 def get_transpose_lowering_attr(op: str, context: Optional[Context] = None):
-    from ... import DefaultContext
+    from .. import DefaultContext
 
     if context is None:
         context = DefaultContext
@@ -323,7 +323,7 @@ def get_transpose_lowering_attr(op: str, context: Optional[Context] = None):
 
 @register_attribute_builder("VectorTransferSplitAttr")
 def get_transfer_split_lowering_attr(op: str, context: Optional[Context] = None):
-    from ... import DefaultContext
+    from .. import DefaultContext
 
     if context is None:
         context = DefaultContext

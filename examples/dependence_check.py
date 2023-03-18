@@ -26,7 +26,7 @@ from nelli.poly.constraints import (
     compose,
     build_constraint_system,
 )
-from nelli import F32, F64, I32, Index
+from nelli.mlir.utils import F32, F64, I32, Index
 from nelli.poly.sympy_ import d0, d1, d2, d3, d4, d5, s0, s1
 from nelli.mlir.arith import constant
 from nelli.mlir.func import mlir_func

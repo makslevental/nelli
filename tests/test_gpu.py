@@ -5,7 +5,6 @@ from textwrap import dedent
 import numpy as np
 import pytest
 
-from nelli import F32, I32
 from nelli.mlir import spirv
 from nelli.mlir._mlir import _mlir_libs
 from nelli.mlir.arith import constant
@@ -27,6 +26,7 @@ from nelli.mlir.memref import (
 from nelli.mlir.passes import Pipeline
 from nelli.mlir.refbackend import LLVMJITBackend
 from nelli.mlir.spirv import set_module_target_env
+from nelli.mlir.utils import run_pipeline, F32, I32
 from nelli.utils import shlib_ext, mlir_mod_ctx
 from util import check_correct
 

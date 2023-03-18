@@ -8,7 +8,7 @@ from textwrap import dedent
 import numpy as np
 
 from nelli.mlir._mlir.dialects import linalg
-from nelli import F32
+from nelli.mlir.utils import F32
 from nelli.mlir.func import mlir_func
 from nelli.mlir.memref import MemRefValue as MemRef
 from nelli.mlir.refbackend import LLVMJITBackend

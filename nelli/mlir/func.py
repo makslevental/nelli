@@ -29,7 +29,7 @@ from .scf import (
     par_range as scf_par_range,
     end_parfor as scf_end_parfor,
 )
-from .openmp.omp import ws_loop as omp_range, end_for as omp_endfor
+from .omp.omp import ws_loop as omp_range, end_for as omp_endfor
 from .arith import ArithValue
 from ..mlir._mlir.dialects import func as func_dialect
 from ..mlir._mlir.ir import (

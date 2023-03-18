@@ -25,6 +25,10 @@ from nelli.mlir._mlir.dialects import (
     _transform_ops_gen as transform,
     _vector_ops_gen as vector,
 )
+from nelli.mlir.affine import _affine_ops_gen as affine
+from nelli.mlir.async_dialect import _async_ops_gen as async_dialect
+from nelli.mlir.llvm import _llvm_ops_gen as llvm
+from nelli.mlir.omp import _omp_ops_gen as omp
 
 
 def dialect_name(d):
@@ -33,6 +37,7 @@ def dialect_name(d):
     return {
         "loop_transform": "transform_loop",
         "structured_transform": "transform_structured",
+        "async": "async_",
     }.get(d[1:], d[1:])
 
 
@@ -42,8 +47,9 @@ def captialized_dialect_name(d):
 
 
 dialects = (
+    affine,
     arith,
-    # async_dialect,
+    async_dialect,
     bufferization,
     builtin,
     cf,
@@ -51,9 +57,11 @@ dialects = (
     func,
     gpu,
     linalg,
+    llvm,
     math,
     memref,
     ml_program,
+    omp,
     pdl,
     # quant,
     scf,
@@ -99,19 +107,25 @@ def find_all_dialect_ops():
 
     print(indent(f"self,", prefix=" " * inden * 2))
     for d in dialects:
-        print(indent(f"{dialect_name(d)}_visitor_ctor=None,", prefix=" " * inden * 2))
+        dialect_name_ = dialect_name(d)
+        if dialect_name_.endswith("_"): dialect_name_ = dialect_name_[:-1]
+        print(indent(f"{dialect_name_}_visitor_ctor=None,", prefix=" " * inden * 2))
     print(indent("):", prefix=" " * inden))
     for d in dialects:
+        dialect_name_ = dialect_name(d)
+        if dialect_name_.endswith("_"): dialect_name_ = dialect_name_[:-1]
         print(
             indent(
-                f"if {dialect_name(d)}_visitor_ctor is None: {dialect_name(d)}_visitor_ctor = {captialized_dialect_name(d)}DialectVisitor",
+                f"if {dialect_name_}_visitor_ctor is None: {dialect_name_}_visitor_ctor = {captialized_dialect_name(d)}DialectVisitor",
                 prefix=" " * inden * 2,
             )
         )
     for d in dialects:
+        dialect_name_ = dialect_name(d)
+        if dialect_name_.endswith("_"): dialect_name_ = dialect_name_[:-1]
         print(
             indent(
-                f"self.{dialect_name(d)}_visitor = {dialect_name(d)}_visitor_ctor(self)",
+                f"self.{dialect_name_}_visitor = {dialect_name_}_visitor_ctor(self)",
                 prefix=" " * inden * 2,
             )
         )

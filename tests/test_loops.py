@@ -1,6 +1,5 @@
 from textwrap import dedent
 
-from nelli import F64, Index, F32
 from nelli.mlir.affine import (
     affine_range,
     end_for as affine_endfor,
@@ -16,7 +15,7 @@ from nelli.mlir.scf import (
     scf_endif,
     par_range as parfor,
 )
-from nelli.mlir.utils import run_pipeline
+from nelli.mlir.utils import run_pipeline, F32, F64, Index
 from nelli.utils import mlir_mod_ctx
 from util import check_correct
 

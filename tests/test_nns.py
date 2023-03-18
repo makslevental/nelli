@@ -5,7 +5,7 @@ from pathlib import Path
 
 import numpy as np
 
-from nelli import I64, F32
+from nelli.mlir.utils import F32, I64
 from nelli.mlir._mlir import _mlir_libs
 from nelli.mlir._mlir.runtime import unranked_memref_to_numpy
 from nelli.mlir.func import declare, mlir_func, call_func

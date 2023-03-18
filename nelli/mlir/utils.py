@@ -1,3 +1,5 @@
+import contextlib
+import ctypes
 import os
 import sys
 import tempfile
@@ -7,22 +9,20 @@ from io import StringIO
 from types import FunctionType
 from typing import Optional, Sequence
 
+from ._mlir import ir
 from ._mlir._mlir_libs._mlir.ir import (
     FlatSymbolRefAttr,
     Attribute,
     ArrayAttr,
 )
 from ._mlir.dialects._structured_transform_ops_ext import _get_int64_attr
-from .. import (
-    disable_multithreading as disable_multithreading_mgr,
-)
-from ..mlir._mlir.ir import (
+from ._mlir.ir import (
     StringAttr,
     register_attribute_builder,
     DenseI64ArrayAttr,
     Context,
 )
-from ..mlir._mlir.passmanager import PassManager
+from ._mlir.passmanager import PassManager
 
 
 class NelliMlirCompilerError(Exception):
@@ -63,7 +63,7 @@ def run_pipeline(
             if print_pipeline:
                 print(pm)
             if enable_ir_printing:
-                stack.enter_context(disable_multithreading_mgr())
+                stack.enter_context(disable_multithreading())
                 pm.enable_ir_printing()
 
             pm.run(module.operation)
@@ -123,7 +123,7 @@ def extract_wrapped(decorated):
 def get_dense_int64_array_attr(
     values: Sequence[int], context: Optional[Context] = None
 ) -> DenseI64ArrayAttr:
-    from .. import DefaultContext
+    from . import DefaultContext
 
     if context is None:
         context = DefaultContext
@@ -136,7 +136,7 @@ def get_dense_int64_array_attr(
 def get_int64_array_attr(
     values: Sequence[int], context: Optional[Context] = None
 ) -> ArrayAttr:
-    from .. import DefaultContext
+    from . import DefaultContext
 
     if context is None:
         context = DefaultContext
@@ -152,7 +152,7 @@ def get_int64_array_attr(
 def get_device_mapping_array_attr(
     mapping: dict[int, Attribute], context: Optional[Context] = None
 ) -> ArrayAttr:
-    from .. import DefaultContext
+    from . import DefaultContext
 
     if context is None:
         context = DefaultContext
@@ -167,7 +167,7 @@ def get_device_mapping_array_attr(
 def get_index_list_array_attr(
     index_list: list[list[int]], context: Optional[Context] = None
 ) -> ArrayAttr:
-    from .. import DefaultContext
+    from . import DefaultContext
 
     if context is None:
         context = DefaultContext
@@ -185,7 +185,7 @@ def get_index_list_array_attr(
 def get_flat_symbol_ref_attr(
     symbol: str, context: Optional[Context] = None
 ) -> FlatSymbolRefAttr:
-    from .. import DefaultContext
+    from . import DefaultContext
 
     if context is None:
         context = DefaultContext
@@ -196,10 +196,57 @@ def get_flat_symbol_ref_attr(
 def get_symbol_ref_attr(
     symbols: list[str], context: Optional[Context] = None
 ) -> FlatSymbolRefAttr:
-    from .. import DefaultContext
+    from . import DefaultContext
 
     if context is None:
         context = DefaultContext
     qualname = "::".join([f"@{q}" for q in symbols])
     return Attribute.parse(qualname, context)
 
+
+F32 = ir.F32Type.get()
+F64 = ir.F64Type.get()
+I64 = ir.IntegerType.get_signless(64)
+I32 = ir.IntegerType.get_signless(32)
+Index = ir.IndexType.get()
+
+
+@contextlib.contextmanager
+def allow_unregistered_dialects(context=None):
+    from . import DefaultContext
+
+    if context is None:
+        context = DefaultContext
+    context.allow_unregistered_dialects = True
+    yield
+    context.allow_unregistered_dialects = False
+
+
+@contextlib.contextmanager
+def enable_multithreading(context=None):
+    from . import DefaultContext
+
+    if context is None:
+        context = DefaultContext
+    context.enable_multithreading(True)
+    yield
+    context.enable_multithreading(False)
+
+
+@contextlib.contextmanager
+def disable_multithreading(context=None):
+    from . import DefaultContext
+
+    if context is None:
+        context = DefaultContext
+
+    context.enable_multithreading(False)
+    yield
+    context.enable_multithreading(True)
+
+
+@contextlib.contextmanager
+def enable_debug():
+    ir._GlobalDebug.flag = True
+    yield
+    ir._GlobalDebug.flag = False

@@ -2,7 +2,7 @@ from textwrap import dedent
 
 import pytest
 
-from nelli import F64
+from nelli.mlir.utils import F64
 from nelli.mlir.affine import RankedAffineMemRefValue as MemRef
 from nelli.mlir.arith import constant
 from nelli.mlir.func import mlir_func

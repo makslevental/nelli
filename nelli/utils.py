@@ -5,7 +5,7 @@ from typing import Callable, Optional
 
 import sympy
 
-from . import DefaultContext
+from .mlir import DefaultContext
 
 # noinspection PyUnresolvedReferences
 from .mlir._mlir._mlir_libs._nelli_mlir import (

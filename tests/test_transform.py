@@ -3,7 +3,6 @@ from textwrap import dedent
 import numpy as np
 import pytest
 
-from nelli import F32, I64
 from nelli.mlir import arith
 from nelli.mlir._mlir.dialects import linalg
 from nelli.mlir._mlir.dialects import transform as transform_dialect
@@ -43,7 +42,8 @@ from nelli.mlir.transform.transform import (
     bufferize,
     lower_vectors,
 )
-from nelli.mlir.utils import run_pipeline
+
+from nelli.mlir.utils import run_pipeline, F32, I64
 from nelli.utils import mlir_mod_ctx
 from util import check_correct
 

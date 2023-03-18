@@ -6,7 +6,7 @@ from textwrap import dedent
 
 import numpy as np
 
-from nelli import F64, I64
+from nelli.mlir.utils import F64, I64
 from nelli.mlir._mlir import _mlir_libs
 from nelli.mlir._mlir import runtime as rt
 from nelli.mlir._mlir.dialects.linalg.opdsl import lang as dsl
