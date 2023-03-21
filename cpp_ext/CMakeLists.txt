@@ -11,6 +11,8 @@ declare_mlir_python_sources(NelliPythonSources)
 #get_property(MLIR_D_LIBS GLOBAL PROPERTY MLIR_DIALECT_LIBS)
 #get_property(MLIR_C_LIBS GLOBAL PROPERTY MLIR_CONVERSION_LIBS)
 #get_property(MLIR_T_LIBS GLOBAL PROPERTY MLIR_TRANSLATION_LIBS)
+include_directories(.)
+
 add_subdirectory(TilingInterface)
 add_subdirectory(RefBackend)
 add_subdirectory(Transform)
@@ -19,7 +21,6 @@ add_subdirectory(LinalgTransforms)
 add_subdirectory(FakeQuantize)
 add_subdirectory(GPUTransforms)
 add_subdirectory(PDLByteCodeInterpreter)
-add_subdirectory(CommonExtensions)
 
 declare_mlir_python_extension(NelliPythonSources.Extension
         MODULE_NAME _nelli_mlir

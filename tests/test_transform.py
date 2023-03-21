@@ -781,7 +781,7 @@ class TestTiling:
               transform.sequence %arg0 : !pdl.operation failures(propagate) {
               ^bb1(%arg1: !pdl.operation):
                 %0 = transform.structured.match ops{["func.func"]} in %arg1 : (!pdl.operation) -> !pdl.operation
-                transform.apply_patterns %0 { canonicalization }
+                transform.apply_patterns %0 { canonicalization } : (!pdl.operation) -> ()
               }
             }
             """
@@ -820,7 +820,7 @@ class TestTiling:
             transform.sequence  failures(propagate) {
             ^bb0(%arg0: !pdl.operation):
               %0 = transform.structured.match ops{["func.func"]} in %arg0 : (!pdl.operation) -> !pdl.operation
-              transform.apply_patterns %0 { canonicalization }
+              transform.apply_patterns %0 { canonicalization } : (!pdl.operation) -> ()
             }
             """
                 )
@@ -869,7 +869,7 @@ class TestTiling:
           transform.sequence  failures(propagate) attributes {transform.target_tag = "basic"} {
           ^bb0(%arg0: !pdl.operation):
             %0 = transform.structured.match ops{["func.func"]} in %arg0 : (!pdl.operation) -> !pdl.operation
-            %1 = apply_patterns %0 {canonicalization}
+            apply_patterns %0 {canonicalization} : (!pdl.operation) -> ()
           }
         }
         """
@@ -1099,7 +1099,7 @@ class TestTiling:
                 named_conv = match(variant_op, ["linalg.conv_2d_nhwc_hwcf"])
                 conv = generalize(named_conv)
                 func = match(variant_op, ["func.func"])
-                apply_patterns(func, rank_reducing_linalg=True)
+                # apply_patterns(func, rank_reducing_linalg=True)
                 apply_patterns(
                     variant_op, canonicalization=True, tiling_canonicalization=True
                 )
@@ -1125,7 +1125,7 @@ class TestTiling:
 
                 # Step 3. Vectorize
                 func_v = match(variant_op, ["func.func"])
-                apply_patterns(func_v, rank_reducing_linalg=True)
+                # apply_patterns(func_v, rank_reducing_linalg=True)
                 func_v_2 = vectorize(func_v)
                 apply_patterns(func_v_2, canonicalization=True, cse=True, licm=True)
                 hoist_redundant_tensor_subsets(func_v_2)
@@ -1173,13 +1173,13 @@ class TestTiling:
                 forall, tiled_generic = tile_to_scf_forall(
                     matmul, tile_sizes=[2], mapping={0: block_attr("x")}
                 )
-                variant_op_2 = apply_patterns(
+                apply_patterns(
                     variant_op,
                     canonicalization=True,
                     tiling_canonicalization=True,
                     cse=True,
                 )
-                variant_op_3 = bufferize(variant_op_2)
+                variant_op_3 = bufferize(variant_op)
 
         module = self.backend.compile(
             module,

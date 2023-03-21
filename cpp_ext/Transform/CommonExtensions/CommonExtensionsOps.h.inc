@@ -103,7 +103,7 @@ public:
 
   ::mlir::LogicalResult verify(::mlir::Location loc);
 };
-class ApplyBufferOptimizationsOp : public ::mlir::Op<ApplyBufferOptimizationsOp, ::mlir::OpTrait::ZeroRegions, ::mlir::OpTrait::OneResult, ::mlir::OpTrait::OneTypedResult<::mlir::pdl::OperationType>::Impl, ::mlir::OpTrait::ZeroSuccessors, ::mlir::OpTrait::OneOperand, ::mlir::OpTrait::OpInvariants, ::mlir::transform::TransformEachOpTrait, ::mlir::transform::TransformOpInterface::Trait, ::mlir::MemoryEffectOpInterface::Trait> {
+class ApplyBufferOptimizationsOp : public ::mlir::Op<ApplyBufferOptimizationsOp, ::mlir::OpTrait::ZeroRegions, ::mlir::OpTrait::ZeroResults, ::mlir::OpTrait::ZeroSuccessors, ::mlir::OpTrait::OneOperand, ::mlir::OpTrait::OpInvariants, ::mlir::transform::TransformEachOpTrait, ::mlir::transform::TransformOpInterface::Trait, ::mlir::MemoryEffectOpInterface::Trait> {
 public:
   using Op::Op;
   using Op::print;
@@ -121,11 +121,10 @@ public:
 
   std::pair<unsigned, unsigned> getODSOperandIndexAndLength(unsigned index);
   ::mlir::Operation::operand_range getODSOperands(unsigned index);
-  ::mlir::TypedValue<::mlir::pdl::OperationType> getTarget();
+  ::mlir::TypedValue<::mlir::transform::TransformHandleTypeInterface> getTarget();
   ::mlir::MutableOperandRange getTargetMutable();
   std::pair<unsigned, unsigned> getODSResultIndexAndLength(unsigned index);
   ::mlir::Operation::result_range getODSResults(unsigned index);
-  ::mlir::TypedValue<::mlir::pdl::OperationType> getResult();
   static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, Value target);
   ::mlir::LogicalResult verifyInvariantsImpl();
   ::mlir::LogicalResult verifyInvariants();
@@ -190,10 +189,6 @@ public:
   bool getLowerTransferOpPermutations();
   ::mlir::UnitAttr getLowerVectorMasksAttr();
   bool getLowerVectorMasks();
-  ::mlir::UnitAttr getRankReducingLinalgAttr();
-  bool getRankReducingLinalg();
-  ::mlir::UnitAttr getRankReducingLinalgViaReshapesAttr();
-  bool getRankReducingLinalgViaReshapes();
   ::mlir::UnitAttr getRankReducingVectorAttr();
   bool getRankReducingVector();
   ::mlir::UnitAttr getSwapPaddingElideConditionalAttr();
@@ -202,10 +197,6 @@ public:
   bool getSwappingPatterns();
   ::mlir::UnitAttr getTilingCanonicalizationAttr();
   bool getTilingCanonicalization();
-  ::mlir::UnitAttr getUnrollVectorsGpuMmaSyncAttr();
-  bool getUnrollVectorsGpuMmaSync();
-  ::mlir::UnitAttr getUnrollVectorsGpuWmmaAttr();
-  bool getUnrollVectorsGpuWmma();
 };
 } // namespace detail
 template <typename RangeT>
@@ -243,7 +234,7 @@ public:
 
   ::mlir::LogicalResult verify(::mlir::Location loc);
 };
-class ApplyPatternsOp : public ::mlir::Op<ApplyPatternsOp, ::mlir::OpTrait::ZeroRegions, ::mlir::OpTrait::OneResult, ::mlir::OpTrait::OneTypedResult<::mlir::pdl::OperationType>::Impl, ::mlir::OpTrait::ZeroSuccessors, ::mlir::OpTrait::OneOperand, ::mlir::OpTrait::OpInvariants, ::mlir::MemoryEffectOpInterface::Trait, ::mlir::transform::TransformEachOpTrait, ::mlir::transform::TransformOpInterface::Trait> {
+class ApplyPatternsOp : public ::mlir::Op<ApplyPatternsOp, ::mlir::OpTrait::ZeroRegions, ::mlir::OpTrait::ZeroResults, ::mlir::OpTrait::ZeroSuccessors, ::mlir::OpTrait::OneOperand, ::mlir::OpTrait::OpInvariants, ::mlir::MemoryEffectOpInterface::Trait, ::mlir::transform::TransformEachOpTrait, ::mlir::transform::TransformOpInterface::Trait> {
 public:
   using Op::Op;
   using Op::print;
@@ -252,7 +243,7 @@ public:
   using GenericAdaptor = ApplyPatternsOpGenericAdaptor<RangeT>;
   using FoldAdaptor = GenericAdaptor<::llvm::ArrayRef<::mlir::Attribute>>;
   static ::llvm::ArrayRef<::llvm::StringRef> getAttributeNames() {
-    static ::llvm::StringRef attrNames[] = {::llvm::StringRef("additional_patterns"), ::llvm::StringRef("bubble_collapse"), ::llvm::StringRef("bubble_expand"), ::llvm::StringRef("bubble_pack_un_pack"), ::llvm::StringRef("canonicalization"), ::llvm::StringRef("cse"), ::llvm::StringRef("erase_unnecessary_tensor_operands"), ::llvm::StringRef("expand_memref_strided_metadata"), ::llvm::StringRef("fold_memref_aliases"), ::llvm::StringRef("fold_reassociative_reshapes"), ::llvm::StringRef("fold_tensor_empty_extract"), ::llvm::StringRef("licm"), ::llvm::StringRef("linalg_elementwise_greedy_fusion"), ::llvm::StringRef("lower_transfer_op_permutations"), ::llvm::StringRef("lower_vector_masks"), ::llvm::StringRef("rank_reducing_linalg"), ::llvm::StringRef("rank_reducing_linalg_via_reshapes"), ::llvm::StringRef("rank_reducing_vector"), ::llvm::StringRef("swap_padding_elide_conditional"), ::llvm::StringRef("swapping_patterns"), ::llvm::StringRef("tiling_canonicalization"), ::llvm::StringRef("unroll_vectors_gpu_mma_sync"), ::llvm::StringRef("unroll_vectors_gpu_wmma")};
+    static ::llvm::StringRef attrNames[] = {::llvm::StringRef("additional_patterns"), ::llvm::StringRef("bubble_collapse"), ::llvm::StringRef("bubble_expand"), ::llvm::StringRef("bubble_pack_un_pack"), ::llvm::StringRef("canonicalization"), ::llvm::StringRef("cse"), ::llvm::StringRef("erase_unnecessary_tensor_operands"), ::llvm::StringRef("expand_memref_strided_metadata"), ::llvm::StringRef("fold_memref_aliases"), ::llvm::StringRef("fold_reassociative_reshapes"), ::llvm::StringRef("fold_tensor_empty_extract"), ::llvm::StringRef("licm"), ::llvm::StringRef("linalg_elementwise_greedy_fusion"), ::llvm::StringRef("lower_transfer_op_permutations"), ::llvm::StringRef("lower_vector_masks"), ::llvm::StringRef("rank_reducing_vector"), ::llvm::StringRef("swap_padding_elide_conditional"), ::llvm::StringRef("swapping_patterns"), ::llvm::StringRef("tiling_canonicalization")};
     return ::llvm::ArrayRef(attrNames);
   }
 
@@ -376,68 +367,36 @@ public:
     return getAttributeNameForIndex(name, 14);
   }
 
-  ::mlir::StringAttr getRankReducingLinalgAttrName() {
+  ::mlir::StringAttr getRankReducingVectorAttrName() {
     return getAttributeNameForIndex(15);
   }
 
-  static ::mlir::StringAttr getRankReducingLinalgAttrName(::mlir::OperationName name) {
+  static ::mlir::StringAttr getRankReducingVectorAttrName(::mlir::OperationName name) {
     return getAttributeNameForIndex(name, 15);
   }
 
-  ::mlir::StringAttr getRankReducingLinalgViaReshapesAttrName() {
+  ::mlir::StringAttr getSwapPaddingElideConditionalAttrName() {
     return getAttributeNameForIndex(16);
   }
 
-  static ::mlir::StringAttr getRankReducingLinalgViaReshapesAttrName(::mlir::OperationName name) {
+  static ::mlir::StringAttr getSwapPaddingElideConditionalAttrName(::mlir::OperationName name) {
     return getAttributeNameForIndex(name, 16);
   }
 
-  ::mlir::StringAttr getRankReducingVectorAttrName() {
+  ::mlir::StringAttr getSwappingPatternsAttrName() {
     return getAttributeNameForIndex(17);
   }
 
-  static ::mlir::StringAttr getRankReducingVectorAttrName(::mlir::OperationName name) {
+  static ::mlir::StringAttr getSwappingPatternsAttrName(::mlir::OperationName name) {
     return getAttributeNameForIndex(name, 17);
   }
 
-  ::mlir::StringAttr getSwapPaddingElideConditionalAttrName() {
+  ::mlir::StringAttr getTilingCanonicalizationAttrName() {
     return getAttributeNameForIndex(18);
   }
 
-  static ::mlir::StringAttr getSwapPaddingElideConditionalAttrName(::mlir::OperationName name) {
-    return getAttributeNameForIndex(name, 18);
-  }
-
-  ::mlir::StringAttr getSwappingPatternsAttrName() {
-    return getAttributeNameForIndex(19);
-  }
-
-  static ::mlir::StringAttr getSwappingPatternsAttrName(::mlir::OperationName name) {
-    return getAttributeNameForIndex(name, 19);
-  }
-
-  ::mlir::StringAttr getTilingCanonicalizationAttrName() {
-    return getAttributeNameForIndex(20);
-  }
-
   static ::mlir::StringAttr getTilingCanonicalizationAttrName(::mlir::OperationName name) {
-    return getAttributeNameForIndex(name, 20);
-  }
-
-  ::mlir::StringAttr getUnrollVectorsGpuMmaSyncAttrName() {
-    return getAttributeNameForIndex(21);
-  }
-
-  static ::mlir::StringAttr getUnrollVectorsGpuMmaSyncAttrName(::mlir::OperationName name) {
-    return getAttributeNameForIndex(name, 21);
-  }
-
-  ::mlir::StringAttr getUnrollVectorsGpuWmmaAttrName() {
-    return getAttributeNameForIndex(22);
-  }
-
-  static ::mlir::StringAttr getUnrollVectorsGpuWmmaAttrName(::mlir::OperationName name) {
-    return getAttributeNameForIndex(name, 22);
+    return getAttributeNameForIndex(name, 18);
   }
 
   static constexpr ::llvm::StringLiteral getOperationName() {
@@ -446,11 +405,10 @@ public:
 
   std::pair<unsigned, unsigned> getODSOperandIndexAndLength(unsigned index);
   ::mlir::Operation::operand_range getODSOperands(unsigned index);
-  ::mlir::TypedValue<::mlir::pdl::OperationType> getTarget();
+  ::mlir::TypedValue<::mlir::transform::TransformHandleTypeInterface> getTarget();
   ::mlir::MutableOperandRange getTargetMutable();
   std::pair<unsigned, unsigned> getODSResultIndexAndLength(unsigned index);
   ::mlir::Operation::result_range getODSResults(unsigned index);
-  ::mlir::TypedValue<::mlir::pdl::OperationType> getResult();
   ::mlir::UnitAttr getAdditionalPatternsAttr();
   bool getAdditionalPatterns();
   ::mlir::UnitAttr getBubbleCollapseAttr();
@@ -481,10 +439,6 @@ public:
   bool getLowerTransferOpPermutations();
   ::mlir::UnitAttr getLowerVectorMasksAttr();
   bool getLowerVectorMasks();
-  ::mlir::UnitAttr getRankReducingLinalgAttr();
-  bool getRankReducingLinalg();
-  ::mlir::UnitAttr getRankReducingLinalgViaReshapesAttr();
-  bool getRankReducingLinalgViaReshapes();
   ::mlir::UnitAttr getRankReducingVectorAttr();
   bool getRankReducingVector();
   ::mlir::UnitAttr getSwapPaddingElideConditionalAttr();
@@ -493,10 +447,6 @@ public:
   bool getSwappingPatterns();
   ::mlir::UnitAttr getTilingCanonicalizationAttr();
   bool getTilingCanonicalization();
-  ::mlir::UnitAttr getUnrollVectorsGpuMmaSyncAttr();
-  bool getUnrollVectorsGpuMmaSync();
-  ::mlir::UnitAttr getUnrollVectorsGpuWmmaAttr();
-  bool getUnrollVectorsGpuWmma();
   void setAdditionalPatternsAttr(::mlir::UnitAttr attr);
   void setAdditionalPatterns(bool attrValue);
   void setBubbleCollapseAttr(::mlir::UnitAttr attr);
@@ -527,10 +477,6 @@ public:
   void setLowerTransferOpPermutations(bool attrValue);
   void setLowerVectorMasksAttr(::mlir::UnitAttr attr);
   void setLowerVectorMasks(bool attrValue);
-  void setRankReducingLinalgAttr(::mlir::UnitAttr attr);
-  void setRankReducingLinalg(bool attrValue);
-  void setRankReducingLinalgViaReshapesAttr(::mlir::UnitAttr attr);
-  void setRankReducingLinalgViaReshapes(bool attrValue);
   void setRankReducingVectorAttr(::mlir::UnitAttr attr);
   void setRankReducingVector(bool attrValue);
   void setSwapPaddingElideConditionalAttr(::mlir::UnitAttr attr);
@@ -539,10 +485,6 @@ public:
   void setSwappingPatterns(bool attrValue);
   void setTilingCanonicalizationAttr(::mlir::UnitAttr attr);
   void setTilingCanonicalization(bool attrValue);
-  void setUnrollVectorsGpuMmaSyncAttr(::mlir::UnitAttr attr);
-  void setUnrollVectorsGpuMmaSync(bool attrValue);
-  void setUnrollVectorsGpuWmmaAttr(::mlir::UnitAttr attr);
-  void setUnrollVectorsGpuWmma(bool attrValue);
   ::mlir::Attribute removeAdditionalPatternsAttr();
   ::mlir::Attribute removeBubbleCollapseAttr();
   ::mlir::Attribute removeBubbleExpandAttr();
@@ -558,19 +500,15 @@ public:
   ::mlir::Attribute removeLinalgElementwiseGreedyFusionAttr();
   ::mlir::Attribute removeLowerTransferOpPermutationsAttr();
   ::mlir::Attribute removeLowerVectorMasksAttr();
-  ::mlir::Attribute removeRankReducingLinalgAttr();
-  ::mlir::Attribute removeRankReducingLinalgViaReshapesAttr();
   ::mlir::Attribute removeRankReducingVectorAttr();
   ::mlir::Attribute removeSwapPaddingElideConditionalAttr();
   ::mlir::Attribute removeSwappingPatternsAttr();
   ::mlir::Attribute removeTilingCanonicalizationAttr();
-  ::mlir::Attribute removeUnrollVectorsGpuMmaSyncAttr();
-  ::mlir::Attribute removeUnrollVectorsGpuWmmaAttr();
   static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, Value target, const ApplyPatternsOpPatterns &patterns);
-  static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::Type result, ::mlir::Value target, /*optional*/::mlir::UnitAttr additional_patterns, /*optional*/::mlir::UnitAttr bubble_collapse, /*optional*/::mlir::UnitAttr bubble_expand, /*optional*/::mlir::UnitAttr bubble_pack_un_pack, /*optional*/::mlir::UnitAttr canonicalization, /*optional*/::mlir::UnitAttr cse, /*optional*/::mlir::UnitAttr erase_unnecessary_tensor_operands, /*optional*/::mlir::UnitAttr expand_memref_strided_metadata, /*optional*/::mlir::UnitAttr fold_memref_aliases, /*optional*/::mlir::UnitAttr fold_reassociative_reshapes, /*optional*/::mlir::UnitAttr fold_tensor_empty_extract, /*optional*/::mlir::UnitAttr licm, /*optional*/::mlir::UnitAttr linalg_elementwise_greedy_fusion, /*optional*/::mlir::UnitAttr lower_transfer_op_permutations, /*optional*/::mlir::UnitAttr lower_vector_masks, /*optional*/::mlir::UnitAttr rank_reducing_linalg, /*optional*/::mlir::UnitAttr rank_reducing_linalg_via_reshapes, /*optional*/::mlir::UnitAttr rank_reducing_vector, /*optional*/::mlir::UnitAttr swap_padding_elide_conditional, /*optional*/::mlir::UnitAttr swapping_patterns, /*optional*/::mlir::UnitAttr tiling_canonicalization, /*optional*/::mlir::UnitAttr unroll_vectors_gpu_mma_sync, /*optional*/::mlir::UnitAttr unroll_vectors_gpu_wmma);
-  static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::Value target, /*optional*/::mlir::UnitAttr additional_patterns, /*optional*/::mlir::UnitAttr bubble_collapse, /*optional*/::mlir::UnitAttr bubble_expand, /*optional*/::mlir::UnitAttr bubble_pack_un_pack, /*optional*/::mlir::UnitAttr canonicalization, /*optional*/::mlir::UnitAttr cse, /*optional*/::mlir::UnitAttr erase_unnecessary_tensor_operands, /*optional*/::mlir::UnitAttr expand_memref_strided_metadata, /*optional*/::mlir::UnitAttr fold_memref_aliases, /*optional*/::mlir::UnitAttr fold_reassociative_reshapes, /*optional*/::mlir::UnitAttr fold_tensor_empty_extract, /*optional*/::mlir::UnitAttr licm, /*optional*/::mlir::UnitAttr linalg_elementwise_greedy_fusion, /*optional*/::mlir::UnitAttr lower_transfer_op_permutations, /*optional*/::mlir::UnitAttr lower_vector_masks, /*optional*/::mlir::UnitAttr rank_reducing_linalg, /*optional*/::mlir::UnitAttr rank_reducing_linalg_via_reshapes, /*optional*/::mlir::UnitAttr rank_reducing_vector, /*optional*/::mlir::UnitAttr swap_padding_elide_conditional, /*optional*/::mlir::UnitAttr swapping_patterns, /*optional*/::mlir::UnitAttr tiling_canonicalization, /*optional*/::mlir::UnitAttr unroll_vectors_gpu_mma_sync, /*optional*/::mlir::UnitAttr unroll_vectors_gpu_wmma);
-  static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::Type result, ::mlir::Value target, /*optional*/bool additional_patterns = false, /*optional*/bool bubble_collapse = false, /*optional*/bool bubble_expand = false, /*optional*/bool bubble_pack_un_pack = false, /*optional*/bool canonicalization = false, /*optional*/bool cse = false, /*optional*/bool erase_unnecessary_tensor_operands = false, /*optional*/bool expand_memref_strided_metadata = false, /*optional*/bool fold_memref_aliases = false, /*optional*/bool fold_reassociative_reshapes = false, /*optional*/bool fold_tensor_empty_extract = false, /*optional*/bool licm = false, /*optional*/bool linalg_elementwise_greedy_fusion = false, /*optional*/bool lower_transfer_op_permutations = false, /*optional*/bool lower_vector_masks = false, /*optional*/bool rank_reducing_linalg = false, /*optional*/bool rank_reducing_linalg_via_reshapes = false, /*optional*/bool rank_reducing_vector = false, /*optional*/bool swap_padding_elide_conditional = false, /*optional*/bool swapping_patterns = false, /*optional*/bool tiling_canonicalization = false, /*optional*/bool unroll_vectors_gpu_mma_sync = false, /*optional*/bool unroll_vectors_gpu_wmma = false);
-  static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::Value target, /*optional*/bool additional_patterns = false, /*optional*/bool bubble_collapse = false, /*optional*/bool bubble_expand = false, /*optional*/bool bubble_pack_un_pack = false, /*optional*/bool canonicalization = false, /*optional*/bool cse = false, /*optional*/bool erase_unnecessary_tensor_operands = false, /*optional*/bool expand_memref_strided_metadata = false, /*optional*/bool fold_memref_aliases = false, /*optional*/bool fold_reassociative_reshapes = false, /*optional*/bool fold_tensor_empty_extract = false, /*optional*/bool licm = false, /*optional*/bool linalg_elementwise_greedy_fusion = false, /*optional*/bool lower_transfer_op_permutations = false, /*optional*/bool lower_vector_masks = false, /*optional*/bool rank_reducing_linalg = false, /*optional*/bool rank_reducing_linalg_via_reshapes = false, /*optional*/bool rank_reducing_vector = false, /*optional*/bool swap_padding_elide_conditional = false, /*optional*/bool swapping_patterns = false, /*optional*/bool tiling_canonicalization = false, /*optional*/bool unroll_vectors_gpu_mma_sync = false, /*optional*/bool unroll_vectors_gpu_wmma = false);
+  static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::Value target, /*optional*/::mlir::UnitAttr additional_patterns, /*optional*/::mlir::UnitAttr bubble_collapse, /*optional*/::mlir::UnitAttr bubble_expand, /*optional*/::mlir::UnitAttr bubble_pack_un_pack, /*optional*/::mlir::UnitAttr canonicalization, /*optional*/::mlir::UnitAttr cse, /*optional*/::mlir::UnitAttr erase_unnecessary_tensor_operands, /*optional*/::mlir::UnitAttr expand_memref_strided_metadata, /*optional*/::mlir::UnitAttr fold_memref_aliases, /*optional*/::mlir::UnitAttr fold_reassociative_reshapes, /*optional*/::mlir::UnitAttr fold_tensor_empty_extract, /*optional*/::mlir::UnitAttr licm, /*optional*/::mlir::UnitAttr linalg_elementwise_greedy_fusion, /*optional*/::mlir::UnitAttr lower_transfer_op_permutations, /*optional*/::mlir::UnitAttr lower_vector_masks, /*optional*/::mlir::UnitAttr rank_reducing_vector, /*optional*/::mlir::UnitAttr swap_padding_elide_conditional, /*optional*/::mlir::UnitAttr swapping_patterns, /*optional*/::mlir::UnitAttr tiling_canonicalization);
+  static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::Value target, /*optional*/::mlir::UnitAttr additional_patterns, /*optional*/::mlir::UnitAttr bubble_collapse, /*optional*/::mlir::UnitAttr bubble_expand, /*optional*/::mlir::UnitAttr bubble_pack_un_pack, /*optional*/::mlir::UnitAttr canonicalization, /*optional*/::mlir::UnitAttr cse, /*optional*/::mlir::UnitAttr erase_unnecessary_tensor_operands, /*optional*/::mlir::UnitAttr expand_memref_strided_metadata, /*optional*/::mlir::UnitAttr fold_memref_aliases, /*optional*/::mlir::UnitAttr fold_reassociative_reshapes, /*optional*/::mlir::UnitAttr fold_tensor_empty_extract, /*optional*/::mlir::UnitAttr licm, /*optional*/::mlir::UnitAttr linalg_elementwise_greedy_fusion, /*optional*/::mlir::UnitAttr lower_transfer_op_permutations, /*optional*/::mlir::UnitAttr lower_vector_masks, /*optional*/::mlir::UnitAttr rank_reducing_vector, /*optional*/::mlir::UnitAttr swap_padding_elide_conditional, /*optional*/::mlir::UnitAttr swapping_patterns, /*optional*/::mlir::UnitAttr tiling_canonicalization);
+  static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::Value target, /*optional*/bool additional_patterns = false, /*optional*/bool bubble_collapse = false, /*optional*/bool bubble_expand = false, /*optional*/bool bubble_pack_un_pack = false, /*optional*/bool canonicalization = false, /*optional*/bool cse = false, /*optional*/bool erase_unnecessary_tensor_operands = false, /*optional*/bool expand_memref_strided_metadata = false, /*optional*/bool fold_memref_aliases = false, /*optional*/bool fold_reassociative_reshapes = false, /*optional*/bool fold_tensor_empty_extract = false, /*optional*/bool licm = false, /*optional*/bool linalg_elementwise_greedy_fusion = false, /*optional*/bool lower_transfer_op_permutations = false, /*optional*/bool lower_vector_masks = false, /*optional*/bool rank_reducing_vector = false, /*optional*/bool swap_padding_elide_conditional = false, /*optional*/bool swapping_patterns = false, /*optional*/bool tiling_canonicalization = false);
+  static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::Value target, /*optional*/bool additional_patterns = false, /*optional*/bool bubble_collapse = false, /*optional*/bool bubble_expand = false, /*optional*/bool bubble_pack_un_pack = false, /*optional*/bool canonicalization = false, /*optional*/bool cse = false, /*optional*/bool erase_unnecessary_tensor_operands = false, /*optional*/bool expand_memref_strided_metadata = false, /*optional*/bool fold_memref_aliases = false, /*optional*/bool fold_reassociative_reshapes = false, /*optional*/bool fold_tensor_empty_extract = false, /*optional*/bool licm = false, /*optional*/bool linalg_elementwise_greedy_fusion = false, /*optional*/bool lower_transfer_op_permutations = false, /*optional*/bool lower_vector_masks = false, /*optional*/bool rank_reducing_vector = false, /*optional*/bool swap_padding_elide_conditional = false, /*optional*/bool swapping_patterns = false, /*optional*/bool tiling_canonicalization = false);
   static void build(::mlir::OpBuilder &, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {});
   ::mlir::LogicalResult verifyInvariantsImpl();
   ::mlir::LogicalResult verifyInvariants();
@@ -583,7 +521,7 @@ private:
   }
 
   static ::mlir::StringAttr getAttributeNameForIndex(::mlir::OperationName name, unsigned index) {
-    assert(index < 23 && "invalid attribute index");
+    assert(index < 19 && "invalid attribute index");
     assert(name.getStringRef() == getOperationName() && "invalid operation name");
     return name.getAttributeNames()[index];
   }
@@ -653,7 +591,7 @@ public:
 
   ::mlir::LogicalResult verify(::mlir::Location loc);
 };
-class HoistStaticAllocOp : public ::mlir::Op<HoistStaticAllocOp, ::mlir::OpTrait::ZeroRegions, ::mlir::OpTrait::OneResult, ::mlir::OpTrait::OneTypedResult<::mlir::transform::TransformHandleTypeInterface>::Impl, ::mlir::OpTrait::ZeroSuccessors, ::mlir::OpTrait::OneOperand, ::mlir::OpTrait::OpInvariants, ::mlir::transform::FunctionalStyleTransformOpTrait, ::mlir::MemoryEffectOpInterface::Trait, ::mlir::transform::TransformOpInterface::Trait, ::mlir::transform::TransformEachOpTrait> {
+class HoistStaticAllocOp : public ::mlir::Op<HoistStaticAllocOp, ::mlir::OpTrait::ZeroRegions, ::mlir::OpTrait::ZeroResults, ::mlir::OpTrait::ZeroSuccessors, ::mlir::OpTrait::OneOperand, ::mlir::OpTrait::OpInvariants, ::mlir::MemoryEffectOpInterface::Trait, ::mlir::transform::TransformEachOpTrait, ::mlir::transform::TransformOpInterface::Trait> {
 public:
   using Op::Op;
   using Op::print;
@@ -675,12 +613,12 @@ public:
   ::mlir::MutableOperandRange getTargetMutable();
   std::pair<unsigned, unsigned> getODSResultIndexAndLength(unsigned index);
   ::mlir::Operation::result_range getODSResults(unsigned index);
-  ::mlir::TypedValue<::mlir::transform::TransformHandleTypeInterface> getResult();
-  static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::Type result, ::mlir::Value target);
+  static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::Value target);
   static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::Value target);
   static void build(::mlir::OpBuilder &, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {});
   ::mlir::LogicalResult verifyInvariantsImpl();
   ::mlir::LogicalResult verifyInvariants();
+  void getEffects(::llvm::SmallVectorImpl<::mlir::SideEffects::EffectInstance<::mlir::MemoryEffects::Effect>> &effects);
   static ::mlir::ParseResult parse(::mlir::OpAsmParser &parser, ::mlir::OperationState &result);
   void print(::mlir::OpAsmPrinter &_odsPrinter);
 public:
@@ -878,7 +816,7 @@ public:
 
   ::mlir::LogicalResult verify(::mlir::Location loc);
 };
-class TransformBufferizeOp : public ::mlir::Op<TransformBufferizeOp, ::mlir::OpTrait::ZeroRegions, ::mlir::OpTrait::OneResult, ::mlir::OpTrait::OneTypedResult<::mlir::pdl::OperationType>::Impl, ::mlir::OpTrait::ZeroSuccessors, ::mlir::OpTrait::OneOperand, ::mlir::OpTrait::OpInvariants, ::mlir::transform::FunctionalStyleTransformOpTrait, ::mlir::MemoryEffectOpInterface::Trait, ::mlir::transform::TransformOpInterface::Trait> {
+class TransformBufferizeOp : public ::mlir::Op<TransformBufferizeOp, ::mlir::OpTrait::ZeroRegions, ::mlir::OpTrait::OneResult, ::mlir::OpTrait::OneTypedResult<::mlir::transform::TransformHandleTypeInterface>::Impl, ::mlir::OpTrait::ZeroSuccessors, ::mlir::OpTrait::OneOperand, ::mlir::OpTrait::OpInvariants, ::mlir::transform::FunctionalStyleTransformOpTrait, ::mlir::MemoryEffectOpInterface::Trait, ::mlir::transform::TransformOpInterface::Trait> {
 public:
   using Op::Op;
   using Op::print;
@@ -921,11 +859,11 @@ public:
 
   std::pair<unsigned, unsigned> getODSOperandIndexAndLength(unsigned index);
   ::mlir::Operation::operand_range getODSOperands(unsigned index);
-  ::mlir::TypedValue<::mlir::pdl::OperationType> getTarget();
+  ::mlir::TypedValue<::mlir::transform::TransformHandleTypeInterface> getTarget();
   ::mlir::MutableOperandRange getTargetMutable();
   std::pair<unsigned, unsigned> getODSResultIndexAndLength(unsigned index);
   ::mlir::Operation::result_range getODSResults(unsigned index);
-  ::mlir::TypedValue<::mlir::pdl::OperationType> getResult();
+  ::mlir::TypedValue<::mlir::transform::TransformHandleTypeInterface> getResult();
   ::mlir::UnitAttr getTargetGpuAttr();
   bool getTargetGpu();
   ::mlir::UnitAttr getTestAnalysisOnlyAttr();
@@ -1024,7 +962,7 @@ public:
 
   ::mlir::LogicalResult verify(::mlir::Location loc);
 };
-class TransformEliminateEmptyTensorsOp : public ::mlir::Op<TransformEliminateEmptyTensorsOp, ::mlir::OpTrait::ZeroRegions, ::mlir::OpTrait::OneResult, ::mlir::OpTrait::OneTypedResult<::mlir::pdl::OperationType>::Impl, ::mlir::OpTrait::ZeroSuccessors, ::mlir::OpTrait::OneOperand, ::mlir::OpTrait::OpInvariants, ::mlir::transform::FunctionalStyleTransformOpTrait, ::mlir::MemoryEffectOpInterface::Trait, ::mlir::transform::TransformOpInterface::Trait> {
+class TransformEliminateEmptyTensorsOp : public ::mlir::Op<TransformEliminateEmptyTensorsOp, ::mlir::OpTrait::ZeroRegions, ::mlir::OpTrait::ZeroResults, ::mlir::OpTrait::ZeroSuccessors, ::mlir::OpTrait::OneOperand, ::mlir::OpTrait::OpInvariants, ::mlir::MemoryEffectOpInterface::Trait, ::mlir::transform::TransformEachOpTrait, ::mlir::transform::TransformOpInterface::Trait> {
 public:
   using Op::Op;
   using Op::print;
@@ -1042,21 +980,23 @@ public:
 
   std::pair<unsigned, unsigned> getODSOperandIndexAndLength(unsigned index);
   ::mlir::Operation::operand_range getODSOperands(unsigned index);
-  ::mlir::TypedValue<::mlir::pdl::OperationType> getTarget();
+  ::mlir::TypedValue<::mlir::transform::TransformHandleTypeInterface> getTarget();
   ::mlir::MutableOperandRange getTargetMutable();
   std::pair<unsigned, unsigned> getODSResultIndexAndLength(unsigned index);
   ::mlir::Operation::result_range getODSResults(unsigned index);
-  ::mlir::TypedValue<::mlir::pdl::OperationType> getResult();
-  static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, Value target);
-  static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::Type result, ::mlir::Value target);
+  static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::Value target);
   static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::Value target);
   static void build(::mlir::OpBuilder &, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {});
   ::mlir::LogicalResult verifyInvariantsImpl();
   ::mlir::LogicalResult verifyInvariants();
-  ::mlir::DiagnosedSilenceableFailure apply(::mlir::transform::TransformResults &transformResults, ::mlir::transform::TransformState &state);
+  void getEffects(::llvm::SmallVectorImpl<::mlir::SideEffects::EffectInstance<::mlir::MemoryEffects::Effect>> &effects);
   static ::mlir::ParseResult parse(::mlir::OpAsmParser &parser, ::mlir::OperationState &result);
   void print(::mlir::OpAsmPrinter &_odsPrinter);
 public:
+  ::mlir::DiagnosedSilenceableFailure applyToOne(
+      ::mlir::Operation *target,
+      ::mlir::transform::ApplyToEachResultList &results,
+      ::mlir::transform::TransformState &state);
 };
 } // namespace transform
 } // namespace mlir

@@ -31,16 +31,6 @@ namespace transform {
 static ::mlir::LogicalResult __mlir_ods_local_type_constraint_CommonExtensionsOps0(
     ::mlir::Operation *op, ::mlir::Type type, ::llvm::StringRef valueKind,
     unsigned valueIndex) {
-  if (!((type.isa<::mlir::pdl::OperationType>()))) {
-    return op->emitOpError(valueKind) << " #" << valueIndex
-        << " must be PDL handle to an `mlir::Operation *`, but got " << type;
-  }
-  return ::mlir::success();
-}
-
-static ::mlir::LogicalResult __mlir_ods_local_type_constraint_CommonExtensionsOps1(
-    ::mlir::Operation *op, ::mlir::Type type, ::llvm::StringRef valueKind,
-    unsigned valueIndex) {
   if (!((type.isa<::mlir::transform::TransformHandleTypeInterface>()))) {
     return op->emitOpError(valueKind) << " #" << valueIndex
         << " must be TransformHandleTypeInterface instance, but got " << type;
@@ -104,8 +94,8 @@ std::pair<unsigned, unsigned> ApplyBufferOptimizationsOp::getODSOperandIndexAndL
            std::next(getOperation()->operand_begin(), valueRange.first + valueRange.second)};
 }
 
-::mlir::TypedValue<::mlir::pdl::OperationType> ApplyBufferOptimizationsOp::getTarget() {
-  return ::llvm::cast<::mlir::TypedValue<::mlir::pdl::OperationType>>(*getODSOperands(0).begin());
+::mlir::TypedValue<::mlir::transform::TransformHandleTypeInterface> ApplyBufferOptimizationsOp::getTarget() {
+  return ::llvm::cast<::mlir::TypedValue<::mlir::transform::TransformHandleTypeInterface>>(*getODSOperands(0).begin());
 }
 
 ::mlir::MutableOperandRange ApplyBufferOptimizationsOp::getTargetMutable() {
@@ -124,10 +114,6 @@ std::pair<unsigned, unsigned> ApplyBufferOptimizationsOp::getODSResultIndexAndLe
            std::next(getOperation()->result_begin(), valueRange.first + valueRange.second)};
 }
 
-::mlir::TypedValue<::mlir::pdl::OperationType> ApplyBufferOptimizationsOp::getResult() {
-  return ::llvm::cast<::mlir::TypedValue<::mlir::pdl::OperationType>>(*getODSResults(0).begin());
-}
-
 ::mlir::LogicalResult ApplyBufferOptimizationsOp::verifyInvariantsImpl() {
   {
     unsigned index = 0; (void)index;
@@ -135,15 +121,6 @@ std::pair<unsigned, unsigned> ApplyBufferOptimizationsOp::getODSResultIndexAndLe
 
     for (auto v : valueGroup0) {
       if (::mlir::failed(__mlir_ods_local_type_constraint_CommonExtensionsOps0(*this, v.getType(), "operand", index++)))
-        return ::mlir::failure();
-    }
-  }
-  {
-    unsigned index = 0; (void)index;
-    auto valueGroup0 = getODSResults(0);
-
-    for (auto v : valueGroup0) {
-      if (::mlir::failed(__mlir_ods_local_type_constraint_CommonExtensionsOps0(*this, v.getType(), "result", index++)))
         return ::mlir::failure();
     }
   }
@@ -158,15 +135,24 @@ std::pair<unsigned, unsigned> ApplyBufferOptimizationsOp::getODSResultIndexAndLe
   ::mlir::OpAsmParser::UnresolvedOperand targetRawOperands[1];
   ::llvm::ArrayRef<::mlir::OpAsmParser::UnresolvedOperand> targetOperands(targetRawOperands);  ::llvm::SMLoc targetOperandsLoc;
   (void)targetOperandsLoc;
+  ::llvm::ArrayRef<::mlir::Type> targetTypes;
+  ::llvm::ArrayRef<::mlir::Type> allResultTypes;
 
   targetOperandsLoc = parser.getCurrentLocation();
   if (parser.parseOperand(targetRawOperands[0]))
     return ::mlir::failure();
   if (parser.parseOptionalAttrDict(result.attributes))
     return ::mlir::failure();
-  ::mlir::Type odsBuildableType0 = parser.getBuilder().getType<::mlir::pdl::OperationType>();
-  result.addTypes(odsBuildableType0);
-  if (parser.resolveOperands(targetOperands, odsBuildableType0, targetOperandsLoc, result.operands))
+  if (parser.parseColon())
+    return ::mlir::failure();
+
+  ::mlir::FunctionType target__allResult_functionType;
+  if (parser.parseType(target__allResult_functionType))
+    return ::mlir::failure();
+  targetTypes = target__allResult_functionType.getInputs();
+  allResultTypes = target__allResult_functionType.getResults();
+  result.addTypes(allResultTypes);
+  if (parser.resolveOperands(targetOperands, targetTypes, targetOperandsLoc, result.operands))
     return ::mlir::failure();
   return ::mlir::success();
 }
@@ -176,6 +162,9 @@ void ApplyBufferOptimizationsOp::print(::mlir::OpAsmPrinter &_odsPrinter) {
   _odsPrinter << getTarget();
   ::llvm::SmallVector<::llvm::StringRef, 2> elidedAttrs;
   _odsPrinter.printOptionalAttrDict((*this)->getAttrs(), elidedAttrs);
+  _odsPrinter << ' ' << ":";
+  _odsPrinter << ' ';
+  _odsPrinter.printFunctionalType(::llvm::ArrayRef<::mlir::Type>(getTarget().getType()), getOperation()->getResultTypes());
 }
 
 } // namespace transform
@@ -427,36 +416,6 @@ bool ApplyPatternsOpGenericAdaptorBase::getLowerVectorMasks() {
   return attr != nullptr;
 }
 
-::mlir::UnitAttr ApplyPatternsOpGenericAdaptorBase::getRankReducingLinalgAttr() {
-  assert(odsAttrs && "no attributes when constructing adapter");
-  auto attr = ::mlir::impl::getAttrFromSortedRange(odsAttrs.begin() + 0, odsAttrs.end() - 0, ApplyPatternsOp::getRankReducingLinalgAttrName(*odsOpName)).dyn_cast_or_null<::mlir::UnitAttr>();
-  if (!attr)
-    attr = ((false) ? ::mlir::Builder(odsAttrs.getContext()).getUnitAttr() : nullptr);
-  return attr;
-}
-
-bool ApplyPatternsOpGenericAdaptorBase::getRankReducingLinalg() {
-  auto attr = getRankReducingLinalgAttr();
-    if (!attr)
-      return ((false) ? ::mlir::Builder(odsAttrs.getContext()).getUnitAttr() : nullptr) != nullptr;
-  return attr != nullptr;
-}
-
-::mlir::UnitAttr ApplyPatternsOpGenericAdaptorBase::getRankReducingLinalgViaReshapesAttr() {
-  assert(odsAttrs && "no attributes when constructing adapter");
-  auto attr = ::mlir::impl::getAttrFromSortedRange(odsAttrs.begin() + 0, odsAttrs.end() - 0, ApplyPatternsOp::getRankReducingLinalgViaReshapesAttrName(*odsOpName)).dyn_cast_or_null<::mlir::UnitAttr>();
-  if (!attr)
-    attr = ((false) ? ::mlir::Builder(odsAttrs.getContext()).getUnitAttr() : nullptr);
-  return attr;
-}
-
-bool ApplyPatternsOpGenericAdaptorBase::getRankReducingLinalgViaReshapes() {
-  auto attr = getRankReducingLinalgViaReshapesAttr();
-    if (!attr)
-      return ((false) ? ::mlir::Builder(odsAttrs.getContext()).getUnitAttr() : nullptr) != nullptr;
-  return attr != nullptr;
-}
-
 ::mlir::UnitAttr ApplyPatternsOpGenericAdaptorBase::getRankReducingVectorAttr() {
   assert(odsAttrs && "no attributes when constructing adapter");
   auto attr = ::mlir::impl::getAttrFromSortedRange(odsAttrs.begin() + 0, odsAttrs.end() - 0, ApplyPatternsOp::getRankReducingVectorAttrName(*odsOpName)).dyn_cast_or_null<::mlir::UnitAttr>();
@@ -517,36 +476,6 @@ bool ApplyPatternsOpGenericAdaptorBase::getTilingCanonicalization() {
   return attr != nullptr;
 }
 
-::mlir::UnitAttr ApplyPatternsOpGenericAdaptorBase::getUnrollVectorsGpuMmaSyncAttr() {
-  assert(odsAttrs && "no attributes when constructing adapter");
-  auto attr = ::mlir::impl::getAttrFromSortedRange(odsAttrs.begin() + 0, odsAttrs.end() - 0, ApplyPatternsOp::getUnrollVectorsGpuMmaSyncAttrName(*odsOpName)).dyn_cast_or_null<::mlir::UnitAttr>();
-  if (!attr)
-    attr = ((false) ? ::mlir::Builder(odsAttrs.getContext()).getUnitAttr() : nullptr);
-  return attr;
-}
-
-bool ApplyPatternsOpGenericAdaptorBase::getUnrollVectorsGpuMmaSync() {
-  auto attr = getUnrollVectorsGpuMmaSyncAttr();
-    if (!attr)
-      return ((false) ? ::mlir::Builder(odsAttrs.getContext()).getUnitAttr() : nullptr) != nullptr;
-  return attr != nullptr;
-}
-
-::mlir::UnitAttr ApplyPatternsOpGenericAdaptorBase::getUnrollVectorsGpuWmmaAttr() {
-  assert(odsAttrs && "no attributes when constructing adapter");
-  auto attr = ::mlir::impl::getAttrFromSortedRange(odsAttrs.begin() + 0, odsAttrs.end() - 0, ApplyPatternsOp::getUnrollVectorsGpuWmmaAttrName(*odsOpName)).dyn_cast_or_null<::mlir::UnitAttr>();
-  if (!attr)
-    attr = ((false) ? ::mlir::Builder(odsAttrs.getContext()).getUnitAttr() : nullptr);
-  return attr;
-}
-
-bool ApplyPatternsOpGenericAdaptorBase::getUnrollVectorsGpuWmma() {
-  auto attr = getUnrollVectorsGpuWmmaAttr();
-    if (!attr)
-      return ((false) ? ::mlir::Builder(odsAttrs.getContext()).getUnitAttr() : nullptr) != nullptr;
-  return attr != nullptr;
-}
-
 } // namespace detail
 ApplyPatternsOpAdaptor::ApplyPatternsOpAdaptor(ApplyPatternsOp op) : ApplyPatternsOpAdaptor(op->getOperands(), op->getAttrDictionary(), op->getRegions()) {}
 
@@ -568,14 +497,10 @@ ApplyPatternsOpAdaptor::ApplyPatternsOpAdaptor(ApplyPatternsOp op) : ApplyPatter
   ::mlir::Attribute tblgen_linalg_elementwise_greedy_fusion;
   ::mlir::Attribute tblgen_lower_transfer_op_permutations;
   ::mlir::Attribute tblgen_lower_vector_masks;
-  ::mlir::Attribute tblgen_rank_reducing_linalg;
-  ::mlir::Attribute tblgen_rank_reducing_linalg_via_reshapes;
   ::mlir::Attribute tblgen_rank_reducing_vector;
   ::mlir::Attribute tblgen_swap_padding_elide_conditional;
   ::mlir::Attribute tblgen_swapping_patterns;
   ::mlir::Attribute tblgen_tiling_canonicalization;
-  ::mlir::Attribute tblgen_unroll_vectors_gpu_mma_sync;
-  ::mlir::Attribute tblgen_unroll_vectors_gpu_wmma;
   while (true) {
     if (namedAttrIt == namedAttrRange.end()) {
       break;
@@ -625,12 +550,6 @@ ApplyPatternsOpAdaptor::ApplyPatternsOpAdaptor(ApplyPatternsOp op) : ApplyPatter
     else if (namedAttrIt->getName() == ApplyPatternsOp::getLowerVectorMasksAttrName(*odsOpName)) {
       tblgen_lower_vector_masks = namedAttrIt->getValue();
     }
-    else if (namedAttrIt->getName() == ApplyPatternsOp::getRankReducingLinalgAttrName(*odsOpName)) {
-      tblgen_rank_reducing_linalg = namedAttrIt->getValue();
-    }
-    else if (namedAttrIt->getName() == ApplyPatternsOp::getRankReducingLinalgViaReshapesAttrName(*odsOpName)) {
-      tblgen_rank_reducing_linalg_via_reshapes = namedAttrIt->getValue();
-    }
     else if (namedAttrIt->getName() == ApplyPatternsOp::getRankReducingVectorAttrName(*odsOpName)) {
       tblgen_rank_reducing_vector = namedAttrIt->getValue();
     }
@@ -642,12 +561,6 @@ ApplyPatternsOpAdaptor::ApplyPatternsOpAdaptor(ApplyPatternsOp op) : ApplyPatter
     }
     else if (namedAttrIt->getName() == ApplyPatternsOp::getTilingCanonicalizationAttrName(*odsOpName)) {
       tblgen_tiling_canonicalization = namedAttrIt->getValue();
-    }
-    else if (namedAttrIt->getName() == ApplyPatternsOp::getUnrollVectorsGpuMmaSyncAttrName(*odsOpName)) {
-      tblgen_unroll_vectors_gpu_mma_sync = namedAttrIt->getValue();
-    }
-    else if (namedAttrIt->getName() == ApplyPatternsOp::getUnrollVectorsGpuWmmaAttrName(*odsOpName)) {
-      tblgen_unroll_vectors_gpu_wmma = namedAttrIt->getValue();
     }
     ++namedAttrIt;
   }
@@ -697,12 +610,6 @@ ApplyPatternsOpAdaptor::ApplyPatternsOpAdaptor(ApplyPatternsOp op) : ApplyPatter
   if (tblgen_lower_vector_masks && !((tblgen_lower_vector_masks.isa<::mlir::UnitAttr>())))
     return emitError(loc, "'transform.apply_patterns' op ""attribute 'lower_vector_masks' failed to satisfy constraint: unit attribute");
 
-  if (tblgen_rank_reducing_linalg && !((tblgen_rank_reducing_linalg.isa<::mlir::UnitAttr>())))
-    return emitError(loc, "'transform.apply_patterns' op ""attribute 'rank_reducing_linalg' failed to satisfy constraint: unit attribute");
-
-  if (tblgen_rank_reducing_linalg_via_reshapes && !((tblgen_rank_reducing_linalg_via_reshapes.isa<::mlir::UnitAttr>())))
-    return emitError(loc, "'transform.apply_patterns' op ""attribute 'rank_reducing_linalg_via_reshapes' failed to satisfy constraint: unit attribute");
-
   if (tblgen_rank_reducing_vector && !((tblgen_rank_reducing_vector.isa<::mlir::UnitAttr>())))
     return emitError(loc, "'transform.apply_patterns' op ""attribute 'rank_reducing_vector' failed to satisfy constraint: unit attribute");
 
@@ -714,12 +621,6 @@ ApplyPatternsOpAdaptor::ApplyPatternsOpAdaptor(ApplyPatternsOp op) : ApplyPatter
 
   if (tblgen_tiling_canonicalization && !((tblgen_tiling_canonicalization.isa<::mlir::UnitAttr>())))
     return emitError(loc, "'transform.apply_patterns' op ""attribute 'tiling_canonicalization' failed to satisfy constraint: unit attribute");
-
-  if (tblgen_unroll_vectors_gpu_mma_sync && !((tblgen_unroll_vectors_gpu_mma_sync.isa<::mlir::UnitAttr>())))
-    return emitError(loc, "'transform.apply_patterns' op ""attribute 'unroll_vectors_gpu_mma_sync' failed to satisfy constraint: unit attribute");
-
-  if (tblgen_unroll_vectors_gpu_wmma && !((tblgen_unroll_vectors_gpu_wmma.isa<::mlir::UnitAttr>())))
-    return emitError(loc, "'transform.apply_patterns' op ""attribute 'unroll_vectors_gpu_wmma' failed to satisfy constraint: unit attribute");
   return ::mlir::success();
 }
 
@@ -733,8 +634,8 @@ std::pair<unsigned, unsigned> ApplyPatternsOp::getODSOperandIndexAndLength(unsig
            std::next(getOperation()->operand_begin(), valueRange.first + valueRange.second)};
 }
 
-::mlir::TypedValue<::mlir::pdl::OperationType> ApplyPatternsOp::getTarget() {
-  return ::llvm::cast<::mlir::TypedValue<::mlir::pdl::OperationType>>(*getODSOperands(0).begin());
+::mlir::TypedValue<::mlir::transform::TransformHandleTypeInterface> ApplyPatternsOp::getTarget() {
+  return ::llvm::cast<::mlir::TypedValue<::mlir::transform::TransformHandleTypeInterface>>(*getODSOperands(0).begin());
 }
 
 ::mlir::MutableOperandRange ApplyPatternsOp::getTargetMutable() {
@@ -751,10 +652,6 @@ std::pair<unsigned, unsigned> ApplyPatternsOp::getODSResultIndexAndLength(unsign
   auto valueRange = getODSResultIndexAndLength(index);
   return {std::next(getOperation()->result_begin(), valueRange.first),
            std::next(getOperation()->result_begin(), valueRange.first + valueRange.second)};
-}
-
-::mlir::TypedValue<::mlir::pdl::OperationType> ApplyPatternsOp::getResult() {
-  return ::llvm::cast<::mlir::TypedValue<::mlir::pdl::OperationType>>(*getODSResults(0).begin());
 }
 
 ::mlir::UnitAttr ApplyPatternsOp::getAdditionalPatternsAttr() {
@@ -922,28 +819,6 @@ bool ApplyPatternsOp::getLowerVectorMasks() {
   return attr != nullptr;
 }
 
-::mlir::UnitAttr ApplyPatternsOp::getRankReducingLinalgAttr() {
-  return ::mlir::impl::getAttrFromSortedRange((*this)->getAttrs().begin() + 0, (*this)->getAttrs().end() - 0, getRankReducingLinalgAttrName()).dyn_cast_or_null<::mlir::UnitAttr>();
-}
-
-bool ApplyPatternsOp::getRankReducingLinalg() {
-  auto attr = getRankReducingLinalgAttr();
-    if (!attr)
-      return ((false) ? ::mlir::Builder((*this)->getContext()).getUnitAttr() : nullptr) != nullptr;
-  return attr != nullptr;
-}
-
-::mlir::UnitAttr ApplyPatternsOp::getRankReducingLinalgViaReshapesAttr() {
-  return ::mlir::impl::getAttrFromSortedRange((*this)->getAttrs().begin() + 0, (*this)->getAttrs().end() - 0, getRankReducingLinalgViaReshapesAttrName()).dyn_cast_or_null<::mlir::UnitAttr>();
-}
-
-bool ApplyPatternsOp::getRankReducingLinalgViaReshapes() {
-  auto attr = getRankReducingLinalgViaReshapesAttr();
-    if (!attr)
-      return ((false) ? ::mlir::Builder((*this)->getContext()).getUnitAttr() : nullptr) != nullptr;
-  return attr != nullptr;
-}
-
 ::mlir::UnitAttr ApplyPatternsOp::getRankReducingVectorAttr() {
   return ::mlir::impl::getAttrFromSortedRange((*this)->getAttrs().begin() + 0, (*this)->getAttrs().end() - 0, getRankReducingVectorAttrName()).dyn_cast_or_null<::mlir::UnitAttr>();
 }
@@ -983,28 +858,6 @@ bool ApplyPatternsOp::getSwappingPatterns() {
 
 bool ApplyPatternsOp::getTilingCanonicalization() {
   auto attr = getTilingCanonicalizationAttr();
-    if (!attr)
-      return ((false) ? ::mlir::Builder((*this)->getContext()).getUnitAttr() : nullptr) != nullptr;
-  return attr != nullptr;
-}
-
-::mlir::UnitAttr ApplyPatternsOp::getUnrollVectorsGpuMmaSyncAttr() {
-  return ::mlir::impl::getAttrFromSortedRange((*this)->getAttrs().begin() + 0, (*this)->getAttrs().end() - 0, getUnrollVectorsGpuMmaSyncAttrName()).dyn_cast_or_null<::mlir::UnitAttr>();
-}
-
-bool ApplyPatternsOp::getUnrollVectorsGpuMmaSync() {
-  auto attr = getUnrollVectorsGpuMmaSyncAttr();
-    if (!attr)
-      return ((false) ? ::mlir::Builder((*this)->getContext()).getUnitAttr() : nullptr) != nullptr;
-  return attr != nullptr;
-}
-
-::mlir::UnitAttr ApplyPatternsOp::getUnrollVectorsGpuWmmaAttr() {
-  return ::mlir::impl::getAttrFromSortedRange((*this)->getAttrs().begin() + 0, (*this)->getAttrs().end() - 0, getUnrollVectorsGpuWmmaAttrName()).dyn_cast_or_null<::mlir::UnitAttr>();
-}
-
-bool ApplyPatternsOp::getUnrollVectorsGpuWmma() {
-  auto attr = getUnrollVectorsGpuWmmaAttr();
     if (!attr)
       return ((false) ? ::mlir::Builder((*this)->getContext()).getUnitAttr() : nullptr) != nullptr;
   return attr != nullptr;
@@ -1160,26 +1013,6 @@ void ApplyPatternsOp::setLowerVectorMasks(bool attrValue) {
     (*this)->removeAttr(getLowerVectorMasksAttrName());
 }
 
-void ApplyPatternsOp::setRankReducingLinalgAttr(::mlir::UnitAttr attr) {
-  (*this)->setAttr(getRankReducingLinalgAttrName(), attr);
-}
-
-void ApplyPatternsOp::setRankReducingLinalg(bool attrValue) {
-    if (attrValue)
-      return (*this)->setAttr(getRankReducingLinalgAttrName(), ((attrValue) ? ::mlir::Builder((*this)->getContext()).getUnitAttr() : nullptr));
-    (*this)->removeAttr(getRankReducingLinalgAttrName());
-}
-
-void ApplyPatternsOp::setRankReducingLinalgViaReshapesAttr(::mlir::UnitAttr attr) {
-  (*this)->setAttr(getRankReducingLinalgViaReshapesAttrName(), attr);
-}
-
-void ApplyPatternsOp::setRankReducingLinalgViaReshapes(bool attrValue) {
-    if (attrValue)
-      return (*this)->setAttr(getRankReducingLinalgViaReshapesAttrName(), ((attrValue) ? ::mlir::Builder((*this)->getContext()).getUnitAttr() : nullptr));
-    (*this)->removeAttr(getRankReducingLinalgViaReshapesAttrName());
-}
-
 void ApplyPatternsOp::setRankReducingVectorAttr(::mlir::UnitAttr attr) {
   (*this)->setAttr(getRankReducingVectorAttrName(), attr);
 }
@@ -1218,26 +1051,6 @@ void ApplyPatternsOp::setTilingCanonicalization(bool attrValue) {
     if (attrValue)
       return (*this)->setAttr(getTilingCanonicalizationAttrName(), ((attrValue) ? ::mlir::Builder((*this)->getContext()).getUnitAttr() : nullptr));
     (*this)->removeAttr(getTilingCanonicalizationAttrName());
-}
-
-void ApplyPatternsOp::setUnrollVectorsGpuMmaSyncAttr(::mlir::UnitAttr attr) {
-  (*this)->setAttr(getUnrollVectorsGpuMmaSyncAttrName(), attr);
-}
-
-void ApplyPatternsOp::setUnrollVectorsGpuMmaSync(bool attrValue) {
-    if (attrValue)
-      return (*this)->setAttr(getUnrollVectorsGpuMmaSyncAttrName(), ((attrValue) ? ::mlir::Builder((*this)->getContext()).getUnitAttr() : nullptr));
-    (*this)->removeAttr(getUnrollVectorsGpuMmaSyncAttrName());
-}
-
-void ApplyPatternsOp::setUnrollVectorsGpuWmmaAttr(::mlir::UnitAttr attr) {
-  (*this)->setAttr(getUnrollVectorsGpuWmmaAttrName(), attr);
-}
-
-void ApplyPatternsOp::setUnrollVectorsGpuWmma(bool attrValue) {
-    if (attrValue)
-      return (*this)->setAttr(getUnrollVectorsGpuWmmaAttrName(), ((attrValue) ? ::mlir::Builder((*this)->getContext()).getUnitAttr() : nullptr));
-    (*this)->removeAttr(getUnrollVectorsGpuWmmaAttrName());
 }
 
 ::mlir::Attribute ApplyPatternsOp::removeAdditionalPatternsAttr() {
@@ -1300,14 +1113,6 @@ void ApplyPatternsOp::setUnrollVectorsGpuWmma(bool attrValue) {
   return (*this)->removeAttr(getLowerVectorMasksAttrName());
 }
 
-::mlir::Attribute ApplyPatternsOp::removeRankReducingLinalgAttr() {
-  return (*this)->removeAttr(getRankReducingLinalgAttrName());
-}
-
-::mlir::Attribute ApplyPatternsOp::removeRankReducingLinalgViaReshapesAttr() {
-  return (*this)->removeAttr(getRankReducingLinalgViaReshapesAttrName());
-}
-
 ::mlir::Attribute ApplyPatternsOp::removeRankReducingVectorAttr() {
   return (*this)->removeAttr(getRankReducingVectorAttrName());
 }
@@ -1324,15 +1129,7 @@ void ApplyPatternsOp::setUnrollVectorsGpuWmma(bool attrValue) {
   return (*this)->removeAttr(getTilingCanonicalizationAttrName());
 }
 
-::mlir::Attribute ApplyPatternsOp::removeUnrollVectorsGpuMmaSyncAttr() {
-  return (*this)->removeAttr(getUnrollVectorsGpuMmaSyncAttrName());
-}
-
-::mlir::Attribute ApplyPatternsOp::removeUnrollVectorsGpuWmmaAttr() {
-  return (*this)->removeAttr(getUnrollVectorsGpuWmmaAttrName());
-}
-
-void ApplyPatternsOp::build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::Type result, ::mlir::Value target, /*optional*/::mlir::UnitAttr additional_patterns, /*optional*/::mlir::UnitAttr bubble_collapse, /*optional*/::mlir::UnitAttr bubble_expand, /*optional*/::mlir::UnitAttr bubble_pack_un_pack, /*optional*/::mlir::UnitAttr canonicalization, /*optional*/::mlir::UnitAttr cse, /*optional*/::mlir::UnitAttr erase_unnecessary_tensor_operands, /*optional*/::mlir::UnitAttr expand_memref_strided_metadata, /*optional*/::mlir::UnitAttr fold_memref_aliases, /*optional*/::mlir::UnitAttr fold_reassociative_reshapes, /*optional*/::mlir::UnitAttr fold_tensor_empty_extract, /*optional*/::mlir::UnitAttr licm, /*optional*/::mlir::UnitAttr linalg_elementwise_greedy_fusion, /*optional*/::mlir::UnitAttr lower_transfer_op_permutations, /*optional*/::mlir::UnitAttr lower_vector_masks, /*optional*/::mlir::UnitAttr rank_reducing_linalg, /*optional*/::mlir::UnitAttr rank_reducing_linalg_via_reshapes, /*optional*/::mlir::UnitAttr rank_reducing_vector, /*optional*/::mlir::UnitAttr swap_padding_elide_conditional, /*optional*/::mlir::UnitAttr swapping_patterns, /*optional*/::mlir::UnitAttr tiling_canonicalization, /*optional*/::mlir::UnitAttr unroll_vectors_gpu_mma_sync, /*optional*/::mlir::UnitAttr unroll_vectors_gpu_wmma) {
+void ApplyPatternsOp::build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::Value target, /*optional*/::mlir::UnitAttr additional_patterns, /*optional*/::mlir::UnitAttr bubble_collapse, /*optional*/::mlir::UnitAttr bubble_expand, /*optional*/::mlir::UnitAttr bubble_pack_un_pack, /*optional*/::mlir::UnitAttr canonicalization, /*optional*/::mlir::UnitAttr cse, /*optional*/::mlir::UnitAttr erase_unnecessary_tensor_operands, /*optional*/::mlir::UnitAttr expand_memref_strided_metadata, /*optional*/::mlir::UnitAttr fold_memref_aliases, /*optional*/::mlir::UnitAttr fold_reassociative_reshapes, /*optional*/::mlir::UnitAttr fold_tensor_empty_extract, /*optional*/::mlir::UnitAttr licm, /*optional*/::mlir::UnitAttr linalg_elementwise_greedy_fusion, /*optional*/::mlir::UnitAttr lower_transfer_op_permutations, /*optional*/::mlir::UnitAttr lower_vector_masks, /*optional*/::mlir::UnitAttr rank_reducing_vector, /*optional*/::mlir::UnitAttr swap_padding_elide_conditional, /*optional*/::mlir::UnitAttr swapping_patterns, /*optional*/::mlir::UnitAttr tiling_canonicalization) {
   odsState.addOperands(target);
   if (additional_patterns) {
     odsState.addAttribute(getAdditionalPatternsAttrName(odsState.name), additional_patterns);
@@ -1379,12 +1176,6 @@ void ApplyPatternsOp::build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationStat
   if (lower_vector_masks) {
     odsState.addAttribute(getLowerVectorMasksAttrName(odsState.name), lower_vector_masks);
   }
-  if (rank_reducing_linalg) {
-    odsState.addAttribute(getRankReducingLinalgAttrName(odsState.name), rank_reducing_linalg);
-  }
-  if (rank_reducing_linalg_via_reshapes) {
-    odsState.addAttribute(getRankReducingLinalgViaReshapesAttrName(odsState.name), rank_reducing_linalg_via_reshapes);
-  }
   if (rank_reducing_vector) {
     odsState.addAttribute(getRankReducingVectorAttrName(odsState.name), rank_reducing_vector);
   }
@@ -1397,16 +1188,9 @@ void ApplyPatternsOp::build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationStat
   if (tiling_canonicalization) {
     odsState.addAttribute(getTilingCanonicalizationAttrName(odsState.name), tiling_canonicalization);
   }
-  if (unroll_vectors_gpu_mma_sync) {
-    odsState.addAttribute(getUnrollVectorsGpuMmaSyncAttrName(odsState.name), unroll_vectors_gpu_mma_sync);
-  }
-  if (unroll_vectors_gpu_wmma) {
-    odsState.addAttribute(getUnrollVectorsGpuWmmaAttrName(odsState.name), unroll_vectors_gpu_wmma);
-  }
-  odsState.addTypes(result);
 }
 
-void ApplyPatternsOp::build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::Value target, /*optional*/::mlir::UnitAttr additional_patterns, /*optional*/::mlir::UnitAttr bubble_collapse, /*optional*/::mlir::UnitAttr bubble_expand, /*optional*/::mlir::UnitAttr bubble_pack_un_pack, /*optional*/::mlir::UnitAttr canonicalization, /*optional*/::mlir::UnitAttr cse, /*optional*/::mlir::UnitAttr erase_unnecessary_tensor_operands, /*optional*/::mlir::UnitAttr expand_memref_strided_metadata, /*optional*/::mlir::UnitAttr fold_memref_aliases, /*optional*/::mlir::UnitAttr fold_reassociative_reshapes, /*optional*/::mlir::UnitAttr fold_tensor_empty_extract, /*optional*/::mlir::UnitAttr licm, /*optional*/::mlir::UnitAttr linalg_elementwise_greedy_fusion, /*optional*/::mlir::UnitAttr lower_transfer_op_permutations, /*optional*/::mlir::UnitAttr lower_vector_masks, /*optional*/::mlir::UnitAttr rank_reducing_linalg, /*optional*/::mlir::UnitAttr rank_reducing_linalg_via_reshapes, /*optional*/::mlir::UnitAttr rank_reducing_vector, /*optional*/::mlir::UnitAttr swap_padding_elide_conditional, /*optional*/::mlir::UnitAttr swapping_patterns, /*optional*/::mlir::UnitAttr tiling_canonicalization, /*optional*/::mlir::UnitAttr unroll_vectors_gpu_mma_sync, /*optional*/::mlir::UnitAttr unroll_vectors_gpu_wmma) {
+void ApplyPatternsOp::build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::Value target, /*optional*/::mlir::UnitAttr additional_patterns, /*optional*/::mlir::UnitAttr bubble_collapse, /*optional*/::mlir::UnitAttr bubble_expand, /*optional*/::mlir::UnitAttr bubble_pack_un_pack, /*optional*/::mlir::UnitAttr canonicalization, /*optional*/::mlir::UnitAttr cse, /*optional*/::mlir::UnitAttr erase_unnecessary_tensor_operands, /*optional*/::mlir::UnitAttr expand_memref_strided_metadata, /*optional*/::mlir::UnitAttr fold_memref_aliases, /*optional*/::mlir::UnitAttr fold_reassociative_reshapes, /*optional*/::mlir::UnitAttr fold_tensor_empty_extract, /*optional*/::mlir::UnitAttr licm, /*optional*/::mlir::UnitAttr linalg_elementwise_greedy_fusion, /*optional*/::mlir::UnitAttr lower_transfer_op_permutations, /*optional*/::mlir::UnitAttr lower_vector_masks, /*optional*/::mlir::UnitAttr rank_reducing_vector, /*optional*/::mlir::UnitAttr swap_padding_elide_conditional, /*optional*/::mlir::UnitAttr swapping_patterns, /*optional*/::mlir::UnitAttr tiling_canonicalization) {
   odsState.addOperands(target);
   if (additional_patterns) {
     odsState.addAttribute(getAdditionalPatternsAttrName(odsState.name), additional_patterns);
@@ -1453,12 +1237,6 @@ void ApplyPatternsOp::build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationStat
   if (lower_vector_masks) {
     odsState.addAttribute(getLowerVectorMasksAttrName(odsState.name), lower_vector_masks);
   }
-  if (rank_reducing_linalg) {
-    odsState.addAttribute(getRankReducingLinalgAttrName(odsState.name), rank_reducing_linalg);
-  }
-  if (rank_reducing_linalg_via_reshapes) {
-    odsState.addAttribute(getRankReducingLinalgViaReshapesAttrName(odsState.name), rank_reducing_linalg_via_reshapes);
-  }
   if (rank_reducing_vector) {
     odsState.addAttribute(getRankReducingVectorAttrName(odsState.name), rank_reducing_vector);
   }
@@ -1471,17 +1249,11 @@ void ApplyPatternsOp::build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationStat
   if (tiling_canonicalization) {
     odsState.addAttribute(getTilingCanonicalizationAttrName(odsState.name), tiling_canonicalization);
   }
-  if (unroll_vectors_gpu_mma_sync) {
-    odsState.addAttribute(getUnrollVectorsGpuMmaSyncAttrName(odsState.name), unroll_vectors_gpu_mma_sync);
-  }
-  if (unroll_vectors_gpu_wmma) {
-    odsState.addAttribute(getUnrollVectorsGpuWmmaAttrName(odsState.name), unroll_vectors_gpu_wmma);
-  }
-  assert(resultTypes.size() == 1u && "mismatched number of results");
+  assert(resultTypes.size() == 0u && "mismatched number of results");
   odsState.addTypes(resultTypes);
 }
 
-void ApplyPatternsOp::build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::Type result, ::mlir::Value target, /*optional*/bool additional_patterns, /*optional*/bool bubble_collapse, /*optional*/bool bubble_expand, /*optional*/bool bubble_pack_un_pack, /*optional*/bool canonicalization, /*optional*/bool cse, /*optional*/bool erase_unnecessary_tensor_operands, /*optional*/bool expand_memref_strided_metadata, /*optional*/bool fold_memref_aliases, /*optional*/bool fold_reassociative_reshapes, /*optional*/bool fold_tensor_empty_extract, /*optional*/bool licm, /*optional*/bool linalg_elementwise_greedy_fusion, /*optional*/bool lower_transfer_op_permutations, /*optional*/bool lower_vector_masks, /*optional*/bool rank_reducing_linalg, /*optional*/bool rank_reducing_linalg_via_reshapes, /*optional*/bool rank_reducing_vector, /*optional*/bool swap_padding_elide_conditional, /*optional*/bool swapping_patterns, /*optional*/bool tiling_canonicalization, /*optional*/bool unroll_vectors_gpu_mma_sync, /*optional*/bool unroll_vectors_gpu_wmma) {
+void ApplyPatternsOp::build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::Value target, /*optional*/bool additional_patterns, /*optional*/bool bubble_collapse, /*optional*/bool bubble_expand, /*optional*/bool bubble_pack_un_pack, /*optional*/bool canonicalization, /*optional*/bool cse, /*optional*/bool erase_unnecessary_tensor_operands, /*optional*/bool expand_memref_strided_metadata, /*optional*/bool fold_memref_aliases, /*optional*/bool fold_reassociative_reshapes, /*optional*/bool fold_tensor_empty_extract, /*optional*/bool licm, /*optional*/bool linalg_elementwise_greedy_fusion, /*optional*/bool lower_transfer_op_permutations, /*optional*/bool lower_vector_masks, /*optional*/bool rank_reducing_vector, /*optional*/bool swap_padding_elide_conditional, /*optional*/bool swapping_patterns, /*optional*/bool tiling_canonicalization) {
   odsState.addOperands(target);
   if (additional_patterns) {
     odsState.addAttribute(getAdditionalPatternsAttrName(odsState.name), ((additional_patterns) ? odsBuilder.getUnitAttr() : nullptr));
@@ -1528,12 +1300,6 @@ void ApplyPatternsOp::build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationStat
   if (lower_vector_masks) {
     odsState.addAttribute(getLowerVectorMasksAttrName(odsState.name), ((lower_vector_masks) ? odsBuilder.getUnitAttr() : nullptr));
   }
-  if (rank_reducing_linalg) {
-    odsState.addAttribute(getRankReducingLinalgAttrName(odsState.name), ((rank_reducing_linalg) ? odsBuilder.getUnitAttr() : nullptr));
-  }
-  if (rank_reducing_linalg_via_reshapes) {
-    odsState.addAttribute(getRankReducingLinalgViaReshapesAttrName(odsState.name), ((rank_reducing_linalg_via_reshapes) ? odsBuilder.getUnitAttr() : nullptr));
-  }
   if (rank_reducing_vector) {
     odsState.addAttribute(getRankReducingVectorAttrName(odsState.name), ((rank_reducing_vector) ? odsBuilder.getUnitAttr() : nullptr));
   }
@@ -1546,16 +1312,9 @@ void ApplyPatternsOp::build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationStat
   if (tiling_canonicalization) {
     odsState.addAttribute(getTilingCanonicalizationAttrName(odsState.name), ((tiling_canonicalization) ? odsBuilder.getUnitAttr() : nullptr));
   }
-  if (unroll_vectors_gpu_mma_sync) {
-    odsState.addAttribute(getUnrollVectorsGpuMmaSyncAttrName(odsState.name), ((unroll_vectors_gpu_mma_sync) ? odsBuilder.getUnitAttr() : nullptr));
-  }
-  if (unroll_vectors_gpu_wmma) {
-    odsState.addAttribute(getUnrollVectorsGpuWmmaAttrName(odsState.name), ((unroll_vectors_gpu_wmma) ? odsBuilder.getUnitAttr() : nullptr));
-  }
-  odsState.addTypes(result);
 }
 
-void ApplyPatternsOp::build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::Value target, /*optional*/bool additional_patterns, /*optional*/bool bubble_collapse, /*optional*/bool bubble_expand, /*optional*/bool bubble_pack_un_pack, /*optional*/bool canonicalization, /*optional*/bool cse, /*optional*/bool erase_unnecessary_tensor_operands, /*optional*/bool expand_memref_strided_metadata, /*optional*/bool fold_memref_aliases, /*optional*/bool fold_reassociative_reshapes, /*optional*/bool fold_tensor_empty_extract, /*optional*/bool licm, /*optional*/bool linalg_elementwise_greedy_fusion, /*optional*/bool lower_transfer_op_permutations, /*optional*/bool lower_vector_masks, /*optional*/bool rank_reducing_linalg, /*optional*/bool rank_reducing_linalg_via_reshapes, /*optional*/bool rank_reducing_vector, /*optional*/bool swap_padding_elide_conditional, /*optional*/bool swapping_patterns, /*optional*/bool tiling_canonicalization, /*optional*/bool unroll_vectors_gpu_mma_sync, /*optional*/bool unroll_vectors_gpu_wmma) {
+void ApplyPatternsOp::build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::Value target, /*optional*/bool additional_patterns, /*optional*/bool bubble_collapse, /*optional*/bool bubble_expand, /*optional*/bool bubble_pack_un_pack, /*optional*/bool canonicalization, /*optional*/bool cse, /*optional*/bool erase_unnecessary_tensor_operands, /*optional*/bool expand_memref_strided_metadata, /*optional*/bool fold_memref_aliases, /*optional*/bool fold_reassociative_reshapes, /*optional*/bool fold_tensor_empty_extract, /*optional*/bool licm, /*optional*/bool linalg_elementwise_greedy_fusion, /*optional*/bool lower_transfer_op_permutations, /*optional*/bool lower_vector_masks, /*optional*/bool rank_reducing_vector, /*optional*/bool swap_padding_elide_conditional, /*optional*/bool swapping_patterns, /*optional*/bool tiling_canonicalization) {
   odsState.addOperands(target);
   if (additional_patterns) {
     odsState.addAttribute(getAdditionalPatternsAttrName(odsState.name), ((additional_patterns) ? odsBuilder.getUnitAttr() : nullptr));
@@ -1602,12 +1361,6 @@ void ApplyPatternsOp::build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationStat
   if (lower_vector_masks) {
     odsState.addAttribute(getLowerVectorMasksAttrName(odsState.name), ((lower_vector_masks) ? odsBuilder.getUnitAttr() : nullptr));
   }
-  if (rank_reducing_linalg) {
-    odsState.addAttribute(getRankReducingLinalgAttrName(odsState.name), ((rank_reducing_linalg) ? odsBuilder.getUnitAttr() : nullptr));
-  }
-  if (rank_reducing_linalg_via_reshapes) {
-    odsState.addAttribute(getRankReducingLinalgViaReshapesAttrName(odsState.name), ((rank_reducing_linalg_via_reshapes) ? odsBuilder.getUnitAttr() : nullptr));
-  }
   if (rank_reducing_vector) {
     odsState.addAttribute(getRankReducingVectorAttrName(odsState.name), ((rank_reducing_vector) ? odsBuilder.getUnitAttr() : nullptr));
   }
@@ -1620,13 +1373,7 @@ void ApplyPatternsOp::build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationStat
   if (tiling_canonicalization) {
     odsState.addAttribute(getTilingCanonicalizationAttrName(odsState.name), ((tiling_canonicalization) ? odsBuilder.getUnitAttr() : nullptr));
   }
-  if (unroll_vectors_gpu_mma_sync) {
-    odsState.addAttribute(getUnrollVectorsGpuMmaSyncAttrName(odsState.name), ((unroll_vectors_gpu_mma_sync) ? odsBuilder.getUnitAttr() : nullptr));
-  }
-  if (unroll_vectors_gpu_wmma) {
-    odsState.addAttribute(getUnrollVectorsGpuWmmaAttrName(odsState.name), ((unroll_vectors_gpu_wmma) ? odsBuilder.getUnitAttr() : nullptr));
-  }
-  assert(resultTypes.size() == 1u && "mismatched number of results");
+  assert(resultTypes.size() == 0u && "mismatched number of results");
   odsState.addTypes(resultTypes);
 }
 
@@ -1634,7 +1381,7 @@ void ApplyPatternsOp::build(::mlir::OpBuilder &, ::mlir::OperationState &odsStat
   assert(operands.size() == 1u && "mismatched number of parameters");
   odsState.addOperands(operands);
   odsState.addAttributes(attributes);
-  assert(resultTypes.size() == 1u && "mismatched number of return types");
+  assert(resultTypes.size() == 0u && "mismatched number of return types");
   odsState.addTypes(resultTypes);
 }
 
@@ -1656,14 +1403,10 @@ void ApplyPatternsOp::build(::mlir::OpBuilder &, ::mlir::OperationState &odsStat
   ::mlir::Attribute tblgen_linalg_elementwise_greedy_fusion;
   ::mlir::Attribute tblgen_lower_transfer_op_permutations;
   ::mlir::Attribute tblgen_lower_vector_masks;
-  ::mlir::Attribute tblgen_rank_reducing_linalg;
-  ::mlir::Attribute tblgen_rank_reducing_linalg_via_reshapes;
   ::mlir::Attribute tblgen_rank_reducing_vector;
   ::mlir::Attribute tblgen_swap_padding_elide_conditional;
   ::mlir::Attribute tblgen_swapping_patterns;
   ::mlir::Attribute tblgen_tiling_canonicalization;
-  ::mlir::Attribute tblgen_unroll_vectors_gpu_mma_sync;
-  ::mlir::Attribute tblgen_unroll_vectors_gpu_wmma;
   while (true) {
     if (namedAttrIt == namedAttrRange.end()) {
       break;
@@ -1713,12 +1456,6 @@ void ApplyPatternsOp::build(::mlir::OpBuilder &, ::mlir::OperationState &odsStat
     else if (namedAttrIt->getName() == getLowerVectorMasksAttrName()) {
       tblgen_lower_vector_masks = namedAttrIt->getValue();
     }
-    else if (namedAttrIt->getName() == getRankReducingLinalgAttrName()) {
-      tblgen_rank_reducing_linalg = namedAttrIt->getValue();
-    }
-    else if (namedAttrIt->getName() == getRankReducingLinalgViaReshapesAttrName()) {
-      tblgen_rank_reducing_linalg_via_reshapes = namedAttrIt->getValue();
-    }
     else if (namedAttrIt->getName() == getRankReducingVectorAttrName()) {
       tblgen_rank_reducing_vector = namedAttrIt->getValue();
     }
@@ -1730,12 +1467,6 @@ void ApplyPatternsOp::build(::mlir::OpBuilder &, ::mlir::OperationState &odsStat
     }
     else if (namedAttrIt->getName() == getTilingCanonicalizationAttrName()) {
       tblgen_tiling_canonicalization = namedAttrIt->getValue();
-    }
-    else if (namedAttrIt->getName() == getUnrollVectorsGpuMmaSyncAttrName()) {
-      tblgen_unroll_vectors_gpu_mma_sync = namedAttrIt->getValue();
-    }
-    else if (namedAttrIt->getName() == getUnrollVectorsGpuWmmaAttrName()) {
-      tblgen_unroll_vectors_gpu_wmma = namedAttrIt->getValue();
     }
     ++namedAttrIt;
   }
@@ -1785,12 +1516,6 @@ void ApplyPatternsOp::build(::mlir::OpBuilder &, ::mlir::OperationState &odsStat
   if (::mlir::failed(__mlir_ods_local_attr_constraint_CommonExtensionsOps0(*this, tblgen_lower_vector_masks, "lower_vector_masks")))
     return ::mlir::failure();
 
-  if (::mlir::failed(__mlir_ods_local_attr_constraint_CommonExtensionsOps0(*this, tblgen_rank_reducing_linalg, "rank_reducing_linalg")))
-    return ::mlir::failure();
-
-  if (::mlir::failed(__mlir_ods_local_attr_constraint_CommonExtensionsOps0(*this, tblgen_rank_reducing_linalg_via_reshapes, "rank_reducing_linalg_via_reshapes")))
-    return ::mlir::failure();
-
   if (::mlir::failed(__mlir_ods_local_attr_constraint_CommonExtensionsOps0(*this, tblgen_rank_reducing_vector, "rank_reducing_vector")))
     return ::mlir::failure();
 
@@ -1802,27 +1527,12 @@ void ApplyPatternsOp::build(::mlir::OpBuilder &, ::mlir::OperationState &odsStat
 
   if (::mlir::failed(__mlir_ods_local_attr_constraint_CommonExtensionsOps0(*this, tblgen_tiling_canonicalization, "tiling_canonicalization")))
     return ::mlir::failure();
-
-  if (::mlir::failed(__mlir_ods_local_attr_constraint_CommonExtensionsOps0(*this, tblgen_unroll_vectors_gpu_mma_sync, "unroll_vectors_gpu_mma_sync")))
-    return ::mlir::failure();
-
-  if (::mlir::failed(__mlir_ods_local_attr_constraint_CommonExtensionsOps0(*this, tblgen_unroll_vectors_gpu_wmma, "unroll_vectors_gpu_wmma")))
-    return ::mlir::failure();
   {
     unsigned index = 0; (void)index;
     auto valueGroup0 = getODSOperands(0);
 
     for (auto v : valueGroup0) {
       if (::mlir::failed(__mlir_ods_local_type_constraint_CommonExtensionsOps0(*this, v.getType(), "operand", index++)))
-        return ::mlir::failure();
-    }
-  }
-  {
-    unsigned index = 0; (void)index;
-    auto valueGroup0 = getODSResults(0);
-
-    for (auto v : valueGroup0) {
-      if (::mlir::failed(__mlir_ods_local_type_constraint_CommonExtensionsOps0(*this, v.getType(), "result", index++)))
         return ::mlir::failure();
     }
   }
@@ -1837,15 +1547,24 @@ void ApplyPatternsOp::build(::mlir::OpBuilder &, ::mlir::OperationState &odsStat
   ::mlir::OpAsmParser::UnresolvedOperand targetRawOperands[1];
   ::llvm::ArrayRef<::mlir::OpAsmParser::UnresolvedOperand> targetOperands(targetRawOperands);  ::llvm::SMLoc targetOperandsLoc;
   (void)targetOperandsLoc;
+  ::llvm::ArrayRef<::mlir::Type> targetTypes;
+  ::llvm::ArrayRef<::mlir::Type> allResultTypes;
 
   targetOperandsLoc = parser.getCurrentLocation();
   if (parser.parseOperand(targetRawOperands[0]))
     return ::mlir::failure();
   if (parser.parseOptionalAttrDict(result.attributes))
     return ::mlir::failure();
-  ::mlir::Type odsBuildableType0 = parser.getBuilder().getType<::mlir::pdl::OperationType>();
-  result.addTypes(odsBuildableType0);
-  if (parser.resolveOperands(targetOperands, odsBuildableType0, targetOperandsLoc, result.operands))
+  if (parser.parseColon())
+    return ::mlir::failure();
+
+  ::mlir::FunctionType target__allResult_functionType;
+  if (parser.parseType(target__allResult_functionType))
+    return ::mlir::failure();
+  targetTypes = target__allResult_functionType.getInputs();
+  allResultTypes = target__allResult_functionType.getResults();
+  result.addTypes(allResultTypes);
+  if (parser.resolveOperands(targetOperands, targetTypes, targetOperandsLoc, result.operands))
     return ::mlir::failure();
   return ::mlir::success();
 }
@@ -1946,18 +1665,6 @@ void ApplyPatternsOp::print(::mlir::OpAsmPrinter &_odsPrinter) {
   }
   {
      ::mlir::Builder odsBuilder(getContext());
-     ::mlir::Attribute attr = getRankReducingLinalgAttr();
-     if(attr && (attr == ((false) ? odsBuilder.getUnitAttr() : nullptr)))
-       elidedAttrs.push_back("rank_reducing_linalg");
-  }
-  {
-     ::mlir::Builder odsBuilder(getContext());
-     ::mlir::Attribute attr = getRankReducingLinalgViaReshapesAttr();
-     if(attr && (attr == ((false) ? odsBuilder.getUnitAttr() : nullptr)))
-       elidedAttrs.push_back("rank_reducing_linalg_via_reshapes");
-  }
-  {
-     ::mlir::Builder odsBuilder(getContext());
      ::mlir::Attribute attr = getRankReducingVectorAttr();
      if(attr && (attr == ((false) ? odsBuilder.getUnitAttr() : nullptr)))
        elidedAttrs.push_back("rank_reducing_vector");
@@ -1980,19 +1687,10 @@ void ApplyPatternsOp::print(::mlir::OpAsmPrinter &_odsPrinter) {
      if(attr && (attr == ((false) ? odsBuilder.getUnitAttr() : nullptr)))
        elidedAttrs.push_back("tiling_canonicalization");
   }
-  {
-     ::mlir::Builder odsBuilder(getContext());
-     ::mlir::Attribute attr = getUnrollVectorsGpuMmaSyncAttr();
-     if(attr && (attr == ((false) ? odsBuilder.getUnitAttr() : nullptr)))
-       elidedAttrs.push_back("unroll_vectors_gpu_mma_sync");
-  }
-  {
-     ::mlir::Builder odsBuilder(getContext());
-     ::mlir::Attribute attr = getUnrollVectorsGpuWmmaAttr();
-     if(attr && (attr == ((false) ? odsBuilder.getUnitAttr() : nullptr)))
-       elidedAttrs.push_back("unroll_vectors_gpu_wmma");
-  }
   _odsPrinter.printOptionalAttrDict((*this)->getAttrs(), elidedAttrs);
+  _odsPrinter << ' ' << ":";
+  _odsPrinter << ' ';
+  _odsPrinter.printFunctionalType(::llvm::ArrayRef<::mlir::Type>(getTarget().getType()), getOperation()->getResultTypes());
 }
 
 } // namespace transform
@@ -2056,18 +1754,13 @@ std::pair<unsigned, unsigned> HoistStaticAllocOp::getODSResultIndexAndLength(uns
            std::next(getOperation()->result_begin(), valueRange.first + valueRange.second)};
 }
 
-::mlir::TypedValue<::mlir::transform::TransformHandleTypeInterface> HoistStaticAllocOp::getResult() {
-  return ::llvm::cast<::mlir::TypedValue<::mlir::transform::TransformHandleTypeInterface>>(*getODSResults(0).begin());
-}
-
-void HoistStaticAllocOp::build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::Type result, ::mlir::Value target) {
+void HoistStaticAllocOp::build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::Value target) {
   odsState.addOperands(target);
-  odsState.addTypes(result);
 }
 
 void HoistStaticAllocOp::build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::Value target) {
   odsState.addOperands(target);
-  assert(resultTypes.size() == 1u && "mismatched number of results");
+  assert(resultTypes.size() == 0u && "mismatched number of results");
   odsState.addTypes(resultTypes);
 }
 
@@ -2075,7 +1768,7 @@ void HoistStaticAllocOp::build(::mlir::OpBuilder &, ::mlir::OperationState &odsS
   assert(operands.size() == 1u && "mismatched number of parameters");
   odsState.addOperands(operands);
   odsState.addAttributes(attributes);
-  assert(resultTypes.size() == 1u && "mismatched number of return types");
+  assert(resultTypes.size() == 0u && "mismatched number of return types");
   odsState.addTypes(resultTypes);
 }
 
@@ -2085,16 +1778,7 @@ void HoistStaticAllocOp::build(::mlir::OpBuilder &, ::mlir::OperationState &odsS
     auto valueGroup0 = getODSOperands(0);
 
     for (auto v : valueGroup0) {
-      if (::mlir::failed(__mlir_ods_local_type_constraint_CommonExtensionsOps1(*this, v.getType(), "operand", index++)))
-        return ::mlir::failure();
-    }
-  }
-  {
-    unsigned index = 0; (void)index;
-    auto valueGroup0 = getODSResults(0);
-
-    for (auto v : valueGroup0) {
-      if (::mlir::failed(__mlir_ods_local_type_constraint_CommonExtensionsOps1(*this, v.getType(), "result", index++)))
+      if (::mlir::failed(__mlir_ods_local_type_constraint_CommonExtensionsOps0(*this, v.getType(), "operand", index++)))
         return ::mlir::failure();
     }
   }
@@ -2320,7 +2004,7 @@ void ShareForallOperandsOp::build(::mlir::OpBuilder &, ::mlir::OperationState &o
     auto valueGroup0 = getODSOperands(0);
 
     for (auto v : valueGroup0) {
-      if (::mlir::failed(__mlir_ods_local_type_constraint_CommonExtensionsOps1(*this, v.getType(), "operand", index++)))
+      if (::mlir::failed(__mlir_ods_local_type_constraint_CommonExtensionsOps0(*this, v.getType(), "operand", index++)))
         return ::mlir::failure();
     }
   }
@@ -2329,7 +2013,7 @@ void ShareForallOperandsOp::build(::mlir::OpBuilder &, ::mlir::OperationState &o
     auto valueGroup0 = getODSResults(0);
 
     for (auto v : valueGroup0) {
-      if (::mlir::failed(__mlir_ods_local_type_constraint_CommonExtensionsOps1(*this, v.getType(), "result", index++)))
+      if (::mlir::failed(__mlir_ods_local_type_constraint_CommonExtensionsOps0(*this, v.getType(), "result", index++)))
         return ::mlir::failure();
     }
   }
@@ -2514,8 +2198,8 @@ std::pair<unsigned, unsigned> TransformBufferizeOp::getODSOperandIndexAndLength(
            std::next(getOperation()->operand_begin(), valueRange.first + valueRange.second)};
 }
 
-::mlir::TypedValue<::mlir::pdl::OperationType> TransformBufferizeOp::getTarget() {
-  return ::llvm::cast<::mlir::TypedValue<::mlir::pdl::OperationType>>(*getODSOperands(0).begin());
+::mlir::TypedValue<::mlir::transform::TransformHandleTypeInterface> TransformBufferizeOp::getTarget() {
+  return ::llvm::cast<::mlir::TypedValue<::mlir::transform::TransformHandleTypeInterface>>(*getODSOperands(0).begin());
 }
 
 ::mlir::MutableOperandRange TransformBufferizeOp::getTargetMutable() {
@@ -2534,8 +2218,8 @@ std::pair<unsigned, unsigned> TransformBufferizeOp::getODSResultIndexAndLength(u
            std::next(getOperation()->result_begin(), valueRange.first + valueRange.second)};
 }
 
-::mlir::TypedValue<::mlir::pdl::OperationType> TransformBufferizeOp::getResult() {
-  return ::llvm::cast<::mlir::TypedValue<::mlir::pdl::OperationType>>(*getODSResults(0).begin());
+::mlir::TypedValue<::mlir::transform::TransformHandleTypeInterface> TransformBufferizeOp::getResult() {
+  return ::llvm::cast<::mlir::TypedValue<::mlir::transform::TransformHandleTypeInterface>>(*getODSResults(0).begin());
 }
 
 ::mlir::UnitAttr TransformBufferizeOp::getTargetGpuAttr() {
@@ -2738,15 +2422,24 @@ void TransformBufferizeOp::build(::mlir::OpBuilder &, ::mlir::OperationState &od
   ::mlir::OpAsmParser::UnresolvedOperand targetRawOperands[1];
   ::llvm::ArrayRef<::mlir::OpAsmParser::UnresolvedOperand> targetOperands(targetRawOperands);  ::llvm::SMLoc targetOperandsLoc;
   (void)targetOperandsLoc;
+  ::llvm::ArrayRef<::mlir::Type> targetTypes;
+  ::llvm::ArrayRef<::mlir::Type> allResultTypes;
   if (parser.parseOptionalAttrDict(result.attributes))
     return ::mlir::failure();
 
   targetOperandsLoc = parser.getCurrentLocation();
   if (parser.parseOperand(targetRawOperands[0]))
     return ::mlir::failure();
-  ::mlir::Type odsBuildableType0 = parser.getBuilder().getType<::mlir::pdl::OperationType>();
-  result.addTypes(odsBuildableType0);
-  if (parser.resolveOperands(targetOperands, odsBuildableType0, targetOperandsLoc, result.operands))
+  if (parser.parseColon())
+    return ::mlir::failure();
+
+  ::mlir::FunctionType target__allResult_functionType;
+  if (parser.parseType(target__allResult_functionType))
+    return ::mlir::failure();
+  targetTypes = target__allResult_functionType.getInputs();
+  allResultTypes = target__allResult_functionType.getResults();
+  result.addTypes(allResultTypes);
+  if (parser.resolveOperands(targetOperands, targetTypes, targetOperandsLoc, result.operands))
     return ::mlir::failure();
   return ::mlir::success();
 }
@@ -2774,6 +2467,9 @@ void TransformBufferizeOp::print(::mlir::OpAsmPrinter &_odsPrinter) {
   _odsPrinter.printOptionalAttrDict((*this)->getAttrs(), elidedAttrs);
   _odsPrinter << ' ';
   _odsPrinter << getTarget();
+  _odsPrinter << ' ' << ":";
+  _odsPrinter << ' ';
+  _odsPrinter.printFunctionalType(::llvm::ArrayRef<::mlir::Type>(getTarget().getType()), getOperation()->getResultTypes());
 }
 
 } // namespace transform
@@ -2817,8 +2513,8 @@ std::pair<unsigned, unsigned> TransformEliminateEmptyTensorsOp::getODSOperandInd
            std::next(getOperation()->operand_begin(), valueRange.first + valueRange.second)};
 }
 
-::mlir::TypedValue<::mlir::pdl::OperationType> TransformEliminateEmptyTensorsOp::getTarget() {
-  return ::llvm::cast<::mlir::TypedValue<::mlir::pdl::OperationType>>(*getODSOperands(0).begin());
+::mlir::TypedValue<::mlir::transform::TransformHandleTypeInterface> TransformEliminateEmptyTensorsOp::getTarget() {
+  return ::llvm::cast<::mlir::TypedValue<::mlir::transform::TransformHandleTypeInterface>>(*getODSOperands(0).begin());
 }
 
 ::mlir::MutableOperandRange TransformEliminateEmptyTensorsOp::getTargetMutable() {
@@ -2837,18 +2533,13 @@ std::pair<unsigned, unsigned> TransformEliminateEmptyTensorsOp::getODSResultInde
            std::next(getOperation()->result_begin(), valueRange.first + valueRange.second)};
 }
 
-::mlir::TypedValue<::mlir::pdl::OperationType> TransformEliminateEmptyTensorsOp::getResult() {
-  return ::llvm::cast<::mlir::TypedValue<::mlir::pdl::OperationType>>(*getODSResults(0).begin());
-}
-
-void TransformEliminateEmptyTensorsOp::build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::Type result, ::mlir::Value target) {
+void TransformEliminateEmptyTensorsOp::build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::Value target) {
   odsState.addOperands(target);
-  odsState.addTypes(result);
 }
 
 void TransformEliminateEmptyTensorsOp::build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::Value target) {
   odsState.addOperands(target);
-  assert(resultTypes.size() == 1u && "mismatched number of results");
+  assert(resultTypes.size() == 0u && "mismatched number of results");
   odsState.addTypes(resultTypes);
 }
 
@@ -2856,7 +2547,7 @@ void TransformEliminateEmptyTensorsOp::build(::mlir::OpBuilder &, ::mlir::Operat
   assert(operands.size() == 1u && "mismatched number of parameters");
   odsState.addOperands(operands);
   odsState.addAttributes(attributes);
-  assert(resultTypes.size() == 1u && "mismatched number of return types");
+  assert(resultTypes.size() == 0u && "mismatched number of return types");
   odsState.addTypes(resultTypes);
 }
 
@@ -2867,15 +2558,6 @@ void TransformEliminateEmptyTensorsOp::build(::mlir::OpBuilder &, ::mlir::Operat
 
     for (auto v : valueGroup0) {
       if (::mlir::failed(__mlir_ods_local_type_constraint_CommonExtensionsOps0(*this, v.getType(), "operand", index++)))
-        return ::mlir::failure();
-    }
-  }
-  {
-    unsigned index = 0; (void)index;
-    auto valueGroup0 = getODSResults(0);
-
-    for (auto v : valueGroup0) {
-      if (::mlir::failed(__mlir_ods_local_type_constraint_CommonExtensionsOps0(*this, v.getType(), "result", index++)))
         return ::mlir::failure();
     }
   }
@@ -2890,15 +2572,24 @@ void TransformEliminateEmptyTensorsOp::build(::mlir::OpBuilder &, ::mlir::Operat
   ::mlir::OpAsmParser::UnresolvedOperand targetRawOperands[1];
   ::llvm::ArrayRef<::mlir::OpAsmParser::UnresolvedOperand> targetOperands(targetRawOperands);  ::llvm::SMLoc targetOperandsLoc;
   (void)targetOperandsLoc;
+  ::llvm::ArrayRef<::mlir::Type> targetTypes;
+  ::llvm::ArrayRef<::mlir::Type> allResultTypes;
   if (parser.parseOptionalAttrDict(result.attributes))
     return ::mlir::failure();
 
   targetOperandsLoc = parser.getCurrentLocation();
   if (parser.parseOperand(targetRawOperands[0]))
     return ::mlir::failure();
-  ::mlir::Type odsBuildableType0 = parser.getBuilder().getType<::mlir::pdl::OperationType>();
-  result.addTypes(odsBuildableType0);
-  if (parser.resolveOperands(targetOperands, odsBuildableType0, targetOperandsLoc, result.operands))
+  if (parser.parseColon())
+    return ::mlir::failure();
+
+  ::mlir::FunctionType target__allResult_functionType;
+  if (parser.parseType(target__allResult_functionType))
+    return ::mlir::failure();
+  targetTypes = target__allResult_functionType.getInputs();
+  allResultTypes = target__allResult_functionType.getResults();
+  result.addTypes(allResultTypes);
+  if (parser.resolveOperands(targetOperands, targetTypes, targetOperandsLoc, result.operands))
     return ::mlir::failure();
   return ::mlir::success();
 }
@@ -2908,6 +2599,9 @@ void TransformEliminateEmptyTensorsOp::print(::mlir::OpAsmPrinter &_odsPrinter) 
   _odsPrinter.printOptionalAttrDict((*this)->getAttrs(), elidedAttrs);
   _odsPrinter << ' ';
   _odsPrinter << getTarget();
+  _odsPrinter << ' ' << ":";
+  _odsPrinter << ' ';
+  _odsPrinter.printFunctionalType(::llvm::ArrayRef<::mlir::Type>(getTarget().getType()), getOperation()->getResultTypes());
 }
 
 } // namespace transform
