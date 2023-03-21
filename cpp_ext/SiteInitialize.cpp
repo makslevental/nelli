@@ -2,7 +2,7 @@
 #include "mlir/Bindings/Python/PybindAdaptors.h"
 #include "mlir/CAPI/IR.h"
 #include "mlir/Target/LLVMIR/Dialect/OpenMP/OpenMPToLLVMIRTranslation.h"
-#include "CommonExtensions/CommonExtensions.h"
+#include "Transform/CommonExtensions/CommonExtensions.h"
 
 namespace py = pybind11;
 using namespace llvm;

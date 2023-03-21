@@ -3,6 +3,8 @@
 //
 
 #include <iostream>
+#include <deque>
+#include <functional>
 
 #ifndef NELLI_UTILS_H
 #define NELLI_UTILS_H
@@ -38,9 +40,6 @@ template <typename... Args> void logger(std::string vars, Args &&...values) {
     std::cout << "[" << __FILE__ << "][" << __PRETTY_FUNCTION__ << "][Line "   \
               << __LINE__ << "] " << str << std::endl;                         \
   }
-
-#include <deque>
-#include <functional>
 
 class scope_guard {
 public:

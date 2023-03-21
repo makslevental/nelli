@@ -46,7 +46,7 @@ struct ApplyPatternsOpPatterns {
   bool linalgElementwiseGreedyFusion = false;
   bool lowerTransferOpPermutations = false;
   bool lowerVectorMasks = false;
-  bool promoteForallCaptureToShared = false;
+//  bool promoteForallCaptureToShared = false;
   bool rankReducingLinalg = false;
   bool rankReducingLinalgViaReshapes = false;
   bool rankReducingVector = false;
@@ -64,38 +64,6 @@ struct ApplyPatternsOpPatterns {
 #include "CommonExtensionsOps.h.inc"
 
 namespace mlir {
-
-/// Creates an allocation in the entry block of the function if the size is
-/// statically bounded. For a static allocation, it returns an allocation
-/// of the same size but in the entry basic block. For dynamic (still bounded)
-/// allocations creates an allocation, and inserts a subview to match the
-/// dynamic shape of the allocation. Returns std::nullopt if the method
-/// couldnt creat an allocation in the entry block.
-template <typename AllocLikeOpType>
-std::optional<Value> hoistOneStaticallyBoundAllocation(
-    func::FuncOp funcOp, OpBuilder &builder, Location loc,
-    MemRefType allocaType, ValueRange dynamicSizes,
-    std::optional<uint64_t> alignment);
-
-/// Hoists `allocaOp` to the entry block of the function if the size is
-/// statically bounded. For a static allocation, it returns an allocation
-/// of the same size but in the entry basic block. For dynamic (still bounded)
-/// allocations creates an allocation, and inserts a subview to match the
-/// dynamic shape of the allocation. The method returns a value, but
-/// does not replace the uses of the `allocaOp`.
-template <typename AllocLikeOpType>
-std::optional<Value> hoistOneStaticallyBoundAllocation(
-    func::FuncOp funcOp, OpBuilder &builder, AllocLikeOpType allocaOp);
-
-/// Traverse funcOp and try to hoist every AllocaOp to the entry block of the
-/// function if the size is statically bounded.
-template <typename AllocLikeOpType>
-void hoistStaticallyBoundAllocationsInFunc(RewriterBase &rewriter,
-                                           func::FuncOp funcOp);
-
-Operation *createLinalgCopyOp(OpBuilder &b, Location loc, Value from, Value to,
-                              ArrayRef<NamedAttribute> attributes = {});
-
 
 /// Registers common transformations that require IREE-specific information
 /// into the transform dialect.

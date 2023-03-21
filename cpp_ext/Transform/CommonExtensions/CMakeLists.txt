@@ -1,10 +1,12 @@
 add_mlir_library(CommonExtensions
         CommonExtensions.cpp
+        Util.cpp
         CommonExtensionsOps.cpp.inc
 
         ADDITIONAL_HEADERS
         CommonExtensions.h
         CommonExtensionsOps.h.inc
+        Util.h
 
         DISABLE_INSTALL
 
@@ -35,4 +37,6 @@ add_mlir_library(CommonExtensions
         MLIRTransforms
         MLIRVectorDialect
         MLIRVectorTransforms
+
+        ListenerCSE
         )

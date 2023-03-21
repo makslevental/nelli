@@ -17,7 +17,7 @@
 #include "llvm/ExecutionEngine/Orc/JITTargetMachineBuilder.h"
 #include "llvm/Support/Error.h"
 #include "llvm/Support/FileSystem.h"
-#include <mlir/Dialect/Affine/LoopUtils.h>
+#include "mlir/Dialect/Affine/LoopUtils.h"
 #include <pybind11/functional.h>
 #include <pybind11/pybind11.h>
 

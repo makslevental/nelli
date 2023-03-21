@@ -15,6 +15,9 @@ _ods_ext_module = None
 import builtins
 
 
+from .._mlir.dialects._transform_ops_gen import _Dialect
+
+
 @_cext.register_operation(_Dialect)
 @extend_opview_class(_ods_ext_module)
 class ApplyBufferOptimizationsOp(_ods_ir.OpView):
@@ -26,10 +29,6 @@ class ApplyBufferOptimizationsOp(_ods_ir.OpView):
     def target(self):
         return self.operation.operands[0]
 
-    @builtins.property
-    def result(self):
-        return self.operation.results[0]
-
 
 @_cext.register_operation(_Dialect)
 @extend_opview_class(_ods_ext_module)
@@ -40,7 +39,6 @@ class ApplyPatternsOp(_ods_ir.OpView):
 
     def __init__(
         self,
-        result,
         target,
         *,
         additional_patterns=None,
@@ -58,14 +56,10 @@ class ApplyPatternsOp(_ods_ir.OpView):
         linalg_elementwise_greedy_fusion=None,
         lower_transfer_op_permutations=None,
         lower_vector_masks=None,
-        rank_reducing_linalg=None,
-        rank_reducing_linalg_via_reshapes=None,
         rank_reducing_vector=None,
         swap_padding_elide_conditional=None,
         swapping_patterns=None,
         tiling_canonicalization=None,
-        unroll_vectors_gpu_mma_sync=None,
-        unroll_vectors_gpu_wmma=None,
         loc=None,
         ip=None,
     ):
@@ -131,14 +125,6 @@ class ApplyPatternsOp(_ods_ir.OpView):
             attributes["lower_vector_masks"] = _ods_ir.UnitAttr.get(
                 get_default_loc_context(loc)
             )
-        if bool(rank_reducing_linalg):
-            attributes["rank_reducing_linalg"] = _ods_ir.UnitAttr.get(
-                get_default_loc_context(loc)
-            )
-        if bool(rank_reducing_linalg_via_reshapes):
-            attributes["rank_reducing_linalg_via_reshapes"] = _ods_ir.UnitAttr.get(
-                get_default_loc_context(loc)
-            )
         if bool(rank_reducing_vector):
             attributes["rank_reducing_vector"] = _ods_ir.UnitAttr.get(
                 get_default_loc_context(loc)
@@ -155,15 +141,6 @@ class ApplyPatternsOp(_ods_ir.OpView):
             attributes["tiling_canonicalization"] = _ods_ir.UnitAttr.get(
                 get_default_loc_context(loc)
             )
-        if bool(unroll_vectors_gpu_mma_sync):
-            attributes["unroll_vectors_gpu_mma_sync"] = _ods_ir.UnitAttr.get(
-                get_default_loc_context(loc)
-            )
-        if bool(unroll_vectors_gpu_wmma):
-            attributes["unroll_vectors_gpu_wmma"] = _ods_ir.UnitAttr.get(
-                get_default_loc_context(loc)
-            )
-        results.append(result)
         _ods_successors = None
         super().__init__(
             self.build_generic(
@@ -419,38 +396,6 @@ class ApplyPatternsOp(_ods_ir.OpView):
         del self.operation.attributes["lower_vector_masks"]
 
     @builtins.property
-    def rank_reducing_linalg(self):
-        return "rank_reducing_linalg" in self.operation.attributes
-
-    @rank_reducing_linalg.setter
-    def rank_reducing_linalg(self, value):
-        if bool(value):
-            self.operation.attributes["rank_reducing_linalg"] = _ods_ir.UnitAttr.get()
-        elif "rank_reducing_linalg" in self.operation.attributes:
-            del self.operation.attributes["rank_reducing_linalg"]
-
-    @rank_reducing_linalg.deleter
-    def rank_reducing_linalg(self):
-        del self.operation.attributes["rank_reducing_linalg"]
-
-    @builtins.property
-    def rank_reducing_linalg_via_reshapes(self):
-        return "rank_reducing_linalg_via_reshapes" in self.operation.attributes
-
-    @rank_reducing_linalg_via_reshapes.setter
-    def rank_reducing_linalg_via_reshapes(self, value):
-        if bool(value):
-            self.operation.attributes[
-                "rank_reducing_linalg_via_reshapes"
-            ] = _ods_ir.UnitAttr.get()
-        elif "rank_reducing_linalg_via_reshapes" in self.operation.attributes:
-            del self.operation.attributes["rank_reducing_linalg_via_reshapes"]
-
-    @rank_reducing_linalg_via_reshapes.deleter
-    def rank_reducing_linalg_via_reshapes(self):
-        del self.operation.attributes["rank_reducing_linalg_via_reshapes"]
-
-    @builtins.property
     def rank_reducing_vector(self):
         return "rank_reducing_vector" in self.operation.attributes
 
@@ -514,44 +459,6 @@ class ApplyPatternsOp(_ods_ir.OpView):
     def tiling_canonicalization(self):
         del self.operation.attributes["tiling_canonicalization"]
 
-    @builtins.property
-    def unroll_vectors_gpu_mma_sync(self):
-        return "unroll_vectors_gpu_mma_sync" in self.operation.attributes
-
-    @unroll_vectors_gpu_mma_sync.setter
-    def unroll_vectors_gpu_mma_sync(self, value):
-        if bool(value):
-            self.operation.attributes[
-                "unroll_vectors_gpu_mma_sync"
-            ] = _ods_ir.UnitAttr.get()
-        elif "unroll_vectors_gpu_mma_sync" in self.operation.attributes:
-            del self.operation.attributes["unroll_vectors_gpu_mma_sync"]
-
-    @unroll_vectors_gpu_mma_sync.deleter
-    def unroll_vectors_gpu_mma_sync(self):
-        del self.operation.attributes["unroll_vectors_gpu_mma_sync"]
-
-    @builtins.property
-    def unroll_vectors_gpu_wmma(self):
-        return "unroll_vectors_gpu_wmma" in self.operation.attributes
-
-    @unroll_vectors_gpu_wmma.setter
-    def unroll_vectors_gpu_wmma(self, value):
-        if bool(value):
-            self.operation.attributes[
-                "unroll_vectors_gpu_wmma"
-            ] = _ods_ir.UnitAttr.get()
-        elif "unroll_vectors_gpu_wmma" in self.operation.attributes:
-            del self.operation.attributes["unroll_vectors_gpu_wmma"]
-
-    @unroll_vectors_gpu_wmma.deleter
-    def unroll_vectors_gpu_wmma(self):
-        del self.operation.attributes["unroll_vectors_gpu_wmma"]
-
-    @builtins.property
-    def result(self):
-        return self.operation.results[0]
-
 
 @_cext.register_operation(_Dialect)
 @extend_opview_class(_ods_ext_module)
@@ -560,14 +467,13 @@ class HoistStaticAllocOp(_ods_ir.OpView):
 
     _ODS_REGIONS = (0, True)
 
-    def __init__(self, result, target, *, loc=None, ip=None):
+    def __init__(self, target, *, loc=None, ip=None):
         operands = []
         results = []
         attributes = {}
         regions = None
         operands.append(get_op_result_or_value(target))
         _ods_context = get_default_loc_context(loc)
-        results.append(result)
         _ods_successors = None
         super().__init__(
             self.build_generic(
@@ -584,10 +490,6 @@ class HoistStaticAllocOp(_ods_ir.OpView):
     @builtins.property
     def target(self):
         return self.operation.operands[0]
-
-    @builtins.property
-    def result(self):
-        return self.operation.results[0]
 
 
 @_cext.register_operation(_Dialect)
@@ -749,14 +651,13 @@ class TransformEliminateEmptyTensorsOp(_ods_ir.OpView):
 
     _ODS_REGIONS = (0, True)
 
-    def __init__(self, result, target, *, loc=None, ip=None):
+    def __init__(self, target, *, loc=None, ip=None):
         operands = []
         results = []
         attributes = {}
         regions = None
         operands.append(get_op_result_or_value(target))
         _ods_context = get_default_loc_context(loc)
-        results.append(result)
         _ods_successors = None
         super().__init__(
             self.build_generic(
@@ -773,7 +674,3 @@ class TransformEliminateEmptyTensorsOp(_ods_ir.OpView):
     @builtins.property
     def target(self):
         return self.operation.operands[0]
-
-    @builtins.property
-    def result(self):
-        return self.operation.results[0]
