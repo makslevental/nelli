@@ -1,14 +1,28 @@
-#include_directories(${PROJECT_BINARY_DIR}/cpp_ext/Transform)
 add_subdirectory(CommonExtensions)
+add_subdirectory(Structured)
 
-add_mlir_library(ListenerCSE
+add_mlir_library(DialectsTransforms
         ListenerCSE.cpp
+        TransformMatchers.cpp
 
         PARTIAL_SOURCES_INTENDED
 
-        DEPENDS
-        mlir-headers
+        LINK_LIBS PRIVATE
+        # TODO: break dialect dependency by implementing the transformation separately
+        # and registering it.
+        MLIRAsyncDialect
+        MLIRArithDialect
+        MLIRFuncDialect
+        MLIRLinalgDialect
+        MLIRLinalgTransforms
+        MLIRMathDialect
+        MLIRIR
+        MLIRPass
+        MLIRPDLDialect
+        MLIRTransformDialect
+        MLIRTransformDialectTransforms
         )
+
 
 add_mlir_library(TransformDialectInterpreter
         TransformDialectInterpreter.cpp

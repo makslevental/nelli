@@ -57,7 +57,12 @@ declare_mlir_python_extension(NelliPythonSources.SiteInitialize
         LLVMSupport
         MLIRIR
         )
-target_link_libraries(NelliPythonSources.SiteInitialize INTERFACE MLIROpenMPToLLVMIRTranslation CommonExtensions)
+target_link_libraries(NelliPythonSources.SiteInitialize
+        INTERFACE
+        MLIROpenMPToLLVMIRTranslation
+        CommonExtensions
+        StructuredTransformOpsExt
+        )
 
 get_target_property(mlir_python_sources MLIRPythonExtension.Core INTERFACE_SOURCES)
 list(GET mlir_python_sources 0 HEADER)

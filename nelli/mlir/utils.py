@@ -84,8 +84,7 @@ def run_pipeline(
             {'*' * 80}
 
             For developers, the error can be reproduced with:
-            $ mlir-opt -pass-pipeline='{pipeline}' {filename}
-            Add '{debug_options}' to get the IR dump for debugging purpose.
+            $ mlir-opt {debug_options} -pass-pipeline='{pipeline}' {filename}
             """
         trimmed_message = "\n".join([m.lstrip() for m in message.split("\n")])
         raise NelliMlirCompilerError(trimmed_message) from None

@@ -3,6 +3,7 @@
 #include "mlir/CAPI/IR.h"
 #include "mlir/Target/LLVMIR/Dialect/OpenMP/OpenMPToLLVMIRTranslation.h"
 #include "Transform/CommonExtensions/CommonExtensions.h"
+#include "Transform/Structured/StructuredTransformOpsExt.h"
 
 namespace py = pybind11;
 using namespace llvm;
@@ -27,5 +28,6 @@ PYBIND11_MODULE(_site_initialize_0, m) {
     auto context = unwrap(ctx);
     mlir::registerOpenMPDialectTranslation(*context);
     mlir::registerTransformDialectCommonExtension(*context);
+    mlir::registerTransformDialectStructuredExtension(*context);
   });
 }

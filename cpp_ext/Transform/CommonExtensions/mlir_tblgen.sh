@@ -1,6 +1,6 @@
 set -e -x
 
-LLVM_INSTALL_DIR=/Users/mlevental/dev_projects/loopy/llvm_install
+LLVM_INSTALL_DIR=/home/mlevental/dev_projects/loopy/llvm_install
 
 $LLVM_INSTALL_DIR/bin/mlir-tblgen --gen-op-defs \
   -I$LLVM_INSTALL_DIR/include \
@@ -19,4 +19,4 @@ $LLVM_INSTALL_DIR/bin/mlir-tblgen -gen-python-op-bindings \
   -dialect-extension=common \
   -I $LLVM_INSTALL_DIR/include \
   CommonExtensionsOps.td \
-  -o /Users/mlevental/dev_projects/loopy/nelli/mlir/transform/_common.py
+  -o /home/mlevental/dev_projects/loopy/nelli/mlir/transform/_common.py

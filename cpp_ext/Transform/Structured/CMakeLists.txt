@@ -1,12 +1,10 @@
-add_mlir_library(CommonExtensions
-        CommonExtensions.cpp
-        Util.cpp
-        CommonExtensionsOps.cpp.inc
+add_mlir_library(StructuredTransformOpsExt
+        StructuredTransformOpsExt.cpp
+        StructuredTransformOpsExt.cpp.inc
 
         ADDITIONAL_HEADERS
-        CommonExtensions.h
-        CommonExtensionsOps.h.inc
-        Util.h
+        StructuredTransformOpsExt.h
+        StructuredTransformOpsExt.h.inc
 
         DISABLE_INSTALL
 

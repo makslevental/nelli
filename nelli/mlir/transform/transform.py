@@ -182,14 +182,14 @@ def apply_patterns(
     linalg_elementwise_greedy_fusion=None,
     lower_transfer_op_permutations=None,
     lower_vector_masks=None,
-    # rank_reducing_linalg=None,
-    # rank_reducing_linalg_via_reshapes=None,
+    rank_reducing_linalg=None,
+    rank_reducing_linalg_via_reshapes=None,
     rank_reducing_vector=None,
     swap_padding_elide_conditional=None,
     swapping_patterns=None,
     tiling_canonicalization=None,
-    # unroll_vectors_gpu_mma_sync=None,
-    # unroll_vectors_gpu_wmma=None,
+    unroll_vectors_gpu_mma_sync=None,
+    unroll_vectors_gpu_wmma=None,
 ):
     return common_ext.ApplyPatternsOp(
         target,
@@ -208,14 +208,14 @@ def apply_patterns(
         linalg_elementwise_greedy_fusion=linalg_elementwise_greedy_fusion,
         lower_transfer_op_permutations=lower_transfer_op_permutations,
         lower_vector_masks=lower_vector_masks,
-        # rank_reducing_linalg=rank_reducing_linalg,
-        # rank_reducing_linalg_via_reshapes=rank_reducing_linalg_via_reshapes,
+        rank_reducing_linalg=rank_reducing_linalg,
+        rank_reducing_linalg_via_reshapes=rank_reducing_linalg_via_reshapes,
         rank_reducing_vector=rank_reducing_vector,
         swap_padding_elide_conditional=swap_padding_elide_conditional,
         swapping_patterns=swapping_patterns,
         tiling_canonicalization=tiling_canonicalization,
-        # unroll_vectors_gpu_mma_sync=unroll_vectors_gpu_mma_sync,
-        # unroll_vectors_gpu_wmma=unroll_vectors_gpu_wmma,
+        unroll_vectors_gpu_mma_sync=unroll_vectors_gpu_mma_sync,
+        unroll_vectors_gpu_wmma=unroll_vectors_gpu_wmma,
     )
 
 
