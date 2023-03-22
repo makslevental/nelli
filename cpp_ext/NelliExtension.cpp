@@ -32,6 +32,7 @@
 #include "RefBackend/RefBackend.h"
 #include "TilingInterface/TilingInterface.h"
 #include "Transform/TransformDialectInterpreter.h"
+#include "Transform/Structured/StructuredTransformOpsExt.h"
 #include "PDLByteCodeInterpreter/PDLByteCodeInterpreter.h"
 #include "utils.h"
 

@@ -7,6 +7,7 @@
 
 #include "mlir/Dialect/Bufferization/Transforms/OneShotAnalysis.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/Vector/IR/VectorOps.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/IR/Value.h"
 #include "mlir/Pass/PassManager.h"
@@ -46,6 +47,10 @@ void hoistStaticallyBoundAllocationsInFunc(RewriterBase &rewriter,
 
 Operation *createLinalgCopyOp(OpBuilder &b, Location loc, Value from, Value to,
                               ArrayRef<NamedAttribute> attributes = {});
+
+Optional<SmallVector<int64_t>> getWmmaNativeVectorSize(Operation *op);
+Optional<SmallVector<int64_t>> gpuMmaUnrollOrder(vector::ContractionOp contract);
+Optional<SmallVector<int64_t>> getMmaNativeVectorSize(Operation *op);
 
 void addTransformPostBufferizationPasses(OpPassManager &passManager);
 } // namespace mlir

@@ -159,14 +159,14 @@ def ApplyPatternsOp : Op<Transform_Dialect, "apply_patterns",
                        UnitAttr:$linalg_elementwise_greedy_fusion,
                        UnitAttr:$lower_transfer_op_permutations,
                        UnitAttr:$lower_vector_masks,
-                       // UnitAttr:$rank_reducing_linalg,
-                       // UnitAttr:$rank_reducing_linalg_via_reshapes,
+                       UnitAttr:$rank_reducing_linalg,
+                       UnitAttr:$rank_reducing_linalg_via_reshapes,
                        UnitAttr:$rank_reducing_vector,
                        UnitAttr:$swap_padding_elide_conditional,
                        UnitAttr:$swapping_patterns,
-                       UnitAttr:$tiling_canonicalization
-                       // UnitAttr:$unroll_vectors_gpu_mma_sync,
-                       // UnitAttr:$unroll_vectors_gpu_wmma
+                       UnitAttr:$tiling_canonicalization,
+                       UnitAttr:$unroll_vectors_gpu_mma_sync,
+                       UnitAttr:$unroll_vectors_gpu_wmma
                        );
   let results = (outs);
 

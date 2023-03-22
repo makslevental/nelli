@@ -149,16 +149,16 @@ void transform::ApplyPatternsOp::build(
   ADD_PATTERN(lowerTransferOpPermutations,
               getLowerTransferOpPermutationsAttrName)
   ADD_PATTERN(lowerVectorMasks, getLowerVectorMasksAttrName)
-//  ADD_PATTERN(rankReducingLinalg, getRankReducingLinalgAttrName)
-//  ADD_PATTERN(rankReducingLinalgViaReshapes,
-//              getRankReducingLinalgViaReshapesAttrName)
+  ADD_PATTERN(rankReducingLinalg, getRankReducingLinalgAttrName)
+  ADD_PATTERN(rankReducingLinalgViaReshapes,
+              getRankReducingLinalgViaReshapesAttrName)
   ADD_PATTERN(rankReducingVector, getRankReducingVectorAttrName)
   ADD_PATTERN(swapPaddingElideConditional,
               getSwapPaddingElideConditionalAttrName)
   ADD_PATTERN(swappingPatterns, getSwappingPatternsAttrName)
   ADD_PATTERN(tilingCanonicalization, getTilingCanonicalizationAttrName)
-//  ADD_PATTERN(unrollVectorsGpuMmaSync, getUnrollVectorsGpuMmaSyncAttrName)
-//  ADD_PATTERN(unrollVectorsGpuWmma, getUnrollVectorsGpuWmmaAttrName)
+  ADD_PATTERN(unrollVectorsGpuMmaSync, getUnrollVectorsGpuMmaSyncAttrName)
+  ADD_PATTERN(unrollVectorsGpuWmma, getUnrollVectorsGpuWmmaAttrName)
 #undef ADD_PATTERN
 }
 
@@ -254,16 +254,18 @@ static void addEraseUnnecessaryTensorOperandsPatterns(
   linalg::populateEraseUnnecessaryInputsPatterns(patterns);
 }
 
-//static void addRankReducingLinalgPatterns(RewritePatternSet &patterns) {
+static void addRankReducingLinalgPatterns(RewritePatternSet &patterns) {
+  // depends on IREE::HAL::InterfaceBindingSubspanOp
 //  populateReshapeToInterfaceTensorPatterns(patterns);
-//  linalg::populateFoldUnitExtentDimsViaSlicesPatterns(patterns);
-//}
-//
-//static void addRankReducingLinalgViaReshapesPatterns(
-//    RewritePatternSet &patterns) {
+  linalg::populateFoldUnitExtentDimsViaSlicesPatterns(patterns);
+}
+
+static void addRankReducingLinalgViaReshapesPatterns(
+    RewritePatternSet &patterns) {
+  // depends on IREE::HAL::InterfaceBindingSubspanOp
 //  populateReshapeToInterfaceTensorPatterns(patterns);
-//  linalg::populateFoldUnitExtentDimsViaReshapesPatterns(patterns);
-//}
+  linalg::populateFoldUnitExtentDimsViaReshapesPatterns(patterns);
+}
 
 static void addRankReducingVectorPatterns(RewritePatternSet &patterns) {
   vector::populateCastAwayVectorLeadingOneDimPatterns(patterns);
@@ -283,39 +285,39 @@ static void addTilingCanonicalizationPatterns(RewritePatternSet &patterns) {
   scf::populateSCFForLoopCanonicalizationPatterns(patterns);
 }
 
-//static Optional<SmallVector<int64_t>> getGPUTensorCoreNativeMmaSyncVectorSize(
-//    Operation *op) {
-//  return getMmaNativeVectorSize(op);
-//}
-//
-//static void addUnrollVectorsGpuMmaSyncPatterns(RewritePatternSet &patterns) {
-//  auto unrollOrder = [](Operation *op) -> Optional<SmallVector<int64_t>> {
-//    auto contract = dyn_cast<vector::ContractionOp>(op);
-//    if (!contract) return std::nullopt;
-//    return mlir::iree_compiler::gpuMmaUnrollOrder(contract);
-//  };
-//  vector::populateVectorUnrollPatterns(
-//      patterns, vector::UnrollVectorOptions()
-//                    .setNativeShapeFn(getGPUTensorCoreNativeMmaSyncVectorSize)
-//                    .setUnrollTraversalOrderFn(unrollOrder));
-//}
-//
-//static Optional<SmallVector<int64_t>> getGPUTensorCoreNativeWmmaVectorSize(
-//    Operation *op) {
-//  return getWmmaNativeVectorSize(op);
-//}
+static Optional<SmallVector<int64_t>> getGPUTensorCoreNativeMmaSyncVectorSize(
+    Operation *op) {
+  return mlir::getMmaNativeVectorSize(op);
+}
 
-//static void addUnrollVectorsGpuWmmaPatterns(RewritePatternSet &patterns) {
-//  auto unrollOrder = [](Operation *op) -> Optional<SmallVector<int64_t>> {
-//    auto contract = dyn_cast<vector::ContractionOp>(op);
-//    if (!contract) return std::nullopt;
-//    return mlir::iree_compiler::gpuMmaUnrollOrder(contract);
-//  };
-//  vector::populateVectorUnrollPatterns(
-//      patterns, vector::UnrollVectorOptions()
-//                    .setNativeShapeFn(getGPUTensorCoreNativeWmmaVectorSize)
-//                    .setUnrollTraversalOrderFn(unrollOrder));
-//}
+static void addUnrollVectorsGpuMmaSyncPatterns(RewritePatternSet &patterns) {
+  auto unrollOrder = [](Operation *op) -> Optional<SmallVector<int64_t>> {
+    auto contract = dyn_cast<vector::ContractionOp>(op);
+    if (!contract) return std::nullopt;
+    return mlir::gpuMmaUnrollOrder(contract);
+  };
+  vector::populateVectorUnrollPatterns(
+      patterns, vector::UnrollVectorOptions()
+                    .setNativeShapeFn(getGPUTensorCoreNativeMmaSyncVectorSize)
+                    .setUnrollTraversalOrderFn(unrollOrder));
+}
+
+static Optional<SmallVector<int64_t>> getGPUTensorCoreNativeWmmaVectorSize(
+    Operation *op) {
+  return getWmmaNativeVectorSize(op);
+}
+
+static void addUnrollVectorsGpuWmmaPatterns(RewritePatternSet &patterns) {
+  auto unrollOrder = [](Operation *op) -> Optional<SmallVector<int64_t>> {
+    auto contract = dyn_cast<vector::ContractionOp>(op);
+    if (!contract) return std::nullopt;
+    return mlir::gpuMmaUnrollOrder(contract);
+  };
+  vector::populateVectorUnrollPatterns(
+      patterns, vector::UnrollVectorOptions()
+                    .setNativeShapeFn(getGPUTensorCoreNativeWmmaVectorSize)
+                    .setUnrollTraversalOrderFn(unrollOrder));
+}
 
 static void addAdditionalPatterns(RewritePatternSet &patterns) {
   patterns.add<GenerateToConstant>(patterns.getContext());
@@ -366,16 +368,16 @@ DiagnosedSilenceableFailure transform::ApplyPatternsOp::applyToOne(
   if (getLowerTransferOpPermutations())
     addLowerTransferOpPermutationsPatterns(patterns);
   if (getLowerVectorMasks()) addLowerVectorMasksPatterns(patterns);
-//  if (getRankReducingLinalg()) addRankReducingLinalgPatterns(patterns);
-//  if (getRankReducingLinalgViaReshapes())
-//    addRankReducingLinalgViaReshapesPatterns(patterns);
+  if (getRankReducingLinalg()) addRankReducingLinalgPatterns(patterns);
+  if (getRankReducingLinalgViaReshapes())
+    addRankReducingLinalgViaReshapesPatterns(patterns);
   if (getRankReducingVector()) addRankReducingVectorPatterns(patterns);
   if (getSwappingPatterns())
     addSwappingPatterns(patterns, getSwapPaddingElideConditional());
   if (getTilingCanonicalization()) addTilingCanonicalizationPatterns(patterns);
-//  if (getUnrollVectorsGpuMmaSync())
-//    addUnrollVectorsGpuMmaSyncPatterns(patterns);
-//  if (getUnrollVectorsGpuWmma()) addUnrollVectorsGpuWmmaPatterns(patterns);
+  if (getUnrollVectorsGpuMmaSync())
+    addUnrollVectorsGpuMmaSyncPatterns(patterns);
+  if (getUnrollVectorsGpuWmma()) addUnrollVectorsGpuWmmaPatterns(patterns);
 
   TrackingListener listener(state);
   GreedyRewriteConfig config;
