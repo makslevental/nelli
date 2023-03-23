@@ -4,15 +4,13 @@ import numpy as np
 
 from nelli import F32, I64
 from nelli.mlir import arith
-from nelli.mlir.gpu import block_attr
-from nelli.mlir.tensor import (
-    parallel_insert_slice,
-    extract_slice,
-)
 from nelli.mlir._mlir.dialects import linalg
+from nelli.mlir._mlir.dialects import transform as transform_dialect
+from nelli.mlir._mlir.dialects.transform import loop
 from nelli.mlir._mlir.ir import InsertionPoint
 from nelli.mlir._mlir.runtime import unranked_memref_to_numpy
 from nelli.mlir.func import mlir_func
+from nelli.mlir.gpu import block_attr
 from nelli.mlir.passes import Pipeline
 from nelli.mlir.refbackend import (
     LLVMJITBackend,
@@ -21,6 +19,10 @@ from nelli.mlir.refbackend import (
 )
 from nelli.mlir.scf import scf_range, forall
 from nelli.mlir.tensor import TensorValue as Tensor, pad
+from nelli.mlir.tensor import (
+    parallel_insert_slice,
+    extract_slice,
+)
 from nelli.mlir.transform import (
     sequence,
     match,
@@ -30,8 +32,6 @@ from nelli.mlir.transform import (
     tile_to_scf_forall,
     tile_to_scf_for,
 )
-from nelli.mlir._mlir.dialects import transform as transform_dialect
-from nelli.mlir._mlir.dialects.transform import loop
 from nelli.mlir.transform.transform import (
     apply_patterns,
     cast,
@@ -42,7 +42,6 @@ from nelli.mlir.transform.transform import (
     bufferize,
     lower_vectors,
 )
-
 from nelli.mlir.utils import run_pipeline
 from nelli.utils import mlir_mod_ctx
 from util import check_correct

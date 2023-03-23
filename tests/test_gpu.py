@@ -27,7 +27,6 @@ from nelli.mlir.memref import (
 from nelli.mlir.passes import Pipeline
 from nelli.mlir.refbackend import LLVMJITBackend
 from nelli.mlir.spirv import set_module_target_env
-from nelli.mlir.utils import run_pipeline
 from nelli.utils import shlib_ext, mlir_mod_ctx
 from util import check_correct
 

@@ -352,9 +352,7 @@ class TestLoops:
                     b = B[i, j]
                     C[i, j] = a * b
 
-        module = run_pipeline(
-            module, Pipeline().canonicalize().materialize()
-        )
+        module = run_pipeline(module, Pipeline().canonicalize().materialize())
         correct = dedent(
             """\
         module {

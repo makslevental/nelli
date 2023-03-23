@@ -9,14 +9,14 @@ from nelli import F32
 from nelli.mlir import arith
 from nelli.mlir._mlir import _mlir_libs
 from nelli.mlir._mlir.dialects import linalg
-from nelli.mlir.scf import forall
-from nelli.mlir.tensor import TensorValue as Tensor, parallel_insert_slice
 from nelli.mlir.func import mlir_func
 from nelli.mlir.memref import MemRefValue as MemRef
 from nelli.mlir.passes import Pipeline
 from nelli.mlir.refbackend import (
     LLVMJITBackend,
 )
+from nelli.mlir.scf import forall
+from nelli.mlir.tensor import TensorValue as Tensor, parallel_insert_slice
 from nelli.utils import mlir_mod_ctx, shlib_ext
 from util import check_correct
 

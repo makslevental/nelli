@@ -3,8 +3,10 @@ from pathlib import Path
 from textwrap import dedent
 
 import numpy as np
+from numpy import zeros
+from numpy.random import randn
 
-from nelli import F32
+from nelli import F32, F64
 from nelli.mlir._mlir import _mlir_libs
 from nelli.mlir._mlir.runtime import get_unranked_memref_descriptor
 from nelli.mlir.affine import (
@@ -35,33 +37,28 @@ class TestRuntime:
     def test_runtime(self):
 
         with mlir_mod_ctx() as module:
+            M, N, K = 4, 16, 8
 
             @mlir_func
             def matmul(
-                A: MemRef[(16, 16), F32],
-                B: MemRef[(16, 16), F32],
-                C: MemRef[(16, 16), F32],
+                A: MemRef[(M, N), F64],
+                B: MemRef[(N, K), F64],
+                C: MemRef[(M, K), F64],
             ):
-                for i in range(0, 16):
-                    for j in range(0, 16):
-                        for k in range(0, 16):
-                            C[i, j] += A[i, k] * B[k, j]
+                for i in range(0, M):
+                    for j in range(0, N):
+                        for k in range(0, K):
+                            C[i, k] += A[i, j] * B[j, k]
 
-        backend = LLVMJITBackend()
-        module = backend.compile(
+        module = self.backend.compile(
             module,
             kernel_name="matmul",
-            pipeline=Pipeline()
-            .bufferize()
-            .FUNC()
-            .convert_linalg_to_loops()
-            .CNUF()
-            .lower_to_llvm(),
+            pipeline=Pipeline().bufferize().lower_to_llvm(),
         )
 
-        A = np.random.randint(low=0, high=10, size=(16, 16)).astype(np.float32)
-        B = np.random.randint(low=0, high=10, size=(16, 16)).astype(np.float32)
-        C = np.zeros_like(B).astype(np.float32)
+        A = randn(M, N)
+        B = randn(N, K)
+        C = zeros((M, K))
         self.backend.load(module).matmul(A, B, C)
         assert np.allclose(A @ B, C)
 

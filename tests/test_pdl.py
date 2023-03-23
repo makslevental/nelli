@@ -386,7 +386,8 @@ class TestPDL:
                 module, pipeline=Pipeline().convert_pdl_to_pdl_interp()
             )
 
-        correct = dedent("""\
+        correct = dedent(
+            """\
         module {
           pdl_interp.func @matcher(%arg0: !pdl.operation) {
             pdl_interp.check_operation_name of %arg0 is "linalg.generic" -> ^bb2, ^bb1
@@ -442,6 +443,7 @@ class TestPDL:
             }
           }
         }
-        """)
+        """
+        )
 
         check_correct(correct, module)

@@ -25,7 +25,6 @@ from nelli.mlir.tensor import TensorValue as Tensor
 from nelli.mlir.transform import (
     sequence,
     match,
-    tile_linalg_to_scf_for,
     tile_to_scf_forall,
     map_nested_foreach_to_threads,
 )
