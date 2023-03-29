@@ -9,6 +9,7 @@ from textwrap import dedent
 
 from nelli.mlir._mlir.dialects.linalg import BinaryFn, TypeFn
 from nelli.mlir._mlir.dialects import linalg
+from nelli.mlir._mlir.ir import MLIRError
 from nelli import F32, allow_unregistered_dialects
 from nelli.mlir.arith import constant
 from nelli.mlir.tensor import (
@@ -130,19 +131,18 @@ class TestTensor:
         } 
         """
         )
-        with pytest.raises(ValueError) as exc_info:
+        with pytest.raises(MLIRError) as exc_info:
             with mlir_mod_ctx(src) as module:
                 print(module)
 
-        assert (
-            exc_info.value.args[0]
-            == "Unable to parse module assembly (see diagnostics)"
-        )
+        assert exc_info.value.args[0] == "Unable to parse module assembly"
+
         out, err = capfd.readouterr()
         assert (
-            err.strip()
-            == 'loc("-":9:15): error: operation being parsed with an unregistered dialect. If this is intended, please use -allow-unregistered-dialect with the MLIR tool used'
+            exc_info.value.error_diagnostics[0].message
+            == "operation being parsed with an unregistered dialect. If this is intended, please use -allow-unregistered-dialect with the MLIR tool used"
         )
+        assert str(exc_info.value.error_diagnostics[0].location) == 'loc("-":9:15)'
         with allow_unregistered_dialects(), mlir_mod_ctx(src) as module:
             print(module)
 
