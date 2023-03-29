@@ -32,6 +32,7 @@ class WarpExecuteOnLane0Op;
 /// Registers Flow transformations that require IREE-specific information into
 /// the transform dialect.
 void registerTransformDialectLLVMGPUExtension(DialectRegistry &registry);
+void registerTransformDialectLLVMGPUExtension(MLIRContext &context);
 
 namespace transform {
 // Hook to register LLVMGPU transformations to the transform dialect.

@@ -10,8 +10,7 @@
 #undef GET_OP_LIST
 
 mlir::transform::CreateAsyncGroupsOp,
-mlir::transform::MapNestedForallToGpuThreadsOp,
-mlir::transform::PipelineSharedMemoryCopiesOp,
+mlir::transform::LayoutAnalysisAndDistributionOp,
 mlir::transform::PromoteOperandsOp,
 mlir::transform::VectorToMMAConversionOp,
 mlir::transform::VectorToWarpExecuteOnLane0Op,
@@ -32,9 +31,9 @@ namespace transform {
 static ::mlir::LogicalResult __mlir_ods_local_type_constraint_LLVMGPUExtensionsOps0(
     ::mlir::Operation *op, ::mlir::Type type, ::llvm::StringRef valueKind,
     unsigned valueIndex) {
-  if (!((type.isa<::mlir::pdl::OperationType>()))) {
+  if (!((type.isa<::mlir::transform::TransformHandleTypeInterface>()))) {
     return op->emitOpError(valueKind) << " #" << valueIndex
-        << " must be PDL handle to an `mlir::Operation *`, but got " << type;
+        << " must be TransformHandleTypeInterface instance, but got " << type;
   }
   return ::mlir::success();
 }
@@ -42,19 +41,9 @@ static ::mlir::LogicalResult __mlir_ods_local_type_constraint_LLVMGPUExtensionsO
 static ::mlir::LogicalResult __mlir_ods_local_type_constraint_LLVMGPUExtensionsOps1(
     ::mlir::Operation *op, ::mlir::Type type, ::llvm::StringRef valueKind,
     unsigned valueIndex) {
-  if (!(((type.isa<::mlir::transform::OperationType>())) && ((type.cast<::mlir::transform::OperationType>().getOperationName() == "scf.for")))) {
+  if (!((type.isa<::mlir::pdl::OperationType>()))) {
     return op->emitOpError(valueKind) << " #" << valueIndex
-        << " must be Transform IR handle to scf.for operations, but got " << type;
-  }
-  return ::mlir::success();
-}
-
-static ::mlir::LogicalResult __mlir_ods_local_type_constraint_LLVMGPUExtensionsOps2(
-    ::mlir::Operation *op, ::mlir::Type type, ::llvm::StringRef valueKind,
-    unsigned valueIndex) {
-  if (!((type.isa<::mlir::transform::TransformHandleTypeInterface>()))) {
-    return op->emitOpError(valueKind) << " #" << valueIndex
-        << " must be TransformHandleTypeInterface instance, but got " << type;
+        << " must be PDL handle to an `mlir::Operation *`, but got " << type;
   }
   return ::mlir::success();
 }
@@ -70,23 +59,14 @@ static ::mlir::LogicalResult __mlir_ods_local_attr_constraint_LLVMGPUExtensionsO
 
 static ::mlir::LogicalResult __mlir_ods_local_attr_constraint_LLVMGPUExtensionsOps1(
     ::mlir::Operation *op, ::mlir::Attribute attr, ::llvm::StringRef attrName) {
-  if (attr && !(((attr.isa<::mlir::ArrayAttr>())) && (::llvm::all_of(attr.cast<::mlir::ArrayAttr>(), [&](::mlir::Attribute attr) { return attr && (((attr.isa<::mlir::IntegerAttr>())) && ((attr.cast<::mlir::IntegerAttr>().getType().isSignlessInteger(64)))); })))) {
+  if (attr && !((attr.isa<::mlir::DenseI64ArrayAttr>()))) {
     return op->emitOpError("attribute '") << attrName
-        << "' failed to satisfy constraint: 64-bit integer array attribute";
+        << "' failed to satisfy constraint: i64 dense array attribute";
   }
   return ::mlir::success();
 }
 
 static ::mlir::LogicalResult __mlir_ods_local_attr_constraint_LLVMGPUExtensionsOps2(
-    ::mlir::Operation *op, ::mlir::Attribute attr, ::llvm::StringRef attrName) {
-  if (attr && !(((attr.isa<::mlir::IntegerAttr>())) && ((attr.cast<::mlir::IntegerAttr>().getType().isSignlessInteger(64))))) {
-    return op->emitOpError("attribute '") << attrName
-        << "' failed to satisfy constraint: 64-bit signless integer attribute";
-  }
-  return ::mlir::success();
-}
-
-static ::mlir::LogicalResult __mlir_ods_local_attr_constraint_LLVMGPUExtensionsOps3(
     ::mlir::Operation *op, ::mlir::Attribute attr, ::llvm::StringRef attrName) {
   if (attr && !((attr.isa<::mlir::UnitAttr>()))) {
     return op->emitOpError("attribute '") << attrName
@@ -95,11 +75,11 @@ static ::mlir::LogicalResult __mlir_ods_local_attr_constraint_LLVMGPUExtensionsO
   return ::mlir::success();
 }
 
-static ::mlir::LogicalResult __mlir_ods_local_attr_constraint_LLVMGPUExtensionsOps4(
+static ::mlir::LogicalResult __mlir_ods_local_attr_constraint_LLVMGPUExtensionsOps3(
     ::mlir::Operation *op, ::mlir::Attribute attr, ::llvm::StringRef attrName) {
-  if (attr && !((attr.isa<::mlir::DenseI64ArrayAttr>()))) {
+  if (attr && !(((attr.isa<::mlir::IntegerAttr>())) && ((attr.cast<::mlir::IntegerAttr>().getType().isSignlessInteger(64))))) {
     return op->emitOpError("attribute '") << attrName
-        << "' failed to satisfy constraint: i64 dense array attribute";
+        << "' failed to satisfy constraint: 64-bit signless integer attribute";
   }
   return ::mlir::success();
 }
@@ -168,8 +148,8 @@ std::pair<unsigned, unsigned> CreateAsyncGroupsOp::getODSOperandIndexAndLength(u
            std::next(getOperation()->operand_begin(), valueRange.first + valueRange.second)};
 }
 
-::mlir::TypedValue<::mlir::pdl::OperationType> CreateAsyncGroupsOp::getTarget() {
-  return ::llvm::cast<::mlir::TypedValue<::mlir::pdl::OperationType>>(*getODSOperands(0).begin());
+::mlir::TypedValue<::mlir::transform::TransformHandleTypeInterface> CreateAsyncGroupsOp::getTarget() {
+  return ::llvm::cast<::mlir::TypedValue<::mlir::transform::TransformHandleTypeInterface>>(*getODSOperands(0).begin());
 }
 
 ::mlir::MutableOperandRange CreateAsyncGroupsOp::getTargetMutable() {
@@ -179,31 +159,13 @@ std::pair<unsigned, unsigned> CreateAsyncGroupsOp::getODSOperandIndexAndLength(u
 }
 
 std::pair<unsigned, unsigned> CreateAsyncGroupsOp::getODSResultIndexAndLength(unsigned index) {
-  bool isVariadic[] = {true};
-  int prevVariadicCount = 0;
-  for (unsigned i = 0; i < index; ++i)
-    if (isVariadic[i]) ++prevVariadicCount;
-
-  // Calculate how many dynamic values a static variadic operand corresponds to.
-  // This assumes all static variadic operands have the same dynamic value count.
-  int variadicSize = (getOperation()->getNumResults() - 0) / 1;
-  // `index` passed in as the parameter is the static index which counts each
-  // operand (variadic or not) as size 1. So here for each previous static variadic
-  // operand, we need to offset by (variadicSize - 1) to get where the dynamic
-  // value pack for this static operand starts.
-  int start = index + (variadicSize - 1) * prevVariadicCount;
-  int size = isVariadic[index] ? variadicSize : 1;
-  return {start, size};
+  return {index, 1};
 }
 
 ::mlir::Operation::result_range CreateAsyncGroupsOp::getODSResults(unsigned index) {
   auto valueRange = getODSResultIndexAndLength(index);
   return {std::next(getOperation()->result_begin(), valueRange.first),
            std::next(getOperation()->result_begin(), valueRange.first + valueRange.second)};
-}
-
-::mlir::Operation::result_range CreateAsyncGroupsOp::getResult() {
-  return getODSResults(0);
 }
 
 ::mlir::BoolAttr CreateAsyncGroupsOp::getUseMmaSyncAttr() {
@@ -223,22 +185,35 @@ void CreateAsyncGroupsOp::setUseMmaSync(bool attrValue) {
   (*this)->setAttr(getUseMmaSyncAttrName(), ::mlir::Builder((*this)->getContext()).getBoolAttr(attrValue));
 }
 
-void CreateAsyncGroupsOp::build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::TypeRange result, ::mlir::Value target, ::mlir::BoolAttr use_mma_sync) {
+void CreateAsyncGroupsOp::build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::Value target, ::mlir::BoolAttr use_mma_sync) {
   odsState.addOperands(target);
   odsState.addAttribute(getUseMmaSyncAttrName(odsState.name), use_mma_sync);
-  odsState.addTypes(result);
 }
 
-void CreateAsyncGroupsOp::build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::TypeRange result, ::mlir::Value target, bool use_mma_sync) {
+void CreateAsyncGroupsOp::build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::Value target, ::mlir::BoolAttr use_mma_sync) {
+  odsState.addOperands(target);
+  odsState.addAttribute(getUseMmaSyncAttrName(odsState.name), use_mma_sync);
+  assert(resultTypes.size() == 0u && "mismatched number of results");
+  odsState.addTypes(resultTypes);
+}
+
+void CreateAsyncGroupsOp::build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::Value target, bool use_mma_sync) {
   odsState.addOperands(target);
   odsState.addAttribute(getUseMmaSyncAttrName(odsState.name), odsBuilder.getBoolAttr(use_mma_sync));
-  odsState.addTypes(result);
+}
+
+void CreateAsyncGroupsOp::build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::Value target, bool use_mma_sync) {
+  odsState.addOperands(target);
+  odsState.addAttribute(getUseMmaSyncAttrName(odsState.name), odsBuilder.getBoolAttr(use_mma_sync));
+  assert(resultTypes.size() == 0u && "mismatched number of results");
+  odsState.addTypes(resultTypes);
 }
 
 void CreateAsyncGroupsOp::build(::mlir::OpBuilder &, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes) {
   assert(operands.size() == 1u && "mismatched number of parameters");
   odsState.addOperands(operands);
   odsState.addAttributes(attributes);
+  assert(resultTypes.size() == 0u && "mismatched number of return types");
   odsState.addTypes(resultTypes);
 }
 
@@ -264,15 +239,6 @@ void CreateAsyncGroupsOp::build(::mlir::OpBuilder &, ::mlir::OperationState &ods
 
     for (auto v : valueGroup0) {
       if (::mlir::failed(__mlir_ods_local_type_constraint_LLVMGPUExtensionsOps0(*this, v.getType(), "operand", index++)))
-        return ::mlir::failure();
-    }
-  }
-  {
-    unsigned index = 0; (void)index;
-    auto valueGroup0 = getODSResults(0);
-
-    for (auto v : valueGroup0) {
-      if (::mlir::failed(__mlir_ods_local_type_constraint_LLVMGPUExtensionsOps0(*this, v.getType(), "result", index++)))
         return ::mlir::failure();
     }
   }
@@ -327,442 +293,90 @@ namespace mlir {
 namespace transform {
 
 //===----------------------------------------------------------------------===//
-// mlir::transform::MapNestedForallToGpuThreadsOp definitions
+// mlir::transform::LayoutAnalysisAndDistributionOp definitions
 //===----------------------------------------------------------------------===//
 
 namespace detail {
-MapNestedForallToGpuThreadsOpGenericAdaptorBase::MapNestedForallToGpuThreadsOpGenericAdaptorBase(::mlir::DictionaryAttr attrs, ::mlir::RegionRange regions) : odsAttrs(attrs), odsRegions(regions) {  if (odsAttrs)
-    odsOpName.emplace("transform.map_nested_forall_to_gpu_threads", odsAttrs.getContext());
+LayoutAnalysisAndDistributionOpGenericAdaptorBase::LayoutAnalysisAndDistributionOpGenericAdaptorBase(::mlir::DictionaryAttr attrs, ::mlir::RegionRange regions) : odsAttrs(attrs), odsRegions(regions) {  if (odsAttrs)
+    odsOpName.emplace("transform.layout_analysis_and_distribution", odsAttrs.getContext());
 }
 
-std::pair<unsigned, unsigned> MapNestedForallToGpuThreadsOpGenericAdaptorBase::getODSOperandIndexAndLength(unsigned index, unsigned odsOperandsSize) {
+std::pair<unsigned, unsigned> LayoutAnalysisAndDistributionOpGenericAdaptorBase::getODSOperandIndexAndLength(unsigned index, unsigned odsOperandsSize) {
   return {index, 1};
 }
 
-::mlir::DictionaryAttr MapNestedForallToGpuThreadsOpGenericAdaptorBase::getAttributes() {
+::mlir::DictionaryAttr LayoutAnalysisAndDistributionOpGenericAdaptorBase::getAttributes() {
   return odsAttrs;
 }
 
-::mlir::ArrayAttr MapNestedForallToGpuThreadsOpGenericAdaptorBase::getWorkgroupSizeAttr() {
-  assert(odsAttrs && "no attributes when constructing adapter");
-  auto attr = ::mlir::impl::getAttrFromSortedRange(odsAttrs.begin() + 0, odsAttrs.end() - 0, MapNestedForallToGpuThreadsOp::getWorkgroupSizeAttrName(*odsOpName)).dyn_cast_or_null<::mlir::ArrayAttr>();
-  return attr;
-}
-
-::mlir::ArrayAttr MapNestedForallToGpuThreadsOpGenericAdaptorBase::getWorkgroupSize() {
-  auto attr = getWorkgroupSizeAttr();
-  return attr;
-}
-
 } // namespace detail
-MapNestedForallToGpuThreadsOpAdaptor::MapNestedForallToGpuThreadsOpAdaptor(MapNestedForallToGpuThreadsOp op) : MapNestedForallToGpuThreadsOpAdaptor(op->getOperands(), op->getAttrDictionary(), op->getRegions()) {}
+LayoutAnalysisAndDistributionOpAdaptor::LayoutAnalysisAndDistributionOpAdaptor(LayoutAnalysisAndDistributionOp op) : LayoutAnalysisAndDistributionOpAdaptor(op->getOperands(), op->getAttrDictionary(), op->getRegions()) {}
 
-::mlir::LogicalResult MapNestedForallToGpuThreadsOpAdaptor::verify(::mlir::Location loc) {
-  auto namedAttrRange = odsAttrs;
-  auto namedAttrIt = namedAttrRange.begin();
-  ::mlir::Attribute tblgen_workgroup_size;
-  while (true) {
-    if (namedAttrIt == namedAttrRange.end()) {
-      break;
-    }
-    else if (namedAttrIt->getName() == MapNestedForallToGpuThreadsOp::getWorkgroupSizeAttrName(*odsOpName)) {
-      tblgen_workgroup_size = namedAttrIt->getValue();
-    }
-    ++namedAttrIt;
-  }
-
-  if (tblgen_workgroup_size && !(((tblgen_workgroup_size.isa<::mlir::ArrayAttr>())) && (::llvm::all_of(tblgen_workgroup_size.cast<::mlir::ArrayAttr>(), [&](::mlir::Attribute attr) { return attr && (((attr.isa<::mlir::IntegerAttr>())) && ((attr.cast<::mlir::IntegerAttr>().getType().isSignlessInteger(64)))); }))))
-    return emitError(loc, "'transform.map_nested_forall_to_gpu_threads' op ""attribute 'workgroup_size' failed to satisfy constraint: 64-bit integer array attribute");
+::mlir::LogicalResult LayoutAnalysisAndDistributionOpAdaptor::verify(::mlir::Location loc) {
   return ::mlir::success();
 }
 
-std::pair<unsigned, unsigned> MapNestedForallToGpuThreadsOp::getODSOperandIndexAndLength(unsigned index) {
+std::pair<unsigned, unsigned> LayoutAnalysisAndDistributionOp::getODSOperandIndexAndLength(unsigned index) {
   return {index, 1};
 }
 
-::mlir::Operation::operand_range MapNestedForallToGpuThreadsOp::getODSOperands(unsigned index) {
+::mlir::Operation::operand_range LayoutAnalysisAndDistributionOp::getODSOperands(unsigned index) {
   auto valueRange = getODSOperandIndexAndLength(index);
   return {std::next(getOperation()->operand_begin(), valueRange.first),
            std::next(getOperation()->operand_begin(), valueRange.first + valueRange.second)};
 }
 
-::mlir::TypedValue<::mlir::pdl::OperationType> MapNestedForallToGpuThreadsOp::getTarget() {
+::mlir::TypedValue<::mlir::pdl::OperationType> LayoutAnalysisAndDistributionOp::getTarget() {
   return ::llvm::cast<::mlir::TypedValue<::mlir::pdl::OperationType>>(*getODSOperands(0).begin());
 }
 
-::mlir::MutableOperandRange MapNestedForallToGpuThreadsOp::getTargetMutable() {
+::mlir::MutableOperandRange LayoutAnalysisAndDistributionOp::getTargetMutable() {
   auto range = getODSOperandIndexAndLength(0);
   auto mutableRange = ::mlir::MutableOperandRange(getOperation(), range.first, range.second);
   return mutableRange;
 }
 
-std::pair<unsigned, unsigned> MapNestedForallToGpuThreadsOp::getODSResultIndexAndLength(unsigned index) {
-  return {index, 1};
+std::pair<unsigned, unsigned> LayoutAnalysisAndDistributionOp::getODSResultIndexAndLength(unsigned index) {
+  bool isVariadic[] = {true};
+  int prevVariadicCount = 0;
+  for (unsigned i = 0; i < index; ++i)
+    if (isVariadic[i]) ++prevVariadicCount;
+
+  // Calculate how many dynamic values a static variadic operand corresponds to.
+  // This assumes all static variadic operands have the same dynamic value count.
+  int variadicSize = (getOperation()->getNumResults() - 0) / 1;
+  // `index` passed in as the parameter is the static index which counts each
+  // operand (variadic or not) as size 1. So here for each previous static variadic
+  // operand, we need to offset by (variadicSize - 1) to get where the dynamic
+  // value pack for this static operand starts.
+  int start = index + (variadicSize - 1) * prevVariadicCount;
+  int size = isVariadic[index] ? variadicSize : 1;
+  return {start, size};
 }
 
-::mlir::Operation::result_range MapNestedForallToGpuThreadsOp::getODSResults(unsigned index) {
+::mlir::Operation::result_range LayoutAnalysisAndDistributionOp::getODSResults(unsigned index) {
   auto valueRange = getODSResultIndexAndLength(index);
   return {std::next(getOperation()->result_begin(), valueRange.first),
            std::next(getOperation()->result_begin(), valueRange.first + valueRange.second)};
 }
 
-::mlir::TypedValue<::mlir::pdl::OperationType> MapNestedForallToGpuThreadsOp::getResult() {
-  return ::llvm::cast<::mlir::TypedValue<::mlir::pdl::OperationType>>(*getODSResults(0).begin());
+::mlir::Operation::result_range LayoutAnalysisAndDistributionOp::getResult() {
+  return getODSResults(0);
 }
 
-::mlir::ArrayAttr MapNestedForallToGpuThreadsOp::getWorkgroupSizeAttr() {
-  return ::mlir::impl::getAttrFromSortedRange((*this)->getAttrs().begin() + 0, (*this)->getAttrs().end() - 0, getWorkgroupSizeAttrName()).dyn_cast_or_null<::mlir::ArrayAttr>();
-}
-
-::mlir::ArrayAttr MapNestedForallToGpuThreadsOp::getWorkgroupSize() {
-  auto attr = getWorkgroupSizeAttr();
-  return attr;
-}
-
-void MapNestedForallToGpuThreadsOp::setWorkgroupSizeAttr(::mlir::ArrayAttr attr) {
-  (*this)->setAttr(getWorkgroupSizeAttrName(), attr);
-}
-
-void MapNestedForallToGpuThreadsOp::build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::Type result, ::mlir::Value target, ::mlir::ArrayAttr workgroup_size) {
+void LayoutAnalysisAndDistributionOp::build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::TypeRange result, ::mlir::Value target) {
   odsState.addOperands(target);
-  if (workgroup_size) {
-    odsState.addAttribute(getWorkgroupSizeAttrName(odsState.name), workgroup_size);
-  }
   odsState.addTypes(result);
 }
 
-void MapNestedForallToGpuThreadsOp::build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::Value target, ::mlir::ArrayAttr workgroup_size) {
-  odsState.addOperands(target);
-  if (workgroup_size) {
-    odsState.addAttribute(getWorkgroupSizeAttrName(odsState.name), workgroup_size);
-  }
-  assert(resultTypes.size() == 1u && "mismatched number of results");
-  odsState.addTypes(resultTypes);
-}
-
-void MapNestedForallToGpuThreadsOp::build(::mlir::OpBuilder &, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes) {
+void LayoutAnalysisAndDistributionOp::build(::mlir::OpBuilder &, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes) {
   assert(operands.size() == 1u && "mismatched number of parameters");
   odsState.addOperands(operands);
   odsState.addAttributes(attributes);
-  assert(resultTypes.size() == 1u && "mismatched number of return types");
   odsState.addTypes(resultTypes);
 }
 
-void MapNestedForallToGpuThreadsOp::populateDefaultAttrs(const ::mlir::OperationName &opName, ::mlir::NamedAttrList &attributes) {
-  auto attrNames = opName.getAttributeNames();
-  ::mlir::Builder odsBuilder(attrNames.front().getContext());
-  if (!attributes.get(attrNames[0])) {
-    attributes.append(attrNames[0], odsBuilder.getI64ArrayAttr({}));
-  }
-}
-
-::mlir::LogicalResult MapNestedForallToGpuThreadsOp::verifyInvariantsImpl() {
-  auto namedAttrRange = (*this)->getAttrs();
-  auto namedAttrIt = namedAttrRange.begin();
-  ::mlir::Attribute tblgen_workgroup_size;
-  while (true) {
-    if (namedAttrIt == namedAttrRange.end()) {
-      break;
-    }
-    else if (namedAttrIt->getName() == getWorkgroupSizeAttrName()) {
-      tblgen_workgroup_size = namedAttrIt->getValue();
-    }
-    ++namedAttrIt;
-  }
-
-  if (::mlir::failed(__mlir_ods_local_attr_constraint_LLVMGPUExtensionsOps1(*this, tblgen_workgroup_size, "workgroup_size")))
-    return ::mlir::failure();
-  {
-    unsigned index = 0; (void)index;
-    auto valueGroup0 = getODSOperands(0);
-
-    for (auto v : valueGroup0) {
-      if (::mlir::failed(__mlir_ods_local_type_constraint_LLVMGPUExtensionsOps0(*this, v.getType(), "operand", index++)))
-        return ::mlir::failure();
-    }
-  }
-  {
-    unsigned index = 0; (void)index;
-    auto valueGroup0 = getODSResults(0);
-
-    for (auto v : valueGroup0) {
-      if (::mlir::failed(__mlir_ods_local_type_constraint_LLVMGPUExtensionsOps0(*this, v.getType(), "result", index++)))
-        return ::mlir::failure();
-    }
-  }
-  return ::mlir::success();
-}
-
-::mlir::LogicalResult MapNestedForallToGpuThreadsOp::verifyInvariants() {
-  return verifyInvariantsImpl();
-}
-
-::mlir::ParseResult MapNestedForallToGpuThreadsOp::parse(::mlir::OpAsmParser &parser, ::mlir::OperationState &result) {
-  ::mlir::OpAsmParser::UnresolvedOperand targetRawOperands[1];
-  ::llvm::ArrayRef<::mlir::OpAsmParser::UnresolvedOperand> targetOperands(targetRawOperands);  ::llvm::SMLoc targetOperandsLoc;
-  (void)targetOperandsLoc;
-
-  targetOperandsLoc = parser.getCurrentLocation();
-  if (parser.parseOperand(targetRawOperands[0]))
-    return ::mlir::failure();
-  if (parser.parseOptionalAttrDict(result.attributes))
-    return ::mlir::failure();
-  ::mlir::Type odsBuildableType0 = parser.getBuilder().getType<::mlir::pdl::OperationType>();
-  result.addTypes(odsBuildableType0);
-  if (parser.resolveOperands(targetOperands, odsBuildableType0, targetOperandsLoc, result.operands))
-    return ::mlir::failure();
-  return ::mlir::success();
-}
-
-void MapNestedForallToGpuThreadsOp::print(::mlir::OpAsmPrinter &_odsPrinter) {
-  _odsPrinter << ' ';
-  _odsPrinter << getTarget();
-  ::llvm::SmallVector<::llvm::StringRef, 2> elidedAttrs;
-  {
-     ::mlir::Builder odsBuilder(getContext());
-     ::mlir::Attribute attr = getWorkgroupSizeAttr();
-     if(attr && (attr == odsBuilder.getI64ArrayAttr({})))
-       elidedAttrs.push_back("workgroup_size");
-  }
-  _odsPrinter.printOptionalAttrDict((*this)->getAttrs(), elidedAttrs);
-}
-
-} // namespace transform
-} // namespace mlir
-MLIR_DEFINE_EXPLICIT_TYPE_ID(mlir::transform::MapNestedForallToGpuThreadsOp)
-
-namespace mlir {
-namespace transform {
-
-//===----------------------------------------------------------------------===//
-// mlir::transform::PipelineSharedMemoryCopiesOp definitions
-//===----------------------------------------------------------------------===//
-
-namespace detail {
-PipelineSharedMemoryCopiesOpGenericAdaptorBase::PipelineSharedMemoryCopiesOpGenericAdaptorBase(::mlir::DictionaryAttr attrs, ::mlir::RegionRange regions) : odsAttrs(attrs), odsRegions(regions) {  if (odsAttrs)
-    odsOpName.emplace("transform.pipeline_shared_memory_copies", odsAttrs.getContext());
-}
-
-std::pair<unsigned, unsigned> PipelineSharedMemoryCopiesOpGenericAdaptorBase::getODSOperandIndexAndLength(unsigned index, unsigned odsOperandsSize) {
-  return {index, 1};
-}
-
-::mlir::DictionaryAttr PipelineSharedMemoryCopiesOpGenericAdaptorBase::getAttributes() {
-  return odsAttrs;
-}
-
-::mlir::IntegerAttr PipelineSharedMemoryCopiesOpGenericAdaptorBase::getDepthAttr() {
-  assert(odsAttrs && "no attributes when constructing adapter");
-  auto attr = ::mlir::impl::getAttrFromSortedRange(odsAttrs.begin() + 0, odsAttrs.end() - 0, PipelineSharedMemoryCopiesOp::getDepthAttrName(*odsOpName)).cast<::mlir::IntegerAttr>();
-  return attr;
-}
-
-uint64_t PipelineSharedMemoryCopiesOpGenericAdaptorBase::getDepth() {
-  auto attr = getDepthAttr();
-  return attr.getValue().getZExtValue();
-}
-
-::mlir::UnitAttr PipelineSharedMemoryCopiesOpGenericAdaptorBase::getPeelEpilogueAttr() {
-  assert(odsAttrs && "no attributes when constructing adapter");
-  auto attr = ::mlir::impl::getAttrFromSortedRange(odsAttrs.begin() + 1, odsAttrs.end() - 0, PipelineSharedMemoryCopiesOp::getPeelEpilogueAttrName(*odsOpName)).dyn_cast_or_null<::mlir::UnitAttr>();
-  if (!attr)
-    attr = ((false) ? ::mlir::Builder(odsAttrs.getContext()).getUnitAttr() : nullptr);
-  return attr;
-}
-
-bool PipelineSharedMemoryCopiesOpGenericAdaptorBase::getPeelEpilogue() {
-  auto attr = getPeelEpilogueAttr();
-    if (!attr)
-      return ((false) ? ::mlir::Builder(odsAttrs.getContext()).getUnitAttr() : nullptr) != nullptr;
-  return attr != nullptr;
-}
-
-} // namespace detail
-PipelineSharedMemoryCopiesOpAdaptor::PipelineSharedMemoryCopiesOpAdaptor(PipelineSharedMemoryCopiesOp op) : PipelineSharedMemoryCopiesOpAdaptor(op->getOperands(), op->getAttrDictionary(), op->getRegions()) {}
-
-::mlir::LogicalResult PipelineSharedMemoryCopiesOpAdaptor::verify(::mlir::Location loc) {
-  auto namedAttrRange = odsAttrs;
-  auto namedAttrIt = namedAttrRange.begin();
-  ::mlir::Attribute tblgen_depth;
-  while (true) {
-    if (namedAttrIt == namedAttrRange.end())
-      return emitError(loc, "'transform.pipeline_shared_memory_copies' op ""requires attribute 'depth'");
-    if (namedAttrIt->getName() == PipelineSharedMemoryCopiesOp::getDepthAttrName(*odsOpName)) {
-      tblgen_depth = namedAttrIt->getValue();
-      break;
-    }
-    ++namedAttrIt;
-  }
-  ::mlir::Attribute tblgen_peel_epilogue;
-  while (true) {
-    if (namedAttrIt == namedAttrRange.end()) {
-      break;
-    }
-    else if (namedAttrIt->getName() == PipelineSharedMemoryCopiesOp::getPeelEpilogueAttrName(*odsOpName)) {
-      tblgen_peel_epilogue = namedAttrIt->getValue();
-    }
-    ++namedAttrIt;
-  }
-
-  if (tblgen_depth && !(((tblgen_depth.isa<::mlir::IntegerAttr>())) && ((tblgen_depth.cast<::mlir::IntegerAttr>().getType().isSignlessInteger(64)))))
-    return emitError(loc, "'transform.pipeline_shared_memory_copies' op ""attribute 'depth' failed to satisfy constraint: 64-bit signless integer attribute");
-
-  if (tblgen_peel_epilogue && !((tblgen_peel_epilogue.isa<::mlir::UnitAttr>())))
-    return emitError(loc, "'transform.pipeline_shared_memory_copies' op ""attribute 'peel_epilogue' failed to satisfy constraint: unit attribute");
-  return ::mlir::success();
-}
-
-std::pair<unsigned, unsigned> PipelineSharedMemoryCopiesOp::getODSOperandIndexAndLength(unsigned index) {
-  return {index, 1};
-}
-
-::mlir::Operation::operand_range PipelineSharedMemoryCopiesOp::getODSOperands(unsigned index) {
-  auto valueRange = getODSOperandIndexAndLength(index);
-  return {std::next(getOperation()->operand_begin(), valueRange.first),
-           std::next(getOperation()->operand_begin(), valueRange.first + valueRange.second)};
-}
-
-::mlir::TypedValue<::mlir::transform::OperationType> PipelineSharedMemoryCopiesOp::getForOp() {
-  return ::llvm::cast<::mlir::TypedValue<::mlir::transform::OperationType>>(*getODSOperands(0).begin());
-}
-
-::mlir::MutableOperandRange PipelineSharedMemoryCopiesOp::getForOpMutable() {
-  auto range = getODSOperandIndexAndLength(0);
-  auto mutableRange = ::mlir::MutableOperandRange(getOperation(), range.first, range.second);
-  return mutableRange;
-}
-
-std::pair<unsigned, unsigned> PipelineSharedMemoryCopiesOp::getODSResultIndexAndLength(unsigned index) {
-  return {index, 1};
-}
-
-::mlir::Operation::result_range PipelineSharedMemoryCopiesOp::getODSResults(unsigned index) {
-  auto valueRange = getODSResultIndexAndLength(index);
-  return {std::next(getOperation()->result_begin(), valueRange.first),
-           std::next(getOperation()->result_begin(), valueRange.first + valueRange.second)};
-}
-
-::mlir::TypedValue<::mlir::transform::OperationType> PipelineSharedMemoryCopiesOp::getResult() {
-  return ::llvm::cast<::mlir::TypedValue<::mlir::transform::OperationType>>(*getODSResults(0).begin());
-}
-
-::mlir::IntegerAttr PipelineSharedMemoryCopiesOp::getDepthAttr() {
-  return ::mlir::impl::getAttrFromSortedRange((*this)->getAttrs().begin() + 0, (*this)->getAttrs().end() - 0, getDepthAttrName()).cast<::mlir::IntegerAttr>();
-}
-
-uint64_t PipelineSharedMemoryCopiesOp::getDepth() {
-  auto attr = getDepthAttr();
-  return attr.getValue().getZExtValue();
-}
-
-::mlir::UnitAttr PipelineSharedMemoryCopiesOp::getPeelEpilogueAttr() {
-  return ::mlir::impl::getAttrFromSortedRange((*this)->getAttrs().begin() + 1, (*this)->getAttrs().end() - 0, getPeelEpilogueAttrName()).dyn_cast_or_null<::mlir::UnitAttr>();
-}
-
-bool PipelineSharedMemoryCopiesOp::getPeelEpilogue() {
-  auto attr = getPeelEpilogueAttr();
-    if (!attr)
-      return ((false) ? ::mlir::Builder((*this)->getContext()).getUnitAttr() : nullptr) != nullptr;
-  return attr != nullptr;
-}
-
-void PipelineSharedMemoryCopiesOp::setDepthAttr(::mlir::IntegerAttr attr) {
-  (*this)->setAttr(getDepthAttrName(), attr);
-}
-
-void PipelineSharedMemoryCopiesOp::setDepth(uint64_t attrValue) {
-  (*this)->setAttr(getDepthAttrName(), ::mlir::Builder((*this)->getContext()).getIntegerAttr(::mlir::Builder((*this)->getContext()).getIntegerType(64), attrValue));
-}
-
-void PipelineSharedMemoryCopiesOp::setPeelEpilogueAttr(::mlir::UnitAttr attr) {
-  (*this)->setAttr(getPeelEpilogueAttrName(), attr);
-}
-
-void PipelineSharedMemoryCopiesOp::setPeelEpilogue(bool attrValue) {
-    if (attrValue)
-      return (*this)->setAttr(getPeelEpilogueAttrName(), ((attrValue) ? ::mlir::Builder((*this)->getContext()).getUnitAttr() : nullptr));
-    (*this)->removeAttr(getPeelEpilogueAttrName());
-}
-
-::mlir::Attribute PipelineSharedMemoryCopiesOp::removePeelEpilogueAttr() {
-  return (*this)->removeAttr(getPeelEpilogueAttrName());
-}
-
-void PipelineSharedMemoryCopiesOp::build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::Type result, ::mlir::Value for_op, ::mlir::IntegerAttr depth, /*optional*/::mlir::UnitAttr peel_epilogue) {
-  odsState.addOperands(for_op);
-  odsState.addAttribute(getDepthAttrName(odsState.name), depth);
-  if (peel_epilogue) {
-    odsState.addAttribute(getPeelEpilogueAttrName(odsState.name), peel_epilogue);
-  }
-  odsState.addTypes(result);
-}
-
-void PipelineSharedMemoryCopiesOp::build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::Value for_op, ::mlir::IntegerAttr depth, /*optional*/::mlir::UnitAttr peel_epilogue) {
-  odsState.addOperands(for_op);
-  odsState.addAttribute(getDepthAttrName(odsState.name), depth);
-  if (peel_epilogue) {
-    odsState.addAttribute(getPeelEpilogueAttrName(odsState.name), peel_epilogue);
-  }
-  assert(resultTypes.size() == 1u && "mismatched number of results");
-  odsState.addTypes(resultTypes);
-}
-
-void PipelineSharedMemoryCopiesOp::build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::Type result, ::mlir::Value for_op, uint64_t depth, /*optional*/bool peel_epilogue) {
-  odsState.addOperands(for_op);
-  odsState.addAttribute(getDepthAttrName(odsState.name), odsBuilder.getIntegerAttr(odsBuilder.getIntegerType(64), depth));
-  if (peel_epilogue) {
-    odsState.addAttribute(getPeelEpilogueAttrName(odsState.name), ((peel_epilogue) ? odsBuilder.getUnitAttr() : nullptr));
-  }
-  odsState.addTypes(result);
-}
-
-void PipelineSharedMemoryCopiesOp::build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::Value for_op, uint64_t depth, /*optional*/bool peel_epilogue) {
-  odsState.addOperands(for_op);
-  odsState.addAttribute(getDepthAttrName(odsState.name), odsBuilder.getIntegerAttr(odsBuilder.getIntegerType(64), depth));
-  if (peel_epilogue) {
-    odsState.addAttribute(getPeelEpilogueAttrName(odsState.name), ((peel_epilogue) ? odsBuilder.getUnitAttr() : nullptr));
-  }
-  assert(resultTypes.size() == 1u && "mismatched number of results");
-  odsState.addTypes(resultTypes);
-}
-
-void PipelineSharedMemoryCopiesOp::build(::mlir::OpBuilder &, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes) {
-  assert(operands.size() == 1u && "mismatched number of parameters");
-  odsState.addOperands(operands);
-  odsState.addAttributes(attributes);
-  assert(resultTypes.size() == 1u && "mismatched number of return types");
-  odsState.addTypes(resultTypes);
-}
-
-::mlir::LogicalResult PipelineSharedMemoryCopiesOp::verifyInvariantsImpl() {
-  auto namedAttrRange = (*this)->getAttrs();
-  auto namedAttrIt = namedAttrRange.begin();
-  ::mlir::Attribute tblgen_depth;
-  while (true) {
-    if (namedAttrIt == namedAttrRange.end())
-      return emitOpError("requires attribute 'depth'");
-    if (namedAttrIt->getName() == getDepthAttrName()) {
-      tblgen_depth = namedAttrIt->getValue();
-      break;
-    }
-    ++namedAttrIt;
-  }
-  ::mlir::Attribute tblgen_peel_epilogue;
-  while (true) {
-    if (namedAttrIt == namedAttrRange.end()) {
-      break;
-    }
-    else if (namedAttrIt->getName() == getPeelEpilogueAttrName()) {
-      tblgen_peel_epilogue = namedAttrIt->getValue();
-    }
-    ++namedAttrIt;
-  }
-
-  if (::mlir::failed(__mlir_ods_local_attr_constraint_LLVMGPUExtensionsOps2(*this, tblgen_depth, "depth")))
-    return ::mlir::failure();
-
-  if (::mlir::failed(__mlir_ods_local_attr_constraint_LLVMGPUExtensionsOps3(*this, tblgen_peel_epilogue, "peel_epilogue")))
-    return ::mlir::failure();
+::mlir::LogicalResult LayoutAnalysisAndDistributionOp::verifyInvariantsImpl() {
   {
     unsigned index = 0; (void)index;
     auto valueGroup0 = getODSOperands(0);
@@ -784,19 +398,19 @@ void PipelineSharedMemoryCopiesOp::build(::mlir::OpBuilder &, ::mlir::OperationS
   return ::mlir::success();
 }
 
-::mlir::LogicalResult PipelineSharedMemoryCopiesOp::verifyInvariants() {
+::mlir::LogicalResult LayoutAnalysisAndDistributionOp::verifyInvariants() {
   return verifyInvariantsImpl();
 }
 
-::mlir::ParseResult PipelineSharedMemoryCopiesOp::parse(::mlir::OpAsmParser &parser, ::mlir::OperationState &result) {
-  ::mlir::OpAsmParser::UnresolvedOperand for_opRawOperands[1];
-  ::llvm::ArrayRef<::mlir::OpAsmParser::UnresolvedOperand> for_opOperands(for_opRawOperands);  ::llvm::SMLoc for_opOperandsLoc;
-  (void)for_opOperandsLoc;
+::mlir::ParseResult LayoutAnalysisAndDistributionOp::parse(::mlir::OpAsmParser &parser, ::mlir::OperationState &result) {
+  ::mlir::OpAsmParser::UnresolvedOperand targetRawOperands[1];
+  ::llvm::ArrayRef<::mlir::OpAsmParser::UnresolvedOperand> targetOperands(targetRawOperands);  ::llvm::SMLoc targetOperandsLoc;
+  (void)targetOperandsLoc;
   ::llvm::ArrayRef<::mlir::Type> allOperandTypes;
   ::llvm::ArrayRef<::mlir::Type> allResultTypes;
 
-  for_opOperandsLoc = parser.getCurrentLocation();
-  if (parser.parseOperand(for_opRawOperands[0]))
+  targetOperandsLoc = parser.getCurrentLocation();
+  if (parser.parseOperand(targetRawOperands[0]))
     return ::mlir::failure();
   if (parser.parseOptionalAttrDict(result.attributes))
     return ::mlir::failure();
@@ -809,21 +423,15 @@ void PipelineSharedMemoryCopiesOp::build(::mlir::OpBuilder &, ::mlir::OperationS
   allOperandTypes = allOperand__allResult_functionType.getInputs();
   allResultTypes = allOperand__allResult_functionType.getResults();
   result.addTypes(allResultTypes);
-  if (parser.resolveOperands(for_opOperands, allOperandTypes, parser.getNameLoc(), result.operands))
+  if (parser.resolveOperands(targetOperands, allOperandTypes, parser.getNameLoc(), result.operands))
     return ::mlir::failure();
   return ::mlir::success();
 }
 
-void PipelineSharedMemoryCopiesOp::print(::mlir::OpAsmPrinter &_odsPrinter) {
+void LayoutAnalysisAndDistributionOp::print(::mlir::OpAsmPrinter &_odsPrinter) {
   _odsPrinter << ' ';
-  _odsPrinter << getForOp();
+  _odsPrinter << getTarget();
   ::llvm::SmallVector<::llvm::StringRef, 2> elidedAttrs;
-  {
-     ::mlir::Builder odsBuilder(getContext());
-     ::mlir::Attribute attr = getPeelEpilogueAttr();
-     if(attr && (attr == ((false) ? odsBuilder.getUnitAttr() : nullptr)))
-       elidedAttrs.push_back("peel_epilogue");
-  }
   _odsPrinter.printOptionalAttrDict((*this)->getAttrs(), elidedAttrs);
   _odsPrinter << ' ' << ":";
   _odsPrinter << ' ';
@@ -832,7 +440,7 @@ void PipelineSharedMemoryCopiesOp::print(::mlir::OpAsmPrinter &_odsPrinter) {
 
 } // namespace transform
 } // namespace mlir
-MLIR_DEFINE_EXPLICIT_TYPE_ID(mlir::transform::PipelineSharedMemoryCopiesOp)
+MLIR_DEFINE_EXPLICIT_TYPE_ID(mlir::transform::LayoutAnalysisAndDistributionOp)
 
 namespace mlir {
 namespace transform {
@@ -995,14 +603,14 @@ void PromoteOperandsOp::populateDefaultAttrs(const ::mlir::OperationName &opName
     ++namedAttrIt;
   }
 
-  if (::mlir::failed(__mlir_ods_local_attr_constraint_LLVMGPUExtensionsOps4(*this, tblgen_indices, "indices")))
+  if (::mlir::failed(__mlir_ods_local_attr_constraint_LLVMGPUExtensionsOps1(*this, tblgen_indices, "indices")))
     return ::mlir::failure();
   {
     unsigned index = 0; (void)index;
     auto valueGroup0 = getODSOperands(0);
 
     for (auto v : valueGroup0) {
-      if (::mlir::failed(__mlir_ods_local_type_constraint_LLVMGPUExtensionsOps0(*this, v.getType(), "operand", index++)))
+      if (::mlir::failed(__mlir_ods_local_type_constraint_LLVMGPUExtensionsOps1(*this, v.getType(), "operand", index++)))
         return ::mlir::failure();
     }
   }
@@ -1011,7 +619,7 @@ void PromoteOperandsOp::populateDefaultAttrs(const ::mlir::OperationName &opName
     auto valueGroup0 = getODSResults(0);
 
     for (auto v : valueGroup0) {
-      if (::mlir::failed(__mlir_ods_local_type_constraint_LLVMGPUExtensionsOps0(*this, v.getType(), "result", index++)))
+      if (::mlir::failed(__mlir_ods_local_type_constraint_LLVMGPUExtensionsOps1(*this, v.getType(), "result", index++)))
         return ::mlir::failure();
     }
   }
@@ -1166,8 +774,8 @@ std::pair<unsigned, unsigned> VectorToMMAConversionOp::getODSOperandIndexAndLeng
            std::next(getOperation()->operand_begin(), valueRange.first + valueRange.second)};
 }
 
-::mlir::TypedValue<::mlir::pdl::OperationType> VectorToMMAConversionOp::getTarget() {
-  return ::llvm::cast<::mlir::TypedValue<::mlir::pdl::OperationType>>(*getODSOperands(0).begin());
+::mlir::TypedValue<::mlir::transform::TransformHandleTypeInterface> VectorToMMAConversionOp::getTarget() {
+  return ::llvm::cast<::mlir::TypedValue<::mlir::transform::TransformHandleTypeInterface>>(*getODSOperands(0).begin());
 }
 
 ::mlir::MutableOperandRange VectorToMMAConversionOp::getTargetMutable() {
@@ -1184,10 +792,6 @@ std::pair<unsigned, unsigned> VectorToMMAConversionOp::getODSResultIndexAndLengt
   auto valueRange = getODSResultIndexAndLength(index);
   return {std::next(getOperation()->result_begin(), valueRange.first),
            std::next(getOperation()->result_begin(), valueRange.first + valueRange.second)};
-}
-
-::mlir::TypedValue<::mlir::pdl::OperationType> VectorToMMAConversionOp::getResult() {
-  return ::llvm::cast<::mlir::TypedValue<::mlir::pdl::OperationType>>(*getODSResults(0).begin());
 }
 
 ::mlir::UnitAttr VectorToMMAConversionOp::getUseMmaSyncAttr() {
@@ -1240,6 +844,58 @@ void VectorToMMAConversionOp::setUseWmma(bool attrValue) {
   return (*this)->removeAttr(getUseWmmaAttrName());
 }
 
+void VectorToMMAConversionOp::build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::Value target, /*optional*/::mlir::UnitAttr use_mma_sync, /*optional*/::mlir::UnitAttr use_wmma) {
+  odsState.addOperands(target);
+  if (use_mma_sync) {
+    odsState.addAttribute(getUseMmaSyncAttrName(odsState.name), use_mma_sync);
+  }
+  if (use_wmma) {
+    odsState.addAttribute(getUseWmmaAttrName(odsState.name), use_wmma);
+  }
+}
+
+void VectorToMMAConversionOp::build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::Value target, /*optional*/::mlir::UnitAttr use_mma_sync, /*optional*/::mlir::UnitAttr use_wmma) {
+  odsState.addOperands(target);
+  if (use_mma_sync) {
+    odsState.addAttribute(getUseMmaSyncAttrName(odsState.name), use_mma_sync);
+  }
+  if (use_wmma) {
+    odsState.addAttribute(getUseWmmaAttrName(odsState.name), use_wmma);
+  }
+  assert(resultTypes.size() == 0u && "mismatched number of results");
+  odsState.addTypes(resultTypes);
+}
+
+void VectorToMMAConversionOp::build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::Value target, /*optional*/bool use_mma_sync, /*optional*/bool use_wmma) {
+  odsState.addOperands(target);
+  if (use_mma_sync) {
+    odsState.addAttribute(getUseMmaSyncAttrName(odsState.name), ((use_mma_sync) ? odsBuilder.getUnitAttr() : nullptr));
+  }
+  if (use_wmma) {
+    odsState.addAttribute(getUseWmmaAttrName(odsState.name), ((use_wmma) ? odsBuilder.getUnitAttr() : nullptr));
+  }
+}
+
+void VectorToMMAConversionOp::build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::Value target, /*optional*/bool use_mma_sync, /*optional*/bool use_wmma) {
+  odsState.addOperands(target);
+  if (use_mma_sync) {
+    odsState.addAttribute(getUseMmaSyncAttrName(odsState.name), ((use_mma_sync) ? odsBuilder.getUnitAttr() : nullptr));
+  }
+  if (use_wmma) {
+    odsState.addAttribute(getUseWmmaAttrName(odsState.name), ((use_wmma) ? odsBuilder.getUnitAttr() : nullptr));
+  }
+  assert(resultTypes.size() == 0u && "mismatched number of results");
+  odsState.addTypes(resultTypes);
+}
+
+void VectorToMMAConversionOp::build(::mlir::OpBuilder &, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes) {
+  assert(operands.size() == 1u && "mismatched number of parameters");
+  odsState.addOperands(operands);
+  odsState.addAttributes(attributes);
+  assert(resultTypes.size() == 0u && "mismatched number of return types");
+  odsState.addTypes(resultTypes);
+}
+
 ::mlir::LogicalResult VectorToMMAConversionOp::verifyInvariantsImpl() {
   auto namedAttrRange = (*this)->getAttrs();
   auto namedAttrIt = namedAttrRange.begin();
@@ -1258,10 +914,10 @@ void VectorToMMAConversionOp::setUseWmma(bool attrValue) {
     ++namedAttrIt;
   }
 
-  if (::mlir::failed(__mlir_ods_local_attr_constraint_LLVMGPUExtensionsOps3(*this, tblgen_use_mma_sync, "use_mma_sync")))
+  if (::mlir::failed(__mlir_ods_local_attr_constraint_LLVMGPUExtensionsOps2(*this, tblgen_use_mma_sync, "use_mma_sync")))
     return ::mlir::failure();
 
-  if (::mlir::failed(__mlir_ods_local_attr_constraint_LLVMGPUExtensionsOps3(*this, tblgen_use_wmma, "use_wmma")))
+  if (::mlir::failed(__mlir_ods_local_attr_constraint_LLVMGPUExtensionsOps2(*this, tblgen_use_wmma, "use_wmma")))
     return ::mlir::failure();
   {
     unsigned index = 0; (void)index;
@@ -1269,15 +925,6 @@ void VectorToMMAConversionOp::setUseWmma(bool attrValue) {
 
     for (auto v : valueGroup0) {
       if (::mlir::failed(__mlir_ods_local_type_constraint_LLVMGPUExtensionsOps0(*this, v.getType(), "operand", index++)))
-        return ::mlir::failure();
-    }
-  }
-  {
-    unsigned index = 0; (void)index;
-    auto valueGroup0 = getODSResults(0);
-
-    for (auto v : valueGroup0) {
-      if (::mlir::failed(__mlir_ods_local_type_constraint_LLVMGPUExtensionsOps0(*this, v.getType(), "result", index++)))
         return ::mlir::failure();
     }
   }
@@ -1292,15 +939,24 @@ void VectorToMMAConversionOp::setUseWmma(bool attrValue) {
   ::mlir::OpAsmParser::UnresolvedOperand targetRawOperands[1];
   ::llvm::ArrayRef<::mlir::OpAsmParser::UnresolvedOperand> targetOperands(targetRawOperands);  ::llvm::SMLoc targetOperandsLoc;
   (void)targetOperandsLoc;
+  ::llvm::ArrayRef<::mlir::Type> targetTypes;
+  ::llvm::ArrayRef<::mlir::Type> allResultTypes;
 
   targetOperandsLoc = parser.getCurrentLocation();
   if (parser.parseOperand(targetRawOperands[0]))
     return ::mlir::failure();
   if (parser.parseOptionalAttrDict(result.attributes))
     return ::mlir::failure();
-  ::mlir::Type odsBuildableType0 = parser.getBuilder().getType<::mlir::pdl::OperationType>();
-  result.addTypes(odsBuildableType0);
-  if (parser.resolveOperands(targetOperands, odsBuildableType0, targetOperandsLoc, result.operands))
+  if (parser.parseColon())
+    return ::mlir::failure();
+
+  ::mlir::FunctionType target__allResult_functionType;
+  if (parser.parseType(target__allResult_functionType))
+    return ::mlir::failure();
+  targetTypes = target__allResult_functionType.getInputs();
+  allResultTypes = target__allResult_functionType.getResults();
+  result.addTypes(allResultTypes);
+  if (parser.resolveOperands(targetOperands, targetTypes, targetOperandsLoc, result.operands))
     return ::mlir::failure();
   return ::mlir::success();
 }
@@ -1322,6 +978,9 @@ void VectorToMMAConversionOp::print(::mlir::OpAsmPrinter &_odsPrinter) {
        elidedAttrs.push_back("use_wmma");
   }
   _odsPrinter.printOptionalAttrDict((*this)->getAttrs(), elidedAttrs);
+  _odsPrinter << ' ' << ":";
+  _odsPrinter << ' ';
+  _odsPrinter.printFunctionalType(::llvm::ArrayRef<::mlir::Type>(getTarget().getType()), getOperation()->getResultTypes());
 }
 
 } // namespace transform
@@ -1492,14 +1151,14 @@ void VectorToWarpExecuteOnLane0Op::populateDefaultAttrs(const ::mlir::OperationN
     ++namedAttrIt;
   }
 
-  if (::mlir::failed(__mlir_ods_local_attr_constraint_LLVMGPUExtensionsOps2(*this, tblgen_warp_size, "warp_size")))
+  if (::mlir::failed(__mlir_ods_local_attr_constraint_LLVMGPUExtensionsOps3(*this, tblgen_warp_size, "warp_size")))
     return ::mlir::failure();
   {
     unsigned index = 0; (void)index;
     auto valueGroup0 = getODSOperands(0);
 
     for (auto v : valueGroup0) {
-      if (::mlir::failed(__mlir_ods_local_type_constraint_LLVMGPUExtensionsOps0(*this, v.getType(), "operand", index++)))
+      if (::mlir::failed(__mlir_ods_local_type_constraint_LLVMGPUExtensionsOps1(*this, v.getType(), "operand", index++)))
         return ::mlir::failure();
     }
   }
@@ -1508,7 +1167,7 @@ void VectorToWarpExecuteOnLane0Op::populateDefaultAttrs(const ::mlir::OperationN
     auto valueGroup0 = getODSResults(0);
 
     for (auto v : valueGroup0) {
-      if (::mlir::failed(__mlir_ods_local_type_constraint_LLVMGPUExtensionsOps0(*this, v.getType(), "result", index++)))
+      if (::mlir::failed(__mlir_ods_local_type_constraint_LLVMGPUExtensionsOps1(*this, v.getType(), "result", index++)))
         return ::mlir::failure();
     }
   }
@@ -1610,26 +1269,13 @@ std::pair<unsigned, unsigned> VectorWarpDistributionOp::getODSResultIndexAndLeng
            std::next(getOperation()->result_begin(), valueRange.first + valueRange.second)};
 }
 
-::mlir::TypedValue<::mlir::transform::TransformHandleTypeInterface> VectorWarpDistributionOp::getResult() {
-  return ::llvm::cast<::mlir::TypedValue<::mlir::transform::TransformHandleTypeInterface>>(*getODSResults(0).begin());
-}
-
 ::mlir::LogicalResult VectorWarpDistributionOp::verifyInvariantsImpl() {
   {
     unsigned index = 0; (void)index;
     auto valueGroup0 = getODSOperands(0);
 
     for (auto v : valueGroup0) {
-      if (::mlir::failed(__mlir_ods_local_type_constraint_LLVMGPUExtensionsOps2(*this, v.getType(), "operand", index++)))
-        return ::mlir::failure();
-    }
-  }
-  {
-    unsigned index = 0; (void)index;
-    auto valueGroup0 = getODSResults(0);
-
-    for (auto v : valueGroup0) {
-      if (::mlir::failed(__mlir_ods_local_type_constraint_LLVMGPUExtensionsOps2(*this, v.getType(), "result", index++)))
+      if (::mlir::failed(__mlir_ods_local_type_constraint_LLVMGPUExtensionsOps0(*this, v.getType(), "operand", index++)))
         return ::mlir::failure();
     }
   }

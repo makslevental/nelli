@@ -2,6 +2,7 @@ add_mlir_library(LLVMGPUExtensions
         LLVMGPUExtensions.cpp
         LLVMGPUExtensionsOps.cpp.inc
         GPUUtils.cpp
+        LLVMGPULayoutAnalysisAndDistribution.cpp
 
         ADDITIONAL_HEADERS
         LLVMGPUExtensions.h
@@ -19,6 +20,8 @@ add_mlir_library(LLVMGPUExtensions
         MLIRBufferizationDialect
         MLIRBufferizationTransforms
         MLIRGPUOps
+        MLIRNVGPUDialect
+        MLIRNVGPUTransforms
         MLIRIR
         MLIRLinalgDialect
         MLIRLinalgTransformOps
