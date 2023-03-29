@@ -62,6 +62,7 @@ target_link_libraries(NelliPythonSources.SiteInitialize
         MLIROpenMPToLLVMIRTranslation
         CommonExtensions
         StructuredTransformOpsExt
+        LLVMGPUExtensions
         )
 
 get_target_property(mlir_python_sources MLIRPythonExtension.Core INTERFACE_SOURCES)

@@ -336,8 +336,8 @@ DiagnosedSilenceableFailure transform::ApplyPatternsOp::applyToOne(
     Operation *target, transform::ApplyToEachResultList &results,
     transform::TransformState &state) {
   if (!target->hasTrait<OpTrait::IsIsolatedFromAbove>()) {
-    return mlir::emitDefiniteFailure(
-        target,
+    mlir::emitWarning(
+        target->getLoc(),
         "applies only to isolated-from-above targets because it needs to apply "
         "patterns greedily");
   }

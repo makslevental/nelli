@@ -15,12 +15,7 @@ class CreateAsyncGroupsOp;
 } // namespace mlir
 namespace mlir {
 namespace transform {
-class MapNestedForallToGpuThreadsOp;
-} // namespace transform
-} // namespace mlir
-namespace mlir {
-namespace transform {
-class PipelineSharedMemoryCopiesOp;
+class LayoutAnalysisAndDistributionOp;
 } // namespace transform
 } // namespace mlir
 namespace mlir {
@@ -110,7 +105,7 @@ public:
 
   ::mlir::LogicalResult verify(::mlir::Location loc);
 };
-class CreateAsyncGroupsOp : public ::mlir::Op<CreateAsyncGroupsOp, ::mlir::OpTrait::ZeroRegions, ::mlir::OpTrait::VariadicResults, ::mlir::OpTrait::ZeroSuccessors, ::mlir::OpTrait::OneOperand, ::mlir::OpTrait::OpInvariants, ::mlir::transform::FunctionalStyleTransformOpTrait, ::mlir::MemoryEffectOpInterface::Trait, ::mlir::transform::TransformEachOpTrait, ::mlir::transform::TransformOpInterface::Trait> {
+class CreateAsyncGroupsOp : public ::mlir::Op<CreateAsyncGroupsOp, ::mlir::OpTrait::ZeroRegions, ::mlir::OpTrait::ZeroResults, ::mlir::OpTrait::ZeroSuccessors, ::mlir::OpTrait::OneOperand, ::mlir::OpTrait::OpInvariants, ::mlir::MemoryEffectOpInterface::Trait, ::mlir::transform::TransformEachOpTrait, ::mlir::transform::TransformOpInterface::Trait> {
 public:
   using Op::Op;
   using Op::print;
@@ -137,21 +132,22 @@ public:
 
   std::pair<unsigned, unsigned> getODSOperandIndexAndLength(unsigned index);
   ::mlir::Operation::operand_range getODSOperands(unsigned index);
-  ::mlir::TypedValue<::mlir::pdl::OperationType> getTarget();
+  ::mlir::TypedValue<::mlir::transform::TransformHandleTypeInterface> getTarget();
   ::mlir::MutableOperandRange getTargetMutable();
   std::pair<unsigned, unsigned> getODSResultIndexAndLength(unsigned index);
   ::mlir::Operation::result_range getODSResults(unsigned index);
-  ::mlir::Operation::result_range getResult();
   ::mlir::BoolAttr getUseMmaSyncAttr();
   bool getUseMmaSync();
   void setUseMmaSyncAttr(::mlir::BoolAttr attr);
   void setUseMmaSync(bool attrValue);
-  static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, Value target, bool use_mma_sync);
-  static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::TypeRange result, ::mlir::Value target, ::mlir::BoolAttr use_mma_sync);
-  static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::TypeRange result, ::mlir::Value target, bool use_mma_sync);
+  static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::Value target, ::mlir::BoolAttr use_mma_sync);
+  static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::Value target, ::mlir::BoolAttr use_mma_sync);
+  static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::Value target, bool use_mma_sync);
+  static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::Value target, bool use_mma_sync);
   static void build(::mlir::OpBuilder &, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {});
   ::mlir::LogicalResult verifyInvariantsImpl();
   ::mlir::LogicalResult verifyInvariants();
+  void getEffects(::llvm::SmallVectorImpl<::mlir::SideEffects::EffectInstance<::mlir::MemoryEffects::Effect>> &effects);
   static ::mlir::ParseResult parse(::mlir::OpAsmParser &parser, ::mlir::OperationState &result);
   void print(::mlir::OpAsmPrinter &_odsPrinter);
 private:
@@ -179,30 +175,28 @@ namespace mlir {
 namespace transform {
 
 //===----------------------------------------------------------------------===//
-// mlir::transform::MapNestedForallToGpuThreadsOp declarations
+// mlir::transform::LayoutAnalysisAndDistributionOp declarations
 //===----------------------------------------------------------------------===//
 
 namespace detail {
-class MapNestedForallToGpuThreadsOpGenericAdaptorBase {
+class LayoutAnalysisAndDistributionOpGenericAdaptorBase {
 protected:
   ::mlir::DictionaryAttr odsAttrs;
   ::mlir::RegionRange odsRegions;
   ::std::optional<::mlir::OperationName> odsOpName;
 public:
-  MapNestedForallToGpuThreadsOpGenericAdaptorBase(::mlir::DictionaryAttr attrs = nullptr, ::mlir::RegionRange regions = {});
+  LayoutAnalysisAndDistributionOpGenericAdaptorBase(::mlir::DictionaryAttr attrs = nullptr, ::mlir::RegionRange regions = {});
 
   std::pair<unsigned, unsigned> getODSOperandIndexAndLength(unsigned index, unsigned odsOperandsSize);
   ::mlir::DictionaryAttr getAttributes();
-  ::mlir::ArrayAttr getWorkgroupSizeAttr();
-  ::mlir::ArrayAttr getWorkgroupSize();
 };
 } // namespace detail
 template <typename RangeT>
-class MapNestedForallToGpuThreadsOpGenericAdaptor : public detail::MapNestedForallToGpuThreadsOpGenericAdaptorBase {
+class LayoutAnalysisAndDistributionOpGenericAdaptor : public detail::LayoutAnalysisAndDistributionOpGenericAdaptorBase {
   using ValueT = ::llvm::detail::ValueOfRange<RangeT>;
-  using Base = detail::MapNestedForallToGpuThreadsOpGenericAdaptorBase;
+  using Base = detail::LayoutAnalysisAndDistributionOpGenericAdaptorBase;
 public:
-  MapNestedForallToGpuThreadsOpGenericAdaptor(RangeT values, ::mlir::DictionaryAttr attrs = nullptr, ::mlir::RegionRange regions = {}) : Base(attrs, regions), odsOperands(values) {}
+  LayoutAnalysisAndDistributionOpGenericAdaptor(RangeT values, ::mlir::DictionaryAttr attrs = nullptr, ::mlir::RegionRange regions = {}) : Base(attrs, regions), odsOperands(values) {}
 
   std::pair<unsigned, unsigned> getODSOperandIndexAndLength(unsigned index) {
     return Base::getODSOperandIndexAndLength(index, odsOperands.size());
@@ -225,36 +219,27 @@ public:
 private:
   RangeT odsOperands;
 };
-class MapNestedForallToGpuThreadsOpAdaptor : public MapNestedForallToGpuThreadsOpGenericAdaptor<::mlir::ValueRange> {
+class LayoutAnalysisAndDistributionOpAdaptor : public LayoutAnalysisAndDistributionOpGenericAdaptor<::mlir::ValueRange> {
 public:
-  using MapNestedForallToGpuThreadsOpGenericAdaptor::MapNestedForallToGpuThreadsOpGenericAdaptor;
-  MapNestedForallToGpuThreadsOpAdaptor(MapNestedForallToGpuThreadsOp op);
+  using LayoutAnalysisAndDistributionOpGenericAdaptor::LayoutAnalysisAndDistributionOpGenericAdaptor;
+  LayoutAnalysisAndDistributionOpAdaptor(LayoutAnalysisAndDistributionOp op);
 
   ::mlir::LogicalResult verify(::mlir::Location loc);
 };
-class MapNestedForallToGpuThreadsOp : public ::mlir::Op<MapNestedForallToGpuThreadsOp, ::mlir::OpTrait::ZeroRegions, ::mlir::OpTrait::OneResult, ::mlir::OpTrait::OneTypedResult<::mlir::pdl::OperationType>::Impl, ::mlir::OpTrait::ZeroSuccessors, ::mlir::OpTrait::OneOperand, ::mlir::OpTrait::OpInvariants, ::mlir::transform::FunctionalStyleTransformOpTrait, ::mlir::MemoryEffectOpInterface::Trait, ::mlir::transform::TransformEachOpTrait, ::mlir::transform::TransformOpInterface::Trait> {
+class LayoutAnalysisAndDistributionOp : public ::mlir::Op<LayoutAnalysisAndDistributionOp, ::mlir::OpTrait::ZeroRegions, ::mlir::OpTrait::VariadicResults, ::mlir::OpTrait::ZeroSuccessors, ::mlir::OpTrait::OneOperand, ::mlir::OpTrait::OpInvariants, ::mlir::transform::FunctionalStyleTransformOpTrait, ::mlir::MemoryEffectOpInterface::Trait, ::mlir::transform::TransformEachOpTrait, ::mlir::transform::TransformOpInterface::Trait> {
 public:
   using Op::Op;
   using Op::print;
-  using Adaptor = MapNestedForallToGpuThreadsOpAdaptor;
+  using Adaptor = LayoutAnalysisAndDistributionOpAdaptor;
   template <typename RangeT>
-  using GenericAdaptor = MapNestedForallToGpuThreadsOpGenericAdaptor<RangeT>;
+  using GenericAdaptor = LayoutAnalysisAndDistributionOpGenericAdaptor<RangeT>;
   using FoldAdaptor = GenericAdaptor<::llvm::ArrayRef<::mlir::Attribute>>;
   static ::llvm::ArrayRef<::llvm::StringRef> getAttributeNames() {
-    static ::llvm::StringRef attrNames[] = {::llvm::StringRef("workgroup_size")};
-    return ::llvm::ArrayRef(attrNames);
-  }
-
-  ::mlir::StringAttr getWorkgroupSizeAttrName() {
-    return getAttributeNameForIndex(0);
-  }
-
-  static ::mlir::StringAttr getWorkgroupSizeAttrName(::mlir::OperationName name) {
-    return getAttributeNameForIndex(name, 0);
+    return {};
   }
 
   static constexpr ::llvm::StringLiteral getOperationName() {
-    return ::llvm::StringLiteral("transform.map_nested_forall_to_gpu_threads");
+    return ::llvm::StringLiteral("transform.layout_analysis_and_distribution");
   }
 
   std::pair<unsigned, unsigned> getODSOperandIndexAndLength(unsigned index);
@@ -263,30 +248,14 @@ public:
   ::mlir::MutableOperandRange getTargetMutable();
   std::pair<unsigned, unsigned> getODSResultIndexAndLength(unsigned index);
   ::mlir::Operation::result_range getODSResults(unsigned index);
-  ::mlir::TypedValue<::mlir::pdl::OperationType> getResult();
-  ::mlir::ArrayAttr getWorkgroupSizeAttr();
-  ::mlir::ArrayAttr getWorkgroupSize();
-  void setWorkgroupSizeAttr(::mlir::ArrayAttr attr);
-  static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, Value target, ArrayRef<int64_t> workgroupSize);
-  static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::Type result, ::mlir::Value target, ::mlir::ArrayAttr workgroup_size);
-  static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::Value target, ::mlir::ArrayAttr workgroup_size);
+  ::mlir::Operation::result_range getResult();
+  static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, Value target);
+  static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::TypeRange result, ::mlir::Value target);
   static void build(::mlir::OpBuilder &, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {});
-  static void populateDefaultAttrs(const ::mlir::OperationName &opName, ::mlir::NamedAttrList &attributes);
   ::mlir::LogicalResult verifyInvariantsImpl();
   ::mlir::LogicalResult verifyInvariants();
   static ::mlir::ParseResult parse(::mlir::OpAsmParser &parser, ::mlir::OperationState &result);
   void print(::mlir::OpAsmPrinter &_odsPrinter);
-private:
-  ::mlir::StringAttr getAttributeNameForIndex(unsigned index) {
-    return getAttributeNameForIndex((*this)->getName(), index);
-  }
-
-  static ::mlir::StringAttr getAttributeNameForIndex(::mlir::OperationName name, unsigned index) {
-    assert(index < 1 && "invalid attribute index");
-    assert(name.getStringRef() == getOperationName() && "invalid operation name");
-    return name.getAttributeNames()[index];
-  }
-
 public:
   ::mlir::DiagnosedSilenceableFailure applyToOne(
       ::mlir::func::FuncOp target,
@@ -295,145 +264,7 @@ public:
 };
 } // namespace transform
 } // namespace mlir
-MLIR_DECLARE_EXPLICIT_TYPE_ID(mlir::transform::MapNestedForallToGpuThreadsOp)
-
-namespace mlir {
-namespace transform {
-
-//===----------------------------------------------------------------------===//
-// mlir::transform::PipelineSharedMemoryCopiesOp declarations
-//===----------------------------------------------------------------------===//
-
-namespace detail {
-class PipelineSharedMemoryCopiesOpGenericAdaptorBase {
-protected:
-  ::mlir::DictionaryAttr odsAttrs;
-  ::mlir::RegionRange odsRegions;
-  ::std::optional<::mlir::OperationName> odsOpName;
-public:
-  PipelineSharedMemoryCopiesOpGenericAdaptorBase(::mlir::DictionaryAttr attrs = nullptr, ::mlir::RegionRange regions = {});
-
-  std::pair<unsigned, unsigned> getODSOperandIndexAndLength(unsigned index, unsigned odsOperandsSize);
-  ::mlir::DictionaryAttr getAttributes();
-  ::mlir::IntegerAttr getDepthAttr();
-  uint64_t getDepth();
-  ::mlir::UnitAttr getPeelEpilogueAttr();
-  bool getPeelEpilogue();
-};
-} // namespace detail
-template <typename RangeT>
-class PipelineSharedMemoryCopiesOpGenericAdaptor : public detail::PipelineSharedMemoryCopiesOpGenericAdaptorBase {
-  using ValueT = ::llvm::detail::ValueOfRange<RangeT>;
-  using Base = detail::PipelineSharedMemoryCopiesOpGenericAdaptorBase;
-public:
-  PipelineSharedMemoryCopiesOpGenericAdaptor(RangeT values, ::mlir::DictionaryAttr attrs = nullptr, ::mlir::RegionRange regions = {}) : Base(attrs, regions), odsOperands(values) {}
-
-  std::pair<unsigned, unsigned> getODSOperandIndexAndLength(unsigned index) {
-    return Base::getODSOperandIndexAndLength(index, odsOperands.size());
-  }
-
-  RangeT getODSOperands(unsigned index) {
-    auto valueRange = getODSOperandIndexAndLength(index);
-    return {std::next(odsOperands.begin(), valueRange.first),
-             std::next(odsOperands.begin(), valueRange.first + valueRange.second)};
-  }
-
-  ValueT getForOp() {
-    return (*getODSOperands(0).begin());
-  }
-
-  RangeT getOperands() {
-    return odsOperands;
-  }
-
-private:
-  RangeT odsOperands;
-};
-class PipelineSharedMemoryCopiesOpAdaptor : public PipelineSharedMemoryCopiesOpGenericAdaptor<::mlir::ValueRange> {
-public:
-  using PipelineSharedMemoryCopiesOpGenericAdaptor::PipelineSharedMemoryCopiesOpGenericAdaptor;
-  PipelineSharedMemoryCopiesOpAdaptor(PipelineSharedMemoryCopiesOp op);
-
-  ::mlir::LogicalResult verify(::mlir::Location loc);
-};
-class PipelineSharedMemoryCopiesOp : public ::mlir::Op<PipelineSharedMemoryCopiesOp, ::mlir::OpTrait::ZeroRegions, ::mlir::OpTrait::OneResult, ::mlir::OpTrait::OneTypedResult<::mlir::transform::OperationType>::Impl, ::mlir::OpTrait::ZeroSuccessors, ::mlir::OpTrait::OneOperand, ::mlir::OpTrait::OpInvariants, ::mlir::transform::FunctionalStyleTransformOpTrait, ::mlir::MemoryEffectOpInterface::Trait, ::mlir::transform::TransformEachOpTrait, ::mlir::transform::TransformOpInterface::Trait> {
-public:
-  using Op::Op;
-  using Op::print;
-  using Adaptor = PipelineSharedMemoryCopiesOpAdaptor;
-  template <typename RangeT>
-  using GenericAdaptor = PipelineSharedMemoryCopiesOpGenericAdaptor<RangeT>;
-  using FoldAdaptor = GenericAdaptor<::llvm::ArrayRef<::mlir::Attribute>>;
-  static ::llvm::ArrayRef<::llvm::StringRef> getAttributeNames() {
-    static ::llvm::StringRef attrNames[] = {::llvm::StringRef("depth"), ::llvm::StringRef("peel_epilogue")};
-    return ::llvm::ArrayRef(attrNames);
-  }
-
-  ::mlir::StringAttr getDepthAttrName() {
-    return getAttributeNameForIndex(0);
-  }
-
-  static ::mlir::StringAttr getDepthAttrName(::mlir::OperationName name) {
-    return getAttributeNameForIndex(name, 0);
-  }
-
-  ::mlir::StringAttr getPeelEpilogueAttrName() {
-    return getAttributeNameForIndex(1);
-  }
-
-  static ::mlir::StringAttr getPeelEpilogueAttrName(::mlir::OperationName name) {
-    return getAttributeNameForIndex(name, 1);
-  }
-
-  static constexpr ::llvm::StringLiteral getOperationName() {
-    return ::llvm::StringLiteral("transform.pipeline_shared_memory_copies");
-  }
-
-  std::pair<unsigned, unsigned> getODSOperandIndexAndLength(unsigned index);
-  ::mlir::Operation::operand_range getODSOperands(unsigned index);
-  ::mlir::TypedValue<::mlir::transform::OperationType> getForOp();
-  ::mlir::MutableOperandRange getForOpMutable();
-  std::pair<unsigned, unsigned> getODSResultIndexAndLength(unsigned index);
-  ::mlir::Operation::result_range getODSResults(unsigned index);
-  ::mlir::TypedValue<::mlir::transform::OperationType> getResult();
-  ::mlir::IntegerAttr getDepthAttr();
-  uint64_t getDepth();
-  ::mlir::UnitAttr getPeelEpilogueAttr();
-  bool getPeelEpilogue();
-  void setDepthAttr(::mlir::IntegerAttr attr);
-  void setDepth(uint64_t attrValue);
-  void setPeelEpilogueAttr(::mlir::UnitAttr attr);
-  void setPeelEpilogue(bool attrValue);
-  ::mlir::Attribute removePeelEpilogueAttr();
-  static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::Type result, ::mlir::Value for_op, ::mlir::IntegerAttr depth, /*optional*/::mlir::UnitAttr peel_epilogue);
-  static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::Value for_op, ::mlir::IntegerAttr depth, /*optional*/::mlir::UnitAttr peel_epilogue);
-  static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::Type result, ::mlir::Value for_op, uint64_t depth, /*optional*/bool peel_epilogue = false);
-  static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::Value for_op, uint64_t depth, /*optional*/bool peel_epilogue = false);
-  static void build(::mlir::OpBuilder &, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {});
-  ::mlir::LogicalResult verifyInvariantsImpl();
-  ::mlir::LogicalResult verifyInvariants();
-  static ::mlir::ParseResult parse(::mlir::OpAsmParser &parser, ::mlir::OperationState &result);
-  void print(::mlir::OpAsmPrinter &_odsPrinter);
-private:
-  ::mlir::StringAttr getAttributeNameForIndex(unsigned index) {
-    return getAttributeNameForIndex((*this)->getName(), index);
-  }
-
-  static ::mlir::StringAttr getAttributeNameForIndex(::mlir::OperationName name, unsigned index) {
-    assert(index < 2 && "invalid attribute index");
-    assert(name.getStringRef() == getOperationName() && "invalid operation name");
-    return name.getAttributeNames()[index];
-  }
-
-public:
-  ::mlir::DiagnosedSilenceableFailure applyToOne(
-      ::mlir::scf::ForOp forOp,
-      ::mlir::transform::ApplyToEachResultList &results,
-      ::mlir::transform::TransformState &state);
-};
-} // namespace transform
-} // namespace mlir
-MLIR_DECLARE_EXPLICIT_TYPE_ID(mlir::transform::PipelineSharedMemoryCopiesOp)
+MLIR_DECLARE_EXPLICIT_TYPE_ID(mlir::transform::LayoutAnalysisAndDistributionOp)
 
 namespace mlir {
 namespace transform {
@@ -528,7 +359,6 @@ public:
   ::llvm::ArrayRef<int64_t> getIndices();
   void setIndicesAttr(::mlir::DenseI64ArrayAttr attr);
   void setIndices(::llvm::ArrayRef<int64_t> attrValue);
-  static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, Value target, ArrayRef<int64_t> indices);
   static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::TypeRange result, ::mlir::Value target, ::mlir::DenseI64ArrayAttr indices);
   static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::TypeRange result, ::mlir::Value target, ::llvm::ArrayRef<int64_t> indices = {});
   static void build(::mlir::OpBuilder &, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {});
@@ -617,7 +447,7 @@ public:
 
   ::mlir::LogicalResult verify(::mlir::Location loc);
 };
-class VectorToMMAConversionOp : public ::mlir::Op<VectorToMMAConversionOp, ::mlir::OpTrait::ZeroRegions, ::mlir::OpTrait::OneResult, ::mlir::OpTrait::OneTypedResult<::mlir::pdl::OperationType>::Impl, ::mlir::OpTrait::ZeroSuccessors, ::mlir::OpTrait::OneOperand, ::mlir::OpTrait::OpInvariants, ::mlir::transform::FunctionalStyleTransformOpTrait, ::mlir::MemoryEffectOpInterface::Trait, ::mlir::transform::TransformEachOpTrait, ::mlir::transform::TransformOpInterface::Trait> {
+class VectorToMMAConversionOp : public ::mlir::Op<VectorToMMAConversionOp, ::mlir::OpTrait::ZeroRegions, ::mlir::OpTrait::ZeroResults, ::mlir::OpTrait::ZeroSuccessors, ::mlir::OpTrait::OneOperand, ::mlir::OpTrait::OpInvariants, ::mlir::MemoryEffectOpInterface::Trait, ::mlir::transform::TransformEachOpTrait, ::mlir::transform::TransformOpInterface::Trait> {
 public:
   using Op::Op;
   using Op::print;
@@ -652,11 +482,10 @@ public:
 
   std::pair<unsigned, unsigned> getODSOperandIndexAndLength(unsigned index);
   ::mlir::Operation::operand_range getODSOperands(unsigned index);
-  ::mlir::TypedValue<::mlir::pdl::OperationType> getTarget();
+  ::mlir::TypedValue<::mlir::transform::TransformHandleTypeInterface> getTarget();
   ::mlir::MutableOperandRange getTargetMutable();
   std::pair<unsigned, unsigned> getODSResultIndexAndLength(unsigned index);
   ::mlir::Operation::result_range getODSResults(unsigned index);
-  ::mlir::TypedValue<::mlir::pdl::OperationType> getResult();
   ::mlir::UnitAttr getUseMmaSyncAttr();
   bool getUseMmaSync();
   ::mlir::UnitAttr getUseWmmaAttr();
@@ -667,9 +496,14 @@ public:
   void setUseWmma(bool attrValue);
   ::mlir::Attribute removeUseMmaSyncAttr();
   ::mlir::Attribute removeUseWmmaAttr();
-  static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, Value target);
+  static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::Value target, /*optional*/::mlir::UnitAttr use_mma_sync, /*optional*/::mlir::UnitAttr use_wmma);
+  static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::Value target, /*optional*/::mlir::UnitAttr use_mma_sync, /*optional*/::mlir::UnitAttr use_wmma);
+  static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::Value target, /*optional*/bool use_mma_sync = false, /*optional*/bool use_wmma = false);
+  static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::Value target, /*optional*/bool use_mma_sync = false, /*optional*/bool use_wmma = false);
+  static void build(::mlir::OpBuilder &, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {});
   ::mlir::LogicalResult verifyInvariantsImpl();
   ::mlir::LogicalResult verifyInvariants();
+  void getEffects(::llvm::SmallVectorImpl<::mlir::SideEffects::EffectInstance<::mlir::MemoryEffects::Effect>> &effects);
   static ::mlir::ParseResult parse(::mlir::OpAsmParser &parser, ::mlir::OperationState &result);
   void print(::mlir::OpAsmPrinter &_odsPrinter);
 private:
@@ -873,7 +707,7 @@ public:
 
   ::mlir::LogicalResult verify(::mlir::Location loc);
 };
-class VectorWarpDistributionOp : public ::mlir::Op<VectorWarpDistributionOp, ::mlir::OpTrait::ZeroRegions, ::mlir::OpTrait::OneResult, ::mlir::OpTrait::OneTypedResult<::mlir::transform::TransformHandleTypeInterface>::Impl, ::mlir::OpTrait::ZeroSuccessors, ::mlir::OpTrait::OneOperand, ::mlir::OpTrait::OpInvariants, ::mlir::transform::FunctionalStyleTransformOpTrait, ::mlir::MemoryEffectOpInterface::Trait, ::mlir::transform::TransformEachOpTrait, ::mlir::transform::TransformOpInterface::Trait> {
+class VectorWarpDistributionOp : public ::mlir::Op<VectorWarpDistributionOp, ::mlir::OpTrait::ZeroRegions, ::mlir::OpTrait::ZeroResults, ::mlir::OpTrait::ZeroSuccessors, ::mlir::OpTrait::OneOperand, ::mlir::OpTrait::OpInvariants, ::mlir::MemoryEffectOpInterface::Trait, ::mlir::transform::TransformEachOpTrait, ::mlir::transform::TransformOpInterface::Trait> {
 public:
   using Op::Op;
   using Op::print;
@@ -895,10 +729,10 @@ public:
   ::mlir::MutableOperandRange getTargetMutable();
   std::pair<unsigned, unsigned> getODSResultIndexAndLength(unsigned index);
   ::mlir::Operation::result_range getODSResults(unsigned index);
-  ::mlir::TypedValue<::mlir::transform::TransformHandleTypeInterface> getResult();
   static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, Value target);
   ::mlir::LogicalResult verifyInvariantsImpl();
   ::mlir::LogicalResult verifyInvariants();
+  void getEffects(::llvm::SmallVectorImpl<::mlir::SideEffects::EffectInstance<::mlir::MemoryEffects::Effect>> &effects);
   static ::mlir::ParseResult parse(::mlir::OpAsmParser &parser, ::mlir::OperationState &result);
   void print(::mlir::OpAsmPrinter &_odsPrinter);
 public:
