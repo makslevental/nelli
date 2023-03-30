@@ -115,7 +115,6 @@ class TestTensor:
         check_correct(correct, module)
 
     def test_allow_unregistered_dialect(self, capfd):
-
         src = dedent(
             """\
         module {
