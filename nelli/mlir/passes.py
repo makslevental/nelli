@@ -781,6 +781,10 @@ class Pipeline:
         )
         return self
 
+    def convert_to_nvvm(self):
+        self._add_pass("convert-to-nvvm")
+        return self
+
     def convert_vector_to_gpu(self, use_nvgpu=None):
         self._add_pass("convert-vector-to-gpu", use_nvgpu=use_nvgpu)
         return self
@@ -908,29 +912,27 @@ class Pipeline:
         self._add_pass("gpu-map-parallel-loops")
         return self
 
-    if platform.system() == "Linux" and platform.processor() == "x86_64":
-
-        def gpu_to_cubin(
-            self, chip=None, features=None, gpu_binary_annotation=None, triple=None
+    def gpu_to_cubin(
+        self, chip=None, features=None, gpu_binary_annotation=None, triple=None
+    ):
+        if chip is not None and isinstance(chip, (list, tuple)):
+            chip = ",".join(map(str, chip))
+        if features is not None and isinstance(features, (list, tuple)):
+            features = ",".join(map(str, features))
+        if gpu_binary_annotation is not None and isinstance(
+            gpu_binary_annotation, (list, tuple)
         ):
-            if chip is not None and isinstance(chip, (list, tuple)):
-                chip = ",".join(map(str, chip))
-            if features is not None and isinstance(features, (list, tuple)):
-                features = ",".join(map(str, features))
-            if gpu_binary_annotation is not None and isinstance(
-                gpu_binary_annotation, (list, tuple)
-            ):
-                gpu_binary_annotation = ",".join(map(str, gpu_binary_annotation))
-            if triple is not None and isinstance(triple, (list, tuple)):
-                triple = ",".join(map(str, triple))
-            self._add_pass(
-                "gpu-to-cubin",
-                chip=chip,
-                features=features,
-                gpu_binary_annotation=gpu_binary_annotation,
-                triple=triple,
-            )
-            return self
+            gpu_binary_annotation = ",".join(map(str, gpu_binary_annotation))
+        if triple is not None and isinstance(triple, (list, tuple)):
+            triple = ",".join(map(str, triple))
+        self._add_pass(
+            "gpu-to-cubin",
+            chip=chip,
+            features=features,
+            gpu_binary_annotation=gpu_binary_annotation,
+            triple=triple,
+        )
+        return self
 
     def gpu_to_llvm(
         self,
@@ -1081,6 +1083,10 @@ class Pipeline:
         self._add_pass("llvm-request-c-wrappers")
         return self
 
+    def llvmgpu_vector_lowering(self):
+        self._add_pass("llvmgpu-vector-lowering")
+        return self
+
     def loop_invariant_code_motion(self):
         self._add_pass("loop-invariant-code-motion")
         return self
@@ -1214,8 +1220,10 @@ class Pipeline:
         self._add_pass("pre-sparsification-rewrite")
         return self
 
-    def print_ir(self):
-        self._add_pass("print-ir")
+    def print_ir(self, label=None):
+        if label is not None and isinstance(label, (list, tuple)):
+            label = ",".join(map(str, label))
+        self._add_pass("print-ir", label=label)
         return self
 
     def print_op_stats(self, json=None):
@@ -1427,13 +1435,17 @@ class Pipeline:
         )
         return self
 
-    def sparsification(self, parallelization_strategy=None):
+    def sparsification(
+        self, enable_index_reduction=None, parallelization_strategy=None
+    ):
         if parallelization_strategy is not None and isinstance(
             parallelization_strategy, (list, tuple)
         ):
             parallelization_strategy = ",".join(map(str, parallelization_strategy))
         self._add_pass(
-            "sparsification", parallelization_strategy=parallelization_strategy
+            "sparsification",
+            enable_index_reduction=enable_index_reduction,
+            parallelization_strategy=parallelization_strategy,
         )
         return self
 

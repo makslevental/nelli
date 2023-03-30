@@ -39,7 +39,6 @@ using llvm::dbgs;
 #define DEBUG_TYPE "transform-llvmgpu-extensions"
 
 #define DBGS() (dbgs() << '[' << DEBUG_TYPE << "] ")
-#define LDBG(X) LLVM_DEBUG(dbgs() << '[' << DEBUG_TYPE << "] " << X)
 
 using namespace mlir;
 
@@ -314,11 +313,12 @@ transform::VectorToWarpExecuteOnLane0Op::applyToOne(
     // Return a silenceable failure and set the expected 1 result to
     // nullptr.
     results.assign(1, nullptr);
-    return listener.check(
-        loc, emitDefaultSilenceableFailure(target)
-                 << "scf::ifOp needs to be predicated on threadIdx.x == 0 "
-                    "--- the "
-                    "transform is not applied");
+//    return listener.check(
+//        loc, emitDefaultSilenceableFailure(target)
+//                 << "scf::ifOp needs to be predicated on threadIdx.x == 0 "
+//                    "--- the "
+//                    "transform is not applied");
+    return listener.check(loc);
   }
 
   results.push_back(vectorDistributionResult->warpOp);
@@ -482,7 +482,7 @@ struct HoistSharedMemoryAlloc : public OpRewritePattern<memref::AllocOp> {
 static void populateMultiReductionLoweringPatterns(Operation *target,
                                                    RewritePatternSet &patterns,
                                                    PatternBenefit benefit) {
-  assert(target->hasTrait<OpTrait::IsIsolatedFromAbove>());
+//  assert(target->hasTrait<OpTrait::IsIsolatedFromAbove>());
 
   vector::populateVectorMultiReductionLoweringPatterns(
       patterns, vector::VectorMultiReductionLowering::InnerReduction, benefit);
@@ -505,7 +505,7 @@ static AffineMap simpleDistributionFunction(Value val) {
 static void populateVectorTransferWriteDistribution(Operation *target,
                                                     RewritePatternSet &patterns,
                                                     PatternBenefit benefit) {
-  assert(target->hasTrait<OpTrait::IsIsolatedFromAbove>());
+//  assert(target->hasTrait<OpTrait::IsIsolatedFromAbove>());
   vector::populateDistributeTransferWriteOpPatterns(
       patterns, simpleDistributionFunction, benefit);
 }
@@ -534,7 +534,7 @@ static void populatePropagateVectorDistribution(Operation *target,
     return mlir::emitGPUGroupReduction(loc, builder, input, kind,
                                                       size, 32);
   };
-  assert(target->hasTrait<OpTrait::IsIsolatedFromAbove>());
+//  assert(target->hasTrait<OpTrait::IsIsolatedFromAbove>());
   vector::populatePropagateWarpVectorDistributionPatterns(
       patterns, simpleDistributionFunction, simpleWarpShuffleFunction, benefit);
   vector::populateDistributeReduction(patterns, groupReductionFn, benefit);
@@ -551,7 +551,7 @@ static void populateWarpExecuteOnLane0ToScf(
     Operation *target, RewritePatternSet &patterns,
     const vector::WarpExecuteOnLane0LoweringOptions &options,
     PatternBenefit benefit) {
-  assert(target->hasTrait<OpTrait::IsIsolatedFromAbove>());
+//  assert(target->hasTrait<OpTrait::IsIsolatedFromAbove>());
   vector::populateWarpExecuteOnLane0OpToScfForPattern(patterns, options,
                                                       benefit);
 }
@@ -561,11 +561,11 @@ transform::VectorWarpDistributionOp::applyToOne(
     Operation *target, transform::ApplyToEachResultList &results,
     transform::TransformState &state) {
   if (!target->hasTrait<OpTrait::IsIsolatedFromAbove>()) {
-    target->emitOpError(
+    target->emitWarning(
         "applies only to isolated-from-above targets because it "
         "needs to apply "
         "patterns greedily");
-    return emitDefaultDefiniteFailure(target);
+//    return emitDefaultDefiniteFailure(target);
   }
 
   // TODO: Hook up into the ApplyPatternOp in CommonExtensions.cpp to
@@ -621,7 +621,7 @@ transform::VectorToMMAConversionOp::applyToOne(
     Operation *target, transform::ApplyToEachResultList &results,
     transform::TransformState &state) {
   if (!target->hasTrait<OpTrait::IsIsolatedFromAbove>()) {
-    target->emitOpError(
+    target->emitWarning(
         "applies only to isolated-from-above targets because it "
         "needs to apply "
         "patterns greedily");

@@ -91,4 +91,25 @@ private:
 
 } // namespace mlir
 
+
+
+namespace mlir {
+namespace transform {
+#ifndef NDEBUG
+namespace detail {
+/// Asserts that the operations provided as template arguments implement the
+/// TransformOpInterface and MemoryEffectsOpInterface. This must be a dynamic
+/// assertion since interface implementations may be registered at runtime.
+void checkImplementsTransformOpInterface(StringRef name, MLIRContext *context);
+
+/// Asserts that the type provided as template argument implements the
+/// TransformHandleTypeInterface. This must be a dynamic assertion since
+/// interface implementations may be registered at runtime.
+void checkImplementsTransformHandleTypeInterface(TypeID typeID,
+                                                 MLIRContext *context);
+} // namespace detail
+#endif // NDEBUG
+} // namespace transform
+} // namespace mlir
+
 #endif // TRANSFORMS_LISTENERCSE_H

@@ -9,7 +9,6 @@ from textwrap import dedent
 
 from nelli.mlir._mlir.dialects.linalg import BinaryFn, TypeFn
 from nelli.mlir._mlir.dialects import linalg
-from nelli.mlir._mlir.ir import MLIRError
 from nelli import F32, allow_unregistered_dialects
 from nelli.mlir.arith import constant
 from nelli.mlir.tensor import (
@@ -25,6 +24,7 @@ from nelli.utils import mlir_mod_ctx, shlib_ext
 from nelli.mlir.passes import Pipeline
 from util import check_correct
 from nelli.mlir._mlir import _mlir_libs
+from nelli.mlir._mlir.ir import MLIRError
 
 omp_lib_path = Path(_mlir_libs.__file__).parent / f"libomp.{shlib_ext()}"
 assert omp_lib_path.exists()
@@ -115,6 +115,7 @@ class TestTensor:
         check_correct(correct, module)
 
     def test_allow_unregistered_dialect(self, capfd):
+
         src = dedent(
             """\
         module {
