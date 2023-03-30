@@ -34,6 +34,7 @@
 #include "Transform/TransformDialectInterpreter.h"
 #include "Transform/Structured/StructuredTransformOpsExt.h"
 #include "PDLByteCodeInterpreter/PDLByteCodeInterpreter.h"
+#include "LLVMGPUVectorLowering/LLVMGPUVectorLowering.h"
 #include "utils.h"
 
 namespace py = pybind11;
@@ -319,4 +320,6 @@ PYBIND11_MODULE(_nelli_mlir, m) {
   nelli::registerTransformDialectInterpreterPass();
   nelli::registerMapMemRefStorageClassPass();
   nelli::registerPDLByteCodePass();
+  nelli::registerLLVMGPUVectorLoweringPass();
+  nelli::registerConvertToNVVMPass();
 }

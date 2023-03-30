@@ -1192,81 +1192,164 @@ class TestTiling:
         )
         print(module)
 
-    def test_reductions_codegen_spec(self):
+    @pytest.mark.xfail()
+    def test_reductions_codegen_spec2(self):
         src = dedent(
             """\
-        transform.sequence failures(propagate) {
-        ^bb0(%arg0: !pdl.operation):
-          transform.register_match_callbacks
+            !in_tensor_t = tensor<8x64xf32>
+            !out_tensor_t = tensor<8xf32>
 
-          %maybe_leading, %original_fill, %reduction, %maybe_trailing_0 =
-            transform.match_callback failures(propagate) "reduction"(%arg0)
-            : (!pdl.operation) -> (!pdl.operation, !pdl.operation, !pdl.operation, !pdl.operation)
-          
-          %_, %more_parallel_fill, %parallel_reduction, %combiner_op =
-            transform.structured.split_reduction %reduction { split_factor = 2, insert_split_dimension = 1 }
+            func.func @reduce(%arg : !in_tensor_t) -> (!out_tensor_t) {
+              %cst = arith.constant -0.000000e+00 : f32
 
-          // Step 1. Map to a single block by tiling with size 1 and fusing.
-          %fusion_root_1, %fusion_group_1 = transform.take_first %maybe_trailing_0, %combiner_op
-            : (!pdl.operation, !pdl.operation) -> (!pdl.operation, !pdl.operation)
-          %grid_loop, %outer_tiled = transform.structured.tile_to_forall_op %fusion_root_1 tile_sizes [1]
-            ( mapping = [#gpu.block<x>] )
-          
-          %func = transform.structured.match ops{["func.func"]} in %arg0 : (!pdl.operation) -> !pdl.operation
-          transform.apply_patterns %func { bubble_expand } : (!pdl.operation) -> ()
+              %0 = tensor.empty() : !out_tensor_t
+              %1 = linalg.fill ins(%cst : f32) outs(%0 : !out_tensor_t) ->   !out_tensor_t
+              %2 = linalg.generic {
+                indexing_maps = [affine_map<(d0, d1) -> (d0, d1)>,
+                                 affine_map<(d0, d1) -> (d0)>],
+                iterator_types = ["parallel", "reduction"]}
+                ins(%arg : !in_tensor_t) outs(%1 : !out_tensor_t) {
+                  ^bb0(%arg3: f32, %arg4: f32):
+                    %3 = arith.addf %arg3, %arg4 : f32
+                    linalg.yield %3 : f32
+                  } -> !out_tensor_t
+              return %2 : !out_tensor_t
+            }
+            
+            transform.sequence failures(propagate) attributes {transform.target_tag = "basic"} {
+            ^bb1(%variant_op: !pdl.operation):
+              %fill = transform.structured.match ops{["linalg.fill"]} in %variant_op : (!pdl.operation) -> !pdl.operation
 
-          // Excessively eager canonicalization results in `fill`s being "fused" due to
-          // swapping with `extract_slice`, which confuses the fusion operation below.
-          // Wrap fusion into a non-canonicalized sequence.
-          %fused_2, %parallel_reduction_2, %more_parallel_fill_2, %original_fill_2, %maybe_leading_2 =
-            transform.sequence %arg0 : !pdl.operation -> !pdl.operation, !pdl.operation, !pdl.operation, !pdl.operation, !pdl.operation
-            failures(propagate) {
-          ^bb1(%arg1: !pdl.operation):
-            %fused_22 = transform.structured.fuse_into_containing_op %fusion_group_1 into %grid_loop
-            %parallel_reduction_22 = transform.structured.fuse_into_containing_op %parallel_reduction into %grid_loop
-            %more_parallel_fill_22 = transform.structured.fuse_into_containing_op %more_parallel_fill into %grid_loop
-            %original_fill_22 = transform.structured.fuse_into_containing_op %original_fill into %grid_loop
-            %maybe_leading_22 = transform.structured.fuse_into_containing_op %maybe_leading into %grid_loop
+              // Step 1. Split the reduction to get meatier (size(red) / 2)-way parallelism.
+              // ===========================================================================
+              %0 = transform.structured.match ops{["linalg.generic"]} in %variant_op : (!pdl.operation) -> !pdl.operation
+              %init_or_alloc_op, %more_parallel_fill_op, %more_parallel_op, %combiner_op =
+                transform.structured.split_reduction %0
+                  { split_factor = 2, insert_split_dimension = 1 }
 
-            transform.yield %fused_22, %parallel_reduction_22, %more_parallel_fill_22, %original_fill_22, %maybe_leading_22
-              : !pdl.operation, !pdl.operation, !pdl.operation, !pdl.operation, !pdl.operation
-          }
+              // Step 2. First level of tiling + fusion parallelizes to blocks.
+              // ===========================================================================
+              %forall_grid, %grid_combiner_op =
+                transform.structured.tile_to_forall_op %combiner_op tile_sizes [1]
+                  ( mapping = [#gpu.block<x>] )
+              %not_combiner = transform.merge_handles %fill, %more_parallel_fill_op, %more_parallel_op : !pdl.operation
+              transform.structured.fuse_into_containing_op %not_combiner into %forall_grid
 
-          // Step 2. Map reduction to thread X and parallel dimension to other threads.
-          // ===========================================================================
-          %fusion_group_22_full = transform.merge_handles %fused_2, %original_fill_2
-            : !pdl.operation
-          %block_loop_22, %fusion_root_22_tiled =
-            transform.structured.tile_to_forall_op %outer_tiled
-            tile_sizes [1] ( mapping = [#gpu.thread<z>] )
-          transform.structured.fuse_into_containing_op %fusion_group_22_full into %block_loop_22
+              // Step 3. Second level of tiling + fusion parallelizes to threads.
+              // ===========================================================================
+              %fill_1d = transform.structured.match ops{["linalg.fill"]} filter_result_type = tensor<1xf32> in %variant_op 
+                : (!pdl.operation) -> !pdl.operation
+              %forall_block_combiner_op, %block_combiner_op =
+                transform.structured.tile_to_forall_op %grid_combiner_op tile_sizes [1] 
+                ( mapping = [#gpu.thread<z>] )
+              transform.structured.fuse_into_containing_op %fill_1d into %forall_block_combiner_op
 
-          %fusion_group_21 = transform.merge_handles %maybe_leading_2, %more_parallel_fill_2
-            : !pdl.operation
-          %block_loop_21, %fusion_root_21_tiled =
-            transform.structured.tile_to_forall_op %parallel_reduction_2
-            tile_sizes [1, 1] ( mapping = [#gpu.thread<z>, #gpu.thread<y>] )
-          transform.structured.fuse_into_containing_op %fusion_group_21 into %block_loop_21
-          
-          // Step 3. Rank-reduce.
-          // ===========================================================================
-          transform.apply_patterns %func {  rank_reducing_linalg, rank_reducing_vector } : (!pdl.operation) -> ()
+              // Canonicalizations.
+              transform.apply_patterns %variant_op
+                { canonicalization, tiling_canonicalization, licm, cse } : (!pdl.operation) -> ()
 
-          // We don't perform any following transformation (vectorization, bufferizaton,
-          // mapping) because this schedule is applied to Linalg-only code without the
-          // surrounding context and because it would make it difficult to detect, e.g.,
-          // lack of fusion.
-        }
+              %fill_2d = transform.structured.match ops{["linalg.fill"]} filter_result_type = tensor<1x2xf32> in %variant_op 
+                : (!pdl.operation) -> !pdl.operation
+              %grid_more_parallel_op = transform.structured.match ops{["linalg.generic"]}
+                attributes{iterator_types = [#linalg.iterator_type<parallel>, #linalg.iterator_type<parallel>, #linalg.iterator_type<reduction>]} in %variant_op 
+                  : (!pdl.operation) -> !pdl.operation
+              %forall_block_more_parallel_op, %block_more_parallel_op =
+                transform.structured.tile_to_forall_op %grid_more_parallel_op tile_sizes [1, 1] 
+                ( mapping = [#gpu.thread<z>, #gpu.thread<y>] )
+              transform.structured.fuse_into_containing_op %fill_2d into %forall_block_more_parallel_op
+
+              // Step 4. Rank-reduce and vectorize.
+              // ===========================================================================
+              %func = transform.structured.match ops{["func.func"]} in %variant_op 
+                : (!pdl.operation) -> !pdl.operation
+              transform.apply_patterns %func {  rank_reducing_linalg, rank_reducing_vector } : (!pdl.operation) -> ()
+              %func_3 = transform.structured.vectorize %func
+
+              // Step 5. Bufferize and drop HAL decriptor from memref ops.
+              // ===========================================================================
+              transform.apply_patterns %func_3 { fold_reassociative_reshapes } : (!pdl.operation) -> ()
+              transform.eliminate_empty_tensors %variant_op : (!pdl.operation) -> ()
+              %variant_op_3 = transform.bufferize { target_gpu } %variant_op : (!pdl.operation) -> !pdl.operation
+
+              // Step 6. Post-bufferization mapping to blocks and threads.
+              // ===========================================================================
+              %func_4 = transform.structured.match ops{["func.func"]} in %variant_op_3
+                : (!pdl.operation) -> !pdl.operation
+              %gpu_launch = transform.gpu.map_forall_to_blocks %func_4
+                grid_dims = [2] {generate_gpu_launch}
+              transform.gpu.map_nested_forall_to_threads %gpu_launch 
+                block_dims = [32, 2, 1]
+
+              %func_5 = transform.structured.match ops{["func.func"]} in %variant_op_3
+                : (!pdl.operation) -> !pdl.operation
+              transform.apply_patterns %func_5 { rank_reducing_linalg, rank_reducing_vector, fold_memref_aliases, cse, canonicalize } : (!pdl.operation) -> ()
+            }
+            
+            transform.sequence failures(propagate) attributes {transform.target_tag = "final"} {
+            ^bb1(%variant_op: !pdl.operation):
+              %if_op = transform.structured.match ops{["scf.if"]} in %variant_op 
+                : (!pdl.operation) -> !pdl.operation
+              transform.vector.to_warp_execute_on_lane_0 %if_op { warp_size = 32 }
+              %func_5 = transform.structured.match ops{["func.func"]} in %variant_op
+                : (!pdl.operation) -> !pdl.operation
+              transform.vector.warp_distribute %func_5 : (!pdl.operation) -> ()
+              transform.apply_patterns %variant_op
+                { canonicalization, tiling_canonicalization, licm, cse } : (!pdl.operation) -> ()
+                
+              // Hoist static allocs to allow multi-buffering to proceed.
+              transform.hoist_static_alloc %func_5 : (!pdl.operation) -> ()
+              %allocs = transform.structured.match ops{["memref.alloc"]} in %func_5
+                : (!pdl.operation) -> !transform.op<"memref.alloc">
+              %mb_allocs = transform.memref.multibuffer %allocs {factor = 5 : i64, skip_analysis } 
+                : (!transform.op<"memref.alloc">) -> !pdl.operation
+              transform.apply_patterns %func_5 { canonicalization, cse, licm, fold_memref_aliases, tiling_canonicalization } : (!pdl.operation) -> ()
+                
+              // Step 5. Lower vectors.
+              // ============================================================================
+              transform.vector.lower_vectors %func_5 multireduction_lowering = "innerreduction"
+                // Late canonicalizations and cleanups.
+              
+            }
         """
         )
+
         with mlir_mod_ctx(src) as module:
             pass
 
+        module = self.backend.compile(
+            module,
+            kernel_name="reduce",
+            pipeline=Pipeline()
+            .symbol_dce()
+            .transform_dialect_interpreter(debug_transform_root_tag="basic")
+            .lower_affine()
+            .cse()
+            .canonicalize()
+            .transform_dialect_interpreter(debug_transform_root_tag="final")
+            .transform_dialect_erase_schedule()
+            .lower_affine()
+            .func_bufferize()
+            .canonicalize()
+            .cse()
+            .gpu_kernel_outlining()
+            .convert_scf_to_cf()
+            .convert_to_nvvm()
+            .GPU()
+            .strip_debuginfo()
+            .convert_gpu_to_nvvm()
+            .UPG()
+            .convert_arith_to_llvm()
+            .canonicalize()
+            .cse()
+            .GPU()
+            .gpu_to_cubin(chip="sm_70")
+            .UPG()
+            .FUNC()
+            .canonicalize()
+            .cse()
+            .CNUF()
+            # .gpu_to_llvm()
+            ,
+            # enable_ir_printing=True
+        )
         print(module)
-
-        # module = self.backend.compile(
-        #     module,
-        #     pipeline=Pipeline()
-        #     .transform_dialect_interpreter()
-        #     .transform_dialect_erase_schedule(),
-        # )

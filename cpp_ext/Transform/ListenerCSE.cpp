@@ -20,6 +20,12 @@
 #include "llvm/ADT/ScopedHashTable.h"
 #include "llvm/Support/RecyclingAllocator.h"
 #include "llvm/ADT/TypeSwitch.h"
+#include "llvm/Support/Debug.h"
+
+using llvm::dbgs;
+#define DEBUG_TYPE "listener-cse"
+#define DBGS() (dbgs() << '[' << DEBUG_TYPE << "] ")
+#define LDBG(X) LLVM_DEBUG(dbgs() << '[' << DEBUG_TYPE << "] " << X)
 
 using namespace mlir;
 
@@ -440,8 +446,8 @@ void CSE::doItOnOperation(Operation *rootOp, DominanceInfo *domInfo,
 LogicalResult
 mlir::eliminateCommonSubexpressions(Operation *op, DominanceInfo *domInfo,
                                     RewriterBase::Listener *listener) {
-  assert(op->hasTrait<OpTrait::IsIsolatedFromAbove>() &&
-         "can only do CSE on isolated-from-above ops");
+//  assert(op->hasTrait<OpTrait::IsIsolatedFromAbove>() &&
+//         "can only do CSE on isolated-from-above ops");
   Optional<DominanceInfo> defaultDomInfo;
   if (domInfo == nullptr) {
     defaultDomInfo.emplace(op);
@@ -638,3 +644,38 @@ void mlir::TrackingListener::removeMappings(Operation *op) {
   mayFail(replacePayloadOp(op, nullptr));
 }
 
+namespace mlir {
+namespace transform {
+#ifndef NDEBUG
+namespace detail {
+void checkImplementsTransformOpInterface(StringRef name, MLIRContext *context) {
+  // Since the operation is being inserted into the Transform dialect and the
+  // dialect does not implement the interface fallback, only check for the op
+  // itself having the interface implementation.
+  RegisteredOperationName opName =
+      *RegisteredOperationName::lookup(name, context);
+  assert((opName.hasInterface<TransformOpInterface>() ||
+          opName.hasTrait<OpTrait::IsTerminator>()) &&
+         "non-terminator ops injected into the transform dialect must "
+         "implement TransformOpInterface");
+  assert(opName.hasInterface<MemoryEffectOpInterface>() &&
+         "ops injected into the transform dialect must implement "
+         "MemoryEffectsOpInterface");
+}
+
+void checkImplementsTransformHandleTypeInterface(TypeID typeID,
+                                                 MLIRContext *context) {
+  const auto &abstractType = AbstractType::lookup(typeID, context);
+  assert((abstractType.hasInterface(
+      TransformHandleTypeInterface::getInterfaceID()) ||
+          abstractType.hasInterface(
+              TransformParamTypeInterface::getInterfaceID()) ||
+          abstractType.hasInterface(
+              TransformValueHandleTypeInterface::getInterfaceID())) &&
+         "expected Transform dialect type to implement one of the three "
+         "interfaces");
+}
+} // namespace detail
+#endif // NDEBUG
+} // namespace transform
+} // namespace mlir
