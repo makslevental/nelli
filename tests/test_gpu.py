@@ -489,7 +489,6 @@ class TestGPU:
             .convert_scf_to_cf()
             .gpu_to_llvm(),
         )
-
         invoker = self.backend.load(module)
         invoker.main()
 
@@ -515,4 +514,4 @@ class TestGPU:
         """
         )
         out, err = capfd.readouterr()
-        # check_correct(correct, out)
+        print(out)
