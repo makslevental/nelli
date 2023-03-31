@@ -168,7 +168,7 @@ def affine_range(start, stop=None, step=1):
     return [ArithValue(for_op.induction_variable)]
 
 
-def end_for():
+def affine_end_for():
     affine.AffineYieldOp([])
     global _for_ip
     _for_ip.__exit__(None, None, None)

@@ -281,7 +281,8 @@ PYBIND11_MODULE(_nelli_mlir, m) {
     llvm::function_ref<void(unsigned, Operation *, OpBuilder)> annotateFn =
         nullptr;
     using Annotation = std::pair<std::string, MlirAttribute>;
-    annotator_ = py::reinterpret_borrow<py::object>(annotator);
+    // if not steal then a spurious XDECREF will be performed?
+    annotator_ = py::reinterpret_steal<py::object>(annotator);
     if (!annotator_.is(py::none())) {
       annotateFn = [](unsigned i, Operation *op, OpBuilder b) {
         auto res = annotator_(i, wrap(op));

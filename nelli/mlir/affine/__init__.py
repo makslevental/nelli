@@ -1,7 +1,7 @@
 from .affine import (
     Apply,
     affine_range,
-    end_for,
+    affine_end_for,
     LoadOp,
     StoreOp,
     RankedAffineMemRefValue,

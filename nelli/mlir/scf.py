@@ -69,7 +69,7 @@ def scf_range(start, stop=None, step=1):
     return [ArithValue(for_op.induction_variable)]
 
 
-def end_for():
+def scf_end_for():
     scf.YieldOp([])
     global _for_ip
     _for_ip.__exit__(None, None, None)
@@ -141,6 +141,13 @@ def par_range(starts, stops, steps=None):
     assert len(starts) == len(stops)
     if steps is None:
         steps = [1] * len(starts)
+
+    inits = [starts, stops, steps]
+    for i, l in enumerate(inits):
+        if isinstance(l, tuple):
+            inits[i] = list(l)
+    starts, stops, steps = inits
+
     for args in [starts, stops, steps]:
         for i, a in enumerate(args):
             if isinstance(a, int):

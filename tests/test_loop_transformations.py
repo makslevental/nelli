@@ -1,28 +1,21 @@
 import ctypes
-import platform
 from pathlib import Path
 from textwrap import dedent
 
 import numpy as np
-import pytest
 
 from nelli.mlir._mlir import _mlir_libs
-
-from nelli.mlir.utils import F32, F64, Index
 from nelli.mlir._mlir.execution_engine import ExecutionEngine
 from nelli.mlir._mlir.runtime import get_ranked_memref_descriptor
-
-from nelli.mlir.memref import (
-    MemRefValue as MemRef,
-    cast,
-    UnrankedMemRefValue as UnrankedMemRef,
-)
 from nelli.mlir.arith import constant
 from nelli.mlir.func import mlir_func
-from nelli.mlir.gpu import host_register
+from nelli.mlir.memref import (
+    MemRefValue as MemRef,
+)
 from nelli.mlir.refbackend import LLVMJITBackend, Pipeline
+from nelli.mlir.utils import F32, F64, Index
 from nelli.poly.affine import ForOp
-from nelli.utils import mlir_gc, shlib_ext
+from nelli.utils import shlib_ext
 from nelli.utils import mlir_mod_ctx, find_ops
 from util import check_correct
 
@@ -46,19 +39,11 @@ shared_libs = [
     str(c_runner_utils_lib_path),
 ]
 
-if platform.system() == "Linux" and platform.processor() == "x86_64":
-    cuda_wrapper_library_path = (
-        Path(_mlir_libs.__file__).parent / f"libmlir_cuda_runtime.{shlib_ext()}"
-    )
-    assert cuda_wrapper_library_path.exists()
-    shared_libs.append(str(cuda_wrapper_library_path))
-
 
 class TestLoops:
     backend = LLVMJITBackend(shared_libs=shared_libs)
 
     def test_unroll(self):
-        mlir_gc()
         with mlir_mod_ctx() as module:
 
             @mlir_func(rewrite_ast_=True)
@@ -134,10 +119,8 @@ class TestLoops:
         """
         )
         check_correct(correct, module)
-        mlir_gc()
 
     def test_inner_unroll(self):
-        mlir_gc()
         with mlir_mod_ctx() as module:
 
             @mlir_func(rewrite_ast_=True)
@@ -200,10 +183,8 @@ class TestLoops:
             """
         )
         check_correct(correct, module)
-        mlir_gc()
 
     def test_skewing(self):
-        mlir_gc()
         with mlir_mod_ctx() as module:
 
             @mlir_func
@@ -302,53 +283,3 @@ class TestLoops:
         c = A @ B
         # print(c, C)
         assert np.allclose(c, C)
-        mlir_gc()
-
-    @pytest.mark.xfail()
-    def test_gpu(self):
-        with mlir_mod_ctx() as module:
-            M, N, K = 4, 16, 8
-            unranked_memref = UnrankedMemRef[F32]
-
-            @mlir_func
-            def matmul(
-                A: MemRef[(M, N), F32],
-                B: MemRef[(N, K), F32],
-                C: MemRef[(M, K), F32],
-            ):
-                host_register(cast(A, unranked_memref.mlir_type))
-                host_register(cast(B, unranked_memref.mlir_type))
-                host_register(cast(C, unranked_memref.mlir_type))
-
-                for i in range(0, M):
-                    for k in range(0, K):
-                        for j in range(0, N):
-                            a = A[i, j]
-                            b = B[j, k]
-                            C[i, k] += a * b
-
-        module = self.backend.compile(
-            module,
-            kernel_name="matmul",
-            pipeline=Pipeline()
-            .bufferize()
-            .FUNC()
-            .convert_affine_for_to_gpu(gpu_block_dims=1, gpu_thread_dims=1)
-            .lower_affine()
-            .convert_scf_to_cf()
-            .cse()
-            .CNUF()
-            .gpu_kernel_outlining()
-            .GPU()
-            .strip_debuginfo()
-            .convert_gpu_to_nvvm()
-            .gpu_to_cubin(chip="sm_70")
-            .UPG()
-            .gpu_to_llvm(),
-        )
-        invoker = self.backend.load(module)
-        A = np.random.randint(low=0, high=10, size=(M, N)).astype(np.float32)
-        B = np.random.randint(low=0, high=10, size=(N, K)).astype(np.float32)
-        C = np.zeros((M, K)).astype(np.float32)
-        invoker.matmul(A, B, C)
-        assert np.allclose(A @ B, C)

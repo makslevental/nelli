@@ -510,6 +510,10 @@ def host_register(memref):
     return gpu.HostRegisterOp(memref)
 
 
+def host_unregister(memref):
+    return gpu.HostUnregisterOp(memref)
+
+
 def all_reduce(op, val, uniform=False):
     return gpu.AllReduceOp(val, op=op, uniform=uniform).result
 

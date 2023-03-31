@@ -281,3 +281,22 @@ class TestLinalg:
             enable_ir_printing=False,
         )
         # print(module)
+
+    def test_conv_2d_nchw_fchw(self):
+        with mlir_mod_ctx() as module:
+
+            @mlir_func
+            def conv_2d_nchw_fchw(
+                input: Tensor[(1, 3, 64, 64), F32],
+                kernel: Tensor[(3, 3, 3, 3), F32],
+                output: Tensor[(1, 3, 62, 62), F32],
+            ):
+                return linalg.conv_2d_nchw_fchw(input, kernel, outs=[output])
+
+        print(module)
+        module = self.backend.compile(
+            module,
+            kernel_name="conv_2d_nchw_fchw",
+            pipeline=Pipeline().bufferize().FUNC().convert_linalg_to_affine_loops().CNUF(),
+        )
+        print(module)

@@ -17,6 +17,7 @@ from nelli.mlir.gpu import (
     host_register,
     gpu_launch,
     all_reduce,
+    host_unregister,
 )
 from nelli.mlir.memref import (
     MemRefValue as MemRef,
@@ -25,9 +26,11 @@ from nelli.mlir.memref import (
 )
 from nelli.mlir.passes import Pipeline
 from nelli.mlir.refbackend import LLVMJITBackend
+from nelli.mlir.scf import scf_range, par_range
 from nelli.mlir.spirv import set_module_target_env
-from nelli.mlir.utils import run_pipeline, F32, I32
-from nelli.utils import shlib_ext, mlir_mod_ctx
+from nelli.mlir.utils import F32, I32, I64
+from nelli.poly.affine import ForOp
+from nelli.utils import shlib_ext, mlir_mod_ctx, find_ops
 from util import check_correct
 
 c_runner_utils_lib_path = (
@@ -352,7 +355,7 @@ class TestGPU:
                 sum = MemRef.alloc((2,), I32)
 
                 power_csts = [constant(0, type=I32)] + [
-                    constant(2 ** i, type=I32) for i in range(5)
+                    constant(2**i, type=I32) for i in range(5)
                 ]
                 odd_csts = [
                     constant(3, type=I32),
@@ -515,3 +518,336 @@ class TestGPU:
         )
         out, err = capfd.readouterr()
         print(out)
+
+    @pytest.mark.xfail()
+    def test_gpu(self):
+        with mlir_mod_ctx() as module:
+            M, N, K = 4, 16, 8
+            unranked_memref = UnrankedMemRef[F32]
+
+            @mlir_func
+            def matmul(
+                A: MemRef[(M, N), F32],
+                B: MemRef[(N, K), F32],
+                C: MemRef[(M, K), F32],
+            ):
+                xc = cast(A, unranked_memref.mlir_type)
+                yc = cast(B, unranked_memref.mlir_type)
+                zc = cast(C, unranked_memref.mlir_type)
+
+                host_register(xc)
+                host_register(yc)
+                host_register(zc)
+
+                for i in range(0, M):
+                    for k in range(0, K):
+                        for j in range(0, N):
+                            a = A[i, j]
+                            b = B[j, k]
+                            C[i, k] += a * b
+
+                host_unregister(xc)
+                host_unregister(yc)
+                host_unregister(zc)
+
+        module = self.backend.compile(
+            module,
+            kernel_name="matmul",
+            pipeline=Pipeline()
+            .bufferize()
+            .FUNC()
+            .convert_affine_for_to_gpu(gpu_block_dims=1, gpu_thread_dims=1)
+            .lower_affine()
+            .convert_scf_to_cf()
+            .cse()
+            .CNUF()
+            .gpu_kernel_outlining()
+            .GPU()
+            .strip_debuginfo()
+            .convert_gpu_to_nvvm()
+            .gpu_to_cubin(chip="sm_70")
+            .UPG()
+            .gpu_to_llvm(),
+        )
+        invoker = self.backend.load(module)
+        A = np.random.randint(low=0, high=10, size=(M, N)).astype(np.float32)
+        B = np.random.randint(low=0, high=10, size=(N, K)).astype(np.float32)
+        C = np.zeros((M, K)).astype(np.float32)
+        invoker.matmul(A, B, C)
+        assert np.allclose(A @ B, C)
+
+    @pytest.mark.xfail()
+    def test_gpu_unroll(self):
+        M, N, K = 4, 16, 8
+        N_RUNS = 100
+        unranked_memref = UnrankedMemRef[F32]
+        param1_type, param2_type, result_type = (
+            MemRef[(M, N), F32],
+            MemRef[(N, K), F32],
+            MemRef[(M, K), F32],
+        )
+        with mlir_mod_ctx() as module:
+            timer = declare("_mlir_ciface_nanoTime", [], result_annots=[I64])
+
+            @mlir_func
+            def matmul(
+                A: param1_type,
+                B: param2_type,
+                C: result_type,
+            ):
+                for i in range(0, M):
+                    for k in range(0, K):
+                        for j in range(0, N):
+                            a = A[i, j]
+                            b = B[j, k]
+                            C[i, k] += a * b
+
+            @mlir_func(range_ctor=scf_range, attributes={"llvm.emit_c_interface": None})
+            def timing_wrapper(
+                x: param1_type,
+                y: param2_type,
+                z: result_type,
+                times: MemRef[[N_RUNS], I64],
+            ):
+                xc = cast(x, unranked_memref.mlir_type)
+                yc = cast(y, unranked_memref.mlir_type)
+                zc = cast(z, unranked_memref.mlir_type)
+
+                host_register(xc)
+                host_register(yc)
+                host_register(zc)
+
+                for i in range(0, N_RUNS):
+                    start = timer()
+                    matmul(x, y, z)
+                    end = timer()
+                    times[i] = end - start
+
+                host_unregister(xc)
+                host_unregister(yc)
+                host_unregister(zc)
+
+        fors = find_ops(module, lambda op: op.name == "affine.for")
+        assert len(fors) == 3
+        for_op = ForOp(fors[2])
+
+        def annotator(i, op):
+            return None
+
+        for_op.unroll_by_factor(5, annotator)
+
+        module = self.backend.compile(
+            module,
+            kernel_name="timing_wrapper",
+            pipeline=Pipeline()
+            .bufferize()
+            .FUNC()
+            .convert_affine_for_to_gpu(gpu_block_dims=1, gpu_thread_dims=1)
+            .lower_affine()
+            .convert_scf_to_cf()
+            .cse()
+            .CNUF()
+            .gpu_kernel_outlining()
+            .GPU()
+            .strip_debuginfo()
+            .convert_gpu_to_nvvm()
+            .gpu_to_cubin(chip="sm_70")
+            .UPG()
+            .gpu_to_llvm(),
+        )
+        invoker = self.backend.load(module)
+        A = np.random.randint(low=0, high=10, size=(M, N)).astype(np.float32)
+        B = np.random.randint(low=0, high=10, size=(N, K)).astype(np.float32)
+        C = np.zeros((M, K)).astype(np.float32)
+        times = np.zeros(N_RUNS).astype(np.int64)
+        invoker.timing_wrapper(A, B, C, times)
+        print(times)
+
+    @pytest.mark.xfail()
+    def test_conv_unroll(self):
+        scale = 10
+        N, CI, HI, WI = 1, 3, 64 * scale, 64 * scale
+        K = 3
+        CO = 3
+        HO, WO = HI - (K + 1) // 2, WI - (K + 1) // 2
+        N_RUNS = 100
+        unranked_memref = UnrankedMemRef[F32]
+        input_type = MemRef[(N, CI, HI, WI), F32]
+        kernel_type = MemRef[(CO, CI, K, K), F32]
+        output_type = MemRef[(N, CO, HO, WO), F32]
+
+        with mlir_mod_ctx() as module:
+            timer = declare("_mlir_ciface_nanoTime", [], result_annots=[I64])
+
+            @mlir_func
+            def conv2d_nchw_fchw(
+                input: input_type,
+                kernel: kernel_type,
+                output: output_type,
+            ):
+                for n in range(0, N):
+                    for co in range(0, CO):
+                        for ho in range(0, HO):
+                            for wo in range(0, WO):
+                                for ci in range(0, CI):
+                                    for ki in range(0, K):
+                                        for kj in range(0, K):
+                                            inp = input[n, ci, ho + ki, wo + kj]
+                                            ker = kernel[co, ci, ki, kj]
+                                            output[n, co, ho, wo] += inp * ker
+
+            @mlir_func(range_ctor=scf_range, attributes={"llvm.emit_c_interface": None})
+            def timing_wrapper(
+                x: input_type,
+                y: kernel_type,
+                z: output_type,
+                times: MemRef[[N_RUNS], I64],
+            ):
+                xc = cast(x, unranked_memref.mlir_type)
+                yc = cast(y, unranked_memref.mlir_type)
+                zc = cast(z, unranked_memref.mlir_type)
+
+                host_register(xc)
+                host_register(yc)
+                host_register(zc)
+
+                for i in range(0, N_RUNS):
+                    start = timer()
+                    conv2d_nchw_fchw(x, y, z)
+                    end = timer()
+                    times[i] = end - start
+
+                host_unregister(xc)
+                host_unregister(yc)
+                host_unregister(zc)
+
+        fors = find_ops(module, lambda op: op.name == "affine.for")
+        assert len(fors) == 7
+        for_op = ForOp(fors[6])
+        for_op.unroll_by_factor(3, None)
+
+        module = self.backend.compile(
+            module,
+            kernel_name="timing_wrapper",
+            pipeline=Pipeline()
+            .bufferize()
+            .FUNC()
+            .convert_affine_for_to_gpu(gpu_block_dims=3, gpu_thread_dims=1)
+            .lower_affine()
+            .convert_scf_to_cf()
+            .cse()
+            .CNUF()
+            .gpu_kernel_outlining()
+            .GPU()
+            .strip_debuginfo()
+            .convert_gpu_to_nvvm()
+            .gpu_to_cubin(chip="sm_70")
+            .UPG()
+            .gpu_to_llvm(),
+        )
+        invoker = self.backend.load(module)
+        A = np.random.randint(low=0, high=10, size=input_type.mlir_type.shape).astype(
+            np.float32
+        )
+        B = np.random.randint(low=0, high=10, size=kernel_type.mlir_type.shape).astype(
+            np.float32
+        )
+        C = np.zeros(output_type.mlir_type.shape).astype(np.float32)
+        times = np.zeros(N_RUNS).astype(np.int64)
+        invoker.timing_wrapper(A, B, C, times)
+        print(times)
+
+    @pytest.mark.xfail()
+    def test_scf_tile_gpu(self):
+        scale = 10
+        N, CI, HI, WI = 1, 3, 64 * scale, 64 * scale
+        K = 3
+        CO = 3
+        HO, WO = HI - (K + 1) // 2, WI - (K + 1) // 2
+        N_RUNS = 100
+        unranked_memref = UnrankedMemRef[F32]
+
+        input_type = MemRef[(N, CI, HI, WI), F32]
+        kernel_type = MemRef[(CO, CI, K, K), F32]
+        output_type = MemRef[(N, CO, HO, WO), F32]
+
+        with mlir_mod_ctx() as module:
+            timer = declare("_mlir_ciface_nanoTime", [], result_annots=[I64])
+
+            @mlir_func(range_ctor=scf_range)
+            def conv2d_nchw_fchw(
+                input: input_type,
+                kernel: kernel_type,
+                output: output_type,
+            ):
+                for n, co, ho, wo in par_range((0, 0, 0, 0), (N, CO, HO, WO)):
+                    for ci in range(0, CI):
+                        for ki in range(0, K):
+                            for kj in range(0, K):
+                                # ii = (d0 + d1) @ (ho, ki)
+                                # jj = (d0 + d1) @ (wo, kj)
+                                ii = ho + ki
+                                jj = wo + kj
+                                inp = input[n, ci, ii, jj]
+                                ker = kernel[co, ci, ki, kj]
+                                output[n, co, ho, wo] += inp * ker
+
+            @mlir_func(range_ctor=scf_range, attributes={"llvm.emit_c_interface": None})
+            def timing_wrapper(
+                x: input_type,
+                y: kernel_type,
+                z: output_type,
+                times: MemRef[[N_RUNS], I64],
+            ):
+                xc = cast(x, unranked_memref.mlir_type)
+                yc = cast(y, unranked_memref.mlir_type)
+                zc = cast(z, unranked_memref.mlir_type)
+
+                host_register(xc)
+                host_register(yc)
+                host_register(zc)
+
+                for i in range(0, N_RUNS):
+                    start = timer()
+                    conv2d_nchw_fchw(x, y, z)
+                    end = timer()
+                    times[i] = end - start
+
+                host_unregister(xc)
+                host_unregister(yc)
+                host_unregister(zc)
+
+        module = self.backend.compile(
+            module,
+            kernel_name="timing_wrapper",
+            pipeline=Pipeline()
+            .scf_parallel_loop_tiling()
+            .FUNC()
+            .gpu_map_parallel_loops()
+            .CNUF()
+            .convert_parallel_loops_to_gpu()
+            # .convert_scf_to_openmp()
+            .FUNC()
+            .lower_affine()
+            .convert_scf_to_cf()
+            .cse()
+            .CNUF()
+            .gpu_kernel_outlining()
+            .GPU()
+            .strip_debuginfo()
+            .convert_gpu_to_nvvm()
+            .gpu_to_cubin(chip="sm_70")
+            .UPG()
+            .gpu_to_llvm(),
+        )
+        invoker = self.backend.load(module)
+        A = np.random.randint(low=0, high=10, size=input_type.mlir_type.shape).astype(
+            np.float32
+        )
+        B = np.random.randint(low=0, high=10, size=kernel_type.mlir_type.shape).astype(
+            np.float32
+        )
+        C = np.zeros(output_type.mlir_type.shape).astype(np.float32)
+        times = np.zeros(N_RUNS).astype(np.int64)
+        invoker.timing_wrapper(A, B, C, times)
+        print(times.mean() / 1e9 / N_RUNS)

@@ -8,4 +8,6 @@ symengine
 sympy
 z3-solver==4.12.1.0
 multiprocess
-nevergrad
+nevergrad @ git+https://github.com/facebookresearch/nevergrad.git
+matplotlib
+wurlitzer

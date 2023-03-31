@@ -18,18 +18,18 @@ from types import FunctionType, CodeType
 
 from bytecode import ConcreteBytecode, ConcreteInstr
 
-from .affine import end_for as affine_endfor, affine_range
+from .affine import affine_end_for, affine_range
 from .scf import (
     scf_endif_branch,
     scf_if,
     scf_else,
     scf_endif,
     scf_range,
-    end_for as scf_endfor,
+    scf_end_for,
     par_range as scf_par_range,
     end_parfor as scf_end_parfor,
 )
-from .omp.omp import ws_loop as omp_range, end_for as omp_endfor
+from .omp.omp import ws_loop, omp_end_for
 from .arith import ArithValue
 from ..mlir._mlir.dialects import func as func_dialect
 from ..mlir._mlir.ir import (
@@ -68,7 +68,14 @@ class InsertEndFors(ast.NodeTransformer):
     def visit_For(self, node):
         for i, b in enumerate(node.body):
             node.body[i] = self.visit(b)
-        node.body.append(ast.Expr(ast_call(self.endfor.__name__)))
+        if node.iter.func.id == scf_range.__name__:
+            node.body.append(ast.Expr(ast_call(scf_end_for.__name__)))
+        elif node.iter.func.id == affine_range.__name__:
+            node.body.append(ast.Expr(ast_call(affine_end_for.__name__)))
+        elif node.iter.func.id == ws_loop.__name__:
+            node.body.append(ast.Expr(ast_call(omp_end_for.__name__)))
+        else:
+            node.body.append(ast.Expr(ast_call(self.endfor.__name__)))
         return node
 
 
@@ -160,6 +167,11 @@ def rewrite_ast(f, range_ctor, endfor):
                 for i, fr in enumerate(f.__code__.co_freevars)
             },
             endfor.__name__: endfor,
+
+            affine_end_for.__name__: affine_end_for,
+            scf_end_for.__name__: scf_end_for,
+            omp_end_for.__name__: omp_end_for,
+
             "range": range_ctor,
             ArithValue.__name__: ArithValue,
             scf_else.__name__: scf_else,
@@ -370,11 +382,11 @@ def mlir_func(
 
     if rewrite_ast_:
         if range_ctor == affine_range:
-            endfor = affine_endfor
+            endfor = affine_end_for
         elif range_ctor == scf_range:
-            endfor = scf_endfor
-        elif range_ctor == omp_range:
-            endfor = omp_endfor
+            endfor = scf_end_for
+        elif range_ctor == ws_loop:
+            endfor = omp_end_for
         elif range_ctor == scf_par_range:
             endfor = scf_end_parfor
         else:

@@ -2,7 +2,7 @@ from textwrap import dedent
 
 from nelli.mlir.affine import (
     affine_range,
-    end_for as affine_endfor,
+    affine_end_for,
     RankedAffineMemRefValue as AffineMemRef,
 )
 from nelli.mlir.arith import constant, ArithValue
@@ -33,8 +33,8 @@ class TestLoops:
                         v = mem[i, j]
                         w = v * two
                         mem[i, j] = w
-                        affine_endfor()
-                    affine_endfor()
+                        affine_end_for()
+                    affine_end_for()
 
         correct = dedent(
             """\
@@ -104,8 +104,8 @@ class TestLoops:
                             mem[i, j] = w
                             scf_endif_branch()
                             scf_endif()
-                        affine_endfor()
-                    affine_endfor()
+                        affine_end_for()
+                    affine_end_for()
                 return None
 
         correct = dedent(
@@ -306,8 +306,8 @@ class TestLoops:
                             v = mem[i, j]
                             w = v * two
                             mem[i, j] = w
-                            affine_endfor()
-                        affine_endfor()
+                            affine_end_for()
+                        affine_end_for()
 
         correct = dedent(
             """\
