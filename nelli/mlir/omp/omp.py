@@ -4,7 +4,7 @@ from typing import Union, List, Optional
 from . import _omp_ops_gen as omp
 from .._mlir.dialects._ods_common import get_op_results_or_values
 from ..arith import constant
-from ..utils import I32
+from ..utils import I32, LoopLike
 from .._mlir.ir import Value, InsertionPoint
 
 
@@ -90,39 +90,23 @@ class WsLoopOp(omp.WsLoopOp):
         return get_op_results_or_values(self.body.arguments)
 
 
-_loop_ip = None
+class ws_loop(LoopLike):
+    def __init__(self, starts, stops, steps=None):
+        if steps is None:
+            steps = [1] * len(starts)
 
+        inits = [starts, stops, steps]
+        for i, l in enumerate(inits):
+            if not isinstance(l, (tuple, list)):
+                inits[i] = [l]
+            elif isinstance(l, tuple):
+                inits[i] = list(l)
+        starts, stops, steps = inits
+        assert len(starts) == len(stops)
 
-def ws_loop(starts, stops, steps=None):
-    global _loop_ip
-    if steps is None:
-        steps = [1] * len(starts)
+        for args in [starts, stops, steps]:
+            for i, a in enumerate(args):
+                if isinstance(a, int):
+                    args[i] = constant(a, type=I32)
 
-    inits = [starts, stops, steps]
-    for i, l in enumerate(inits):
-        if not isinstance(l, (tuple, list)):
-            inits[i] = [l]
-        elif isinstance(l, tuple):
-            inits[i] = list(l)
-    starts, stops, steps = inits
-    assert len(starts) == len(stops)
-
-    for args in [starts, stops, steps]:
-        for i, a in enumerate(args):
-            if isinstance(a, int):
-                args[i] = constant(a, type=I32)
-
-    for_op = WsLoopOp(starts, stops, steps)
-    _loop_ip = InsertionPoint(for_op.body)
-    _loop_ip.__enter__()
-    ivs = get_op_results_or_values(for_op.induction_variable)
-    if len(ivs) == 1:
-        return ivs
-    else:
-        return [ivs]
-
-
-def omp_end_for():
-    omp.YieldOp([])
-    global _loop_ip
-    _loop_ip.__exit__(None, None, None)
+        super().__init__(WsLoopOp(starts, stops, steps), omp.YieldOp)

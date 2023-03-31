@@ -24,7 +24,8 @@ transform.sequence failures(propagate) {
 """
 )
 
-src = dedent("""\
+src = dedent(
+    """\
 func.func @dynamic_pad_tensor_3_4(%input_tensor: tensor<?x?xf32>,
                          %pad_value: f32) -> tensor<?x?xf32> {
   %0 = tensor.pad %input_tensor low[3, 4] high[5, 3] {
@@ -39,10 +40,12 @@ transform.sequence failures(propagate) {
     %0 = transform.structured.match ops{["tensor.pad"]} in %arg1 : (!pdl.operation) -> !pdl.operation
     %1, %loops:2 = transform.structured.tile_to_scf_for %0 [2, 3]
 }
-""")
+"""
+)
 
 
-src = dedent("""\
+src = dedent(
+    """\
 func.func @pass_an_op_directly(%arg0: tensor<4x16xf32>, %arg1: tensor<16x8xf32>) -> tensor<4x8xf32> {
   %cst = arith.constant 1.000000e+00 : f32
   %0 = linalg.fill ins(%cst : f32) outs(%arg0 : tensor<4x16xf32>) -> tensor<4x16xf32>
@@ -57,7 +60,8 @@ transform.sequence failures(propagate) {
     %0 = transform.structured.match ops{["linalg.matmul"]} in %arg1 : (!pdl.operation) -> !pdl.operation
     %1, %loops:2 = transform.structured.tile_to_scf_for %0 [2, 3]
 }
-""")
+"""
+)
 
 with mlir_mod_ctx() as module:
     module = module.parse(src)
@@ -65,7 +69,8 @@ with mlir_mod_ctx() as module:
 print("*" * 10, "before", "*" * 10, "\n")
 print(module)
 run_pipeline(
-    module, "builtin.module(transform-dialect-interpreter,transform-dialect-erase-schedule)"
+    module,
+    "builtin.module(transform-dialect-interpreter,transform-dialect-erase-schedule)",
 )
 print("*" * 10, "after", "*" * 10, "\n")
 print(module)

@@ -24,7 +24,7 @@ from ._mlir.ir import (
 from .arith import ArithValue, constant
 from .func import MLIRFunc
 from .module import Module
-from .scf import scf_range
+from .scf import scf_for
 from .utils import doublewrap
 from ..mlir._mlir.dialects import gpu
 
@@ -462,7 +462,7 @@ class Module(Module):
         super().__init__(
             ctor=ModuleOp,
             func_ctor=MLIRFunc,
-            range_ctor=scf_range,
+            range_ctor=scf_for,
             func_qualname=self.__class__.__name__,
             **kwargs,
         )

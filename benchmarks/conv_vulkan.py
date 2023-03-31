@@ -14,7 +14,7 @@ from nelli.mlir.memref import (
 )
 from nelli.mlir.passes import Pipeline
 from nelli.mlir.refbackend import LLVMJITBackend
-from nelli.mlir.scf import scf_range, par_range
+from nelli.mlir.scf import scf_for, parallel
 from nelli.mlir.utils import F32
 from nelli.utils import shlib_ext, mlir_mod_ctx
 
@@ -63,13 +63,13 @@ def conv_unroll():
     with mlir_mod_ctx() as module:
         # timer = declare("_mlir_ciface_nanoTime", [], result_annots=[I64])
 
-        @mlir_func(range_ctor=scf_range)
+        @mlir_func(range_ctor=scf_for)
         def conv2d(
             input: input_type,
             kernel: kernel_type,
             output: output_type,
         ):
-            for ho, wo in par_range((0, 0), (HO, WO)):
+            for ho, wo in parallel((0, 0), (HO, WO)):
                 for ki in range(0, K):
                     for kj in range(0, K):
                         ii = ho + ki

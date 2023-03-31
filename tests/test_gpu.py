@@ -26,7 +26,7 @@ from nelli.mlir.memref import (
 )
 from nelli.mlir.passes import Pipeline
 from nelli.mlir.refbackend import LLVMJITBackend
-from nelli.mlir.scf import scf_range, par_range
+from nelli.mlir.scf import scf_for, parallel
 from nelli.mlir.spirv import set_module_target_env
 from nelli.mlir.utils import F32, I32, I64
 from nelli.poly.affine import ForOp
@@ -602,7 +602,7 @@ class TestGPU:
                             b = B[j, k]
                             C[i, k] += a * b
 
-            @mlir_func(range_ctor=scf_range, attributes={"llvm.emit_c_interface": None})
+            @mlir_func(range_ctor=scf_for, attributes={"llvm.emit_c_interface": None})
             def timing_wrapper(
                 x: param1_type,
                 y: param2_type,
@@ -696,7 +696,7 @@ class TestGPU:
                                             ker = kernel[co, ci, ki, kj]
                                             output[n, co, ho, wo] += inp * ker
 
-            @mlir_func(range_ctor=scf_range, attributes={"llvm.emit_c_interface": None})
+            @mlir_func(range_ctor=scf_for, attributes={"llvm.emit_c_interface": None})
             def timing_wrapper(
                 x: input_type,
                 y: kernel_type,
@@ -774,13 +774,13 @@ class TestGPU:
         with mlir_mod_ctx() as module:
             timer = declare("_mlir_ciface_nanoTime", [], result_annots=[I64])
 
-            @mlir_func(range_ctor=scf_range)
+            @mlir_func(range_ctor=scf_for)
             def conv2d_nchw_fchw(
                 input: input_type,
                 kernel: kernel_type,
                 output: output_type,
             ):
-                for n, co, ho, wo in par_range((0, 0, 0, 0), (N, CO, HO, WO)):
+                for n, co, ho, wo in parallel((0, 0, 0, 0), (N, CO, HO, WO)):
                     for ci in range(0, CI):
                         for ki in range(0, K):
                             for kj in range(0, K):
@@ -792,7 +792,7 @@ class TestGPU:
                                 ker = kernel[co, ci, ki, kj]
                                 output[n, co, ho, wo] += inp * ker
 
-            @mlir_func(range_ctor=scf_range, attributes={"llvm.emit_c_interface": None})
+            @mlir_func(range_ctor=scf_for, attributes={"llvm.emit_c_interface": None})
             def timing_wrapper(
                 x: input_type,
                 y: kernel_type,

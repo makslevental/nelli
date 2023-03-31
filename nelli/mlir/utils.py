@@ -10,19 +10,19 @@ from types import FunctionType
 from typing import Optional, Sequence
 
 from ._mlir import ir
-from ._mlir._mlir_libs._mlir.ir import (
-    FlatSymbolRefAttr,
-    Attribute,
-    ArrayAttr,
-)
 from ._mlir.dialects._structured_transform_ops_ext import _get_int64_attr
 from ._mlir.ir import (
     StringAttr,
     register_attribute_builder,
     DenseI64ArrayAttr,
     Context,
+    FlatSymbolRefAttr,
+    Attribute,
+    ArrayAttr,
+    InsertionPoint,
 )
 from ._mlir.passmanager import PassManager
+from .arith import ArithValue
 
 
 class NelliMlirCompilerError(Exception):
@@ -250,3 +250,36 @@ def enable_debug():
     ir._GlobalDebug.flag = True
     yield
     ir._GlobalDebug.flag = False
+
+
+class LoopLike:
+    def __init__(self, loop_op, terminator_op):
+        self.loop_op = loop_op
+        self.terminator_op = terminator_op
+        self.ip = InsertionPoint(self.loop_op.body)
+        self.ip.__enter__()
+        self.yielded = False
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        if not self.yielded:
+            self.yielded = True
+            if (
+                isinstance(self.loop_op.induction_variable, list)
+                and not len(self.loop_op.induction_variable) == 1
+            ):
+                return list(map(ArithValue, self.loop_op.induction_variable))
+            elif (
+                isinstance(self.loop_op.induction_variable, list)
+                and len(self.loop_op.induction_variable) == 1
+            ):
+                return ArithValue(self.loop_op.induction_variable[0])
+            else:
+                return ArithValue(self.loop_op.induction_variable)
+
+        else:
+            self.terminator_op([])
+            self.ip.__exit__(None, None, None)
+            raise StopIteration

@@ -2,7 +2,7 @@ from typing import Optional, Union, Sequence
 
 from ._mlir.dialects._ods_common import get_op_results_or_values
 from .arith import ArithValue, constant
-from .utils import doublewrap, get_dense_int64_array_attr
+from .utils import doublewrap, get_dense_int64_array_attr, LoopLike
 from ._mlir.dialects import scf
 from ._mlir.ir import InsertionPoint, IndexType, Operation, OpView, Value
 
@@ -48,31 +48,20 @@ def scf_endif():
     _current_if_op.pop()
 
 
-_for_ip = None
+class scf_for(LoopLike):
+    def __init__(self, start, stop=None, step=1):
+        if stop is None:
+            stop = start
+            start = 0
 
+        if isinstance(start, int):
+            start = constant(start, index=True)
+        if isinstance(stop, int):
+            stop = constant(stop, index=True)
+        if isinstance(step, int):
+            step = constant(step, index=True)
 
-def scf_range(start, stop=None, step=1):
-    global _for_ip
-    if stop is None:
-        stop = start
-        start = 0
-
-    if isinstance(start, int):
-        start = constant(start, index=True)
-    if isinstance(stop, int):
-        stop = constant(stop, index=True)
-    if isinstance(step, int):
-        step = constant(step, index=True)
-    for_op = scf.ForOp(start, stop, step)
-    _for_ip = InsertionPoint(for_op.body)
-    _for_ip.__enter__()
-    return [ArithValue(for_op.induction_variable)]
-
-
-def scf_end_for():
-    scf.YieldOp([])
-    global _for_ip
-    _for_ip.__exit__(None, None, None)
+        super().__init__(scf.ForOp(start, stop, step), scf.YieldOp)
 
 
 # // CHECK: _ODS_OPERAND_SEGMENTS = [-1,1,0,]
@@ -130,42 +119,32 @@ class ParallelOp(scf.ParallelOp):
     @property
     def induction_variables(self):
         """Returns the induction variable of the loop."""
-        return self.body.arguments
+        return get_op_results_or_values(self.body.arguments)
+
+    @property
+    def induction_variable(self):
+        """Returns the induction variable of the loop."""
+        return get_op_results_or_values(self.body.arguments)
 
 
-_parfor_ip = None
+class parallel(LoopLike):
+    def __init__(self, starts, stops, steps=None):
+        assert len(starts) == len(stops)
+        if steps is None:
+            steps = [1] * len(starts)
 
+        inits = [starts, stops, steps]
+        for i, l in enumerate(inits):
+            if isinstance(l, tuple):
+                inits[i] = list(l)
+        starts, stops, steps = inits
 
-def par_range(starts, stops, steps=None):
-    global _parfor_ip
-    assert len(starts) == len(stops)
-    if steps is None:
-        steps = [1] * len(starts)
+        for args in [starts, stops, steps]:
+            for i, a in enumerate(args):
+                if isinstance(a, int):
+                    args[i] = constant(a, index=True)
 
-    inits = [starts, stops, steps]
-    for i, l in enumerate(inits):
-        if isinstance(l, tuple):
-            inits[i] = list(l)
-    starts, stops, steps = inits
-
-    for args in [starts, stops, steps]:
-        for i, a in enumerate(args):
-            if isinstance(a, int):
-                args[i] = constant(a, index=True)
-    for_op = ParallelOp(starts, stops, steps)
-    _parfor_ip = InsertionPoint(for_op.body)
-    _parfor_ip.__enter__()
-    return [
-        tuple(
-            ArithValue(a) for a in get_op_results_or_values(for_op.induction_variables)
-        )
-    ]
-
-
-def end_parfor():
-    scf.YieldOp([])
-    global _parfor_ip
-    _parfor_ip.__exit__(None, None, None)
+        super().__init__(ParallelOp(starts, stops, steps), scf.YieldOp)
 
 
 """

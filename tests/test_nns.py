@@ -16,7 +16,7 @@ from nelli.mlir.refbackend import (
     elemental_type_to_ctype,
     memref_type_to_np_dtype,
 )
-from nelli.mlir.scf import scf_range
+from nelli.mlir.scf import scf_for
 from nelli.mlir.tensor import TensorValue as Tensor
 from nelli.mlir.transform import sequence, match, tile_linalg_to_scf_for
 from nelli.utils import mlir_mod_ctx, shlib_ext

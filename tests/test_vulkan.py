@@ -20,7 +20,7 @@ from nelli.mlir.passes import Pipeline
 from nelli.mlir.refbackend import (
     LLVMJITBackend,
 )
-from nelli.mlir.scf import scf_range
+from nelli.mlir.scf import scf_for
 from nelli.mlir.tensor import TensorValue as Tensor
 from nelli.mlir.transform import (
     sequence,
@@ -502,7 +502,7 @@ class TestVulkan:
         with mlir_mod_ctx(read_model_ir("resnet18")) as module:
             timer = declare("_mlir_ciface_nanoTime", [], result_annots=[I64])
 
-            @mlir_func(range_ctor=scf_range, attributes={"llvm.emit_c_interface": None})
+            @mlir_func(range_ctor=scf_for, attributes={"llvm.emit_c_interface": None})
             def timing_wrapper(
                 x: param1_type,
                 times: MemRef[[N_RUNS], I64],

@@ -21,7 +21,7 @@ from nelli.mlir.memref import (
 )
 from nelli.mlir.passes import Pipeline
 from nelli.mlir.refbackend import LLVMJITBackend
-from nelli.mlir.scf import scf_range
+from nelli.mlir.scf import scf_for
 from nelli.mlir.transform import (
     sequence,
     pack_greedily,
@@ -71,7 +71,7 @@ def matmul_dsl(
 
 
 def np_divisors(N):
-    divs = np.arange(1, int(N ** 0.5) + 1)  # potential divisors up to √N
+    divs = np.arange(1, int(N**0.5) + 1)  # potential divisors up to √N
     divs = divs[N % divs == 0]  # divisors
     comp = N // divs[::-1]  # complement quotients
     return np.concatenate((divs, comp[divs[-1] == comp[0] :]))  # combined
@@ -257,7 +257,7 @@ class TestBenchmark:
                             b = B[j, k]
                             C[i, k] += a * b
 
-            @mlir_func(range_ctor=scf_range, attributes={"llvm.emit_c_interface": None})
+            @mlir_func(range_ctor=scf_for, attributes={"llvm.emit_c_interface": None})
             def timing_wrapper(
                 x: param1_type,
                 y: param2_type,

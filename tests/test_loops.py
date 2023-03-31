@@ -1,8 +1,7 @@
 from textwrap import dedent
 
 from nelli.mlir.affine import (
-    affine_range,
-    affine_end_for,
+    affine_for,
     RankedAffineMemRefValue as AffineMemRef,
 )
 from nelli.mlir.arith import constant, ArithValue
@@ -13,7 +12,7 @@ from nelli.mlir.scf import (
     scf_if,
     scf_endif_branch,
     scf_endif,
-    par_range as parfor,
+    parallel,
 )
 from nelli.mlir.utils import run_pipeline, F32, F64, Index
 from nelli.utils import mlir_mod_ctx
@@ -28,13 +27,11 @@ class TestLoops:
             def double_loop(M: Index, N: Index):
                 two = constant(1.0)
                 mem = AffineMemRef.alloca([10, 10], F64)
-                for i in affine_range(1, 10, 1):
-                    for j in affine_range(1, 10, 1):
+                for i in affine_for(1, 10, 1):
+                    for j in affine_for(1, 10, 1):
                         v = mem[i, j]
                         w = v * two
                         mem[i, j] = w
-                        affine_end_for()
-                    affine_end_for()
 
         correct = dedent(
             """\
@@ -96,16 +93,14 @@ class TestLoops:
             def double_loop(M: Index, N: Index):
                 two = constant(1.0)
                 mem = AffineMemRef.alloca([10, 10], F64)
-                for i in affine_range(1, 10, 1):
-                    for j in affine_range(1, 10, 1):
+                for i in affine_for(1, 10, 1):
+                    for j in affine_for(1, 10, 1):
                         if scf_if(ArithValue(i) < ArithValue(j)):
                             v = mem[i, j]
                             w = v * two
                             mem[i, j] = w
                             scf_endif_branch()
                             scf_endif()
-                        affine_end_for()
-                    affine_end_for()
                 return None
 
         correct = dedent(
@@ -301,13 +296,11 @@ class TestLoops:
                 for _ in range(2):
                     mem = AffineMemRef.alloca((10, 10), F64)
                 for _ in range(2):
-                    for i in affine_range(1, 10, 1):
-                        for j in affine_range(1, 10, 1):
+                    for i in affine_for(1, 10, 1):
+                        for j in affine_for(1, 10, 1):
                             v = mem[i, j]
                             w = v * two
                             mem[i, j] = w
-                            affine_end_for()
-                        affine_end_for()
 
         correct = dedent(
             """\
@@ -340,7 +333,7 @@ class TestLoops:
     def test_parfor(self):
         with mlir_mod_ctx() as module:
 
-            @mlir_func(range_ctor=parfor)
+            @mlir_func(range_ctor=parallel)
             def mat_product(
                 A: MemRef[(4, 16), F32],
                 B: MemRef[(16, 8), F32],

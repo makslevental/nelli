@@ -15,7 +15,7 @@ from nelli.mlir.memref import (
 from nelli.mlir.omp.omp import parallel, ws_loop
 from nelli.mlir.passes import Pipeline
 from nelli.mlir.refbackend import LLVMJITBackend
-from nelli.mlir.scf import scf_range
+from nelli.mlir.scf import scf_for
 from nelli.mlir.transform import sequence, match, get_parent_for_loop, unroll
 from nelli.mlir.utils import F32, Index
 from nelli.utils import shlib_ext, mlir_mod_ctx
@@ -34,10 +34,14 @@ vulkan_wrapper_library_path = (
 )
 assert vulkan_wrapper_library_path.exists()
 
+omp_lib_path = Path(_mlir_libs.__file__).parent / f"libomp.{shlib_ext()}"
+assert omp_lib_path.exists()
+
 shared_libs = [
     str(vulkan_wrapper_library_path),
     str(runner_utils_lib_path),
     str(c_runner_utils_lib_path),
+    str(omp_lib_path),
 ]
 
 backend = LLVMJITBackend(shared_libs=shared_libs)
@@ -55,7 +59,7 @@ output_type = MemRef[(HO, WO), F32]
 
 
 def np_divisors(N):
-    divs = np.arange(1, int(N**0.5) + 1)  # potential divisors up to √N
+    divs = np.arange(1, int(N ** 0.5) + 1)  # potential divisors up to √N
     divs = divs[N % divs == 0]  # divisors
     comp = N // divs[::-1]  # complement quotients
     return np.concatenate((divs, comp[divs[-1] == comp[0] :]))  # combined
@@ -65,7 +69,7 @@ def conv_unroll():
     def paramed(inner_unroll, outer_unroll):
         with mlir_mod_ctx() as module:
 
-            @mlir_func(range_ctor=scf_range, rewrite_bytecode_=False, rewrite_ast_=True)
+            @mlir_func(range_ctor=scf_for, rewrite_bytecode_=False, rewrite_ast_=True)
             def conv2d(
                 input: input_type,
                 kernel: kernel_type,
@@ -75,8 +79,8 @@ def conv_unroll():
                     for ho, wo in ws_loop((0, 0), (HO, WO)):
                         ho = cast_to_integer(Index, ho)
                         wo = cast_to_integer(Index, wo)
-                        for ki in scf_range(0, K):
-                            for kj in scf_range(0, K):
+                        for ki in scf_for(0, K):
+                            for kj in scf_for(0, K):
                                 ii = ho + ki
                                 jj = wo + kj
                                 inp = input[ii, jj]
