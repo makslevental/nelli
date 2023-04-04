@@ -16,6 +16,10 @@ def ir_module(fp):
             f,
             flags=re.MULTILINE,
         )
+        res = res.replace(
+            "class DefaultingPyMlirContext",
+            "class PYBIND11_EXPORT DefaultingPyMlirContext",
+        )
         ff.write(res)
 
 
@@ -32,7 +36,7 @@ def ir_core(fp):
 
 if __name__ == "__main__":
     fp = sys.argv[1]
-    if fp.endswith("IRModule.h"):
+    if fp.endswith("IRModule.h") or fp.endswith("PybindUtils.h"):
         ir_module(fp)
     elif fp.endswith("IRCore.cpp") or fp.endswith("IRAffine.cpp"):
         ir_core(fp)

@@ -55,13 +55,13 @@ public:
   using PyConcreteAttribute::PyConcreteAttribute;
 };
 
-template <typename T> T *unwrapApiObject(const py::handle apiObject) {
+template <typename T> T *unwrapApiOpObject(const py::handle apiObject) {
   return unwrap(mlirPythonCapsuleToOperation(
       py::detail::mlirApiObjectToCapsule(apiObject).ptr()));
 }
 
 template <typename T> T unwrapOpObject(const py::handle apiObject) {
-  auto *op = unwrapApiObject<mlir::Operation>(apiObject);
+  auto *op = unwrapApiOpObject<mlir::Operation>(apiObject);
   return llvm::dyn_cast<T>(op);
 }
 
@@ -161,7 +161,7 @@ PYBIND11_MODULE(_nelli_mlir, m) {
     return py::make_tuple(dims, syms);
   });
   m.def("get_access_relation", [](const py::handle affineOpApiObject) {
-    auto *op = unwrapApiObject<mlir::Operation>(affineOpApiObject);
+    auto *op = unwrapApiOpObject<mlir::Operation>(affineOpApiObject);
     mlir::MemRefAccess *access;
     access = new mlir::MemRefAccess(op);
     py::dict indices;
@@ -178,15 +178,15 @@ PYBIND11_MODULE(_nelli_mlir, m) {
 
   m.def("show_access_relation",
         [](const py::handle srcOpApiObject, const py::handle dstOpApiObject) {
-          auto *srcOp = unwrapApiObject<mlir::Operation>(srcOpApiObject);
-          auto *dstOp = unwrapApiObject<mlir::Operation>(dstOpApiObject);
+          auto *srcOp = unwrapApiOpObject<mlir::Operation>(srcOpApiObject);
+          auto *dstOp = unwrapApiOpObject<mlir::Operation>(dstOpApiObject);
           nelli::myCheckDependenceSrcDst(srcOp, dstOp);
         });
 
   m.def("show_sanity_check_access_relation",
         [](const py::handle srcOpApiObject, const py::handle dstOpApiObject) {
-          auto *srcOp = unwrapApiObject<mlir::Operation>(srcOpApiObject);
-          auto *dstOp = unwrapApiObject<mlir::Operation>(dstOpApiObject);
+          auto *srcOp = unwrapApiOpObject<mlir::Operation>(srcOpApiObject);
+          auto *dstOp = unwrapApiOpObject<mlir::Operation>(dstOpApiObject);
           nelli::sanityCheckDependenceSrcDst(srcOp, dstOp);
         });
   m.def("reset_disambig_names", []() { nelli::seen.clear(); });
@@ -194,8 +194,8 @@ PYBIND11_MODULE(_nelli_mlir, m) {
   m.def("get_common_loops",
         [](const py::handle srcOpApiObject, const py::handle dstOpApiObject)
             -> std::optional<std::vector<py::object>> {
-          auto *srcOp = unwrapApiObject<mlir::Operation>(srcOpApiObject);
-          auto *dstOp = unwrapApiObject<mlir::Operation>(dstOpApiObject);
+          auto *srcOp = unwrapApiOpObject<mlir::Operation>(srcOpApiObject);
+          auto *dstOp = unwrapApiOpObject<mlir::Operation>(dstOpApiObject);
           MemRefAccess srcAccess(srcOp);
           MemRefAccess dstAccess(dstOp);
           FlatAffineRelation srcRel, dstRel;
@@ -250,8 +250,8 @@ PYBIND11_MODULE(_nelli_mlir, m) {
   m.def("show_direction_vector", [](const py::handle srcOpApiObject,
                                     const py::handle dstOpApiObject,
                                     int toLoopDepth) {
-    auto *srcOp = unwrapApiObject<mlir::Operation>(srcOpApiObject);
-    auto *dstOp = unwrapApiObject<mlir::Operation>(dstOpApiObject);
+    auto *srcOp = unwrapApiOpObject<mlir::Operation>(srcOpApiObject);
+    auto *dstOp = unwrapApiOpObject<mlir::Operation>(dstOpApiObject);
     unsigned numCommonLoops = getNumCommonSurroundingLoops(*srcOp, *dstOp);
     MemRefAccess srcAccess(srcOp);
     MemRefAccess dstAccess(dstOp);

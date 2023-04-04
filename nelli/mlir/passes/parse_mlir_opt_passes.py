@@ -11,7 +11,7 @@ except ImportError:
 import multiprocess as multiprocessing
 import os
 
-from nelli.mlir._mlir._mlir_libs._nelli_mlir import print_help
+from .._mlir._mlir_libs._nelli_mlir import print_help
 
 
 def capture_help():
@@ -167,6 +167,7 @@ def parse_passes(yml):
             )
 
 
-lines = capture_help()
-yml = fixup_lines_into_yaml(lines)
-parse_passes(yml)
+if __name__ == "__main__":
+    lines = capture_help()
+    yml = fixup_lines_into_yaml(lines)
+    parse_passes(yml)
