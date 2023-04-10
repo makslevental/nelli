@@ -30,10 +30,12 @@ class TransformDialectInterpreterPass
     : public transform::TransformInterpreterPassBase<
           TransformDialectInterpreterPass, OpPassWrapper> {
 public:
-  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(TransformDialectInterpreterPass)
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(
+      TransformDialectInterpreterPass)
 
   TransformDialectInterpreterPass() = default;
-  TransformDialectInterpreterPass(const TransformDialectInterpreterPass &pass)
+  TransformDialectInterpreterPass(
+      const TransformDialectInterpreterPass &pass)
       : TransformInterpreterPassBase(pass) {}
 
   StringRef getArgument() const override {
@@ -136,7 +138,8 @@ public:
     options = options.enableExpensiveChecks(enableExpensiveChecks);
     if (failed(transform::detail::interpreterBaseRunOnOperationImpl(
             getOperation(), getArgument(), getSharedTransformModule(),
-            extraMapping, options, transformFileName, debugPayloadRootTag,
+            getTransformLibraryModule(), extraMapping, options,
+            transformFileName, transformLibraryFileName, debugPayloadRootTag,
             debugTransformRootTag, getBinaryName())))
       return signalPassFailure();
   }
@@ -191,6 +194,11 @@ public:
           "the given value as container IR for top-level transform ops. This "
           "allows user control on what transformation to apply. If empty, "
           "select the container of the top-level transform op.")};
+  Option<std::string> transformLibraryFileName{
+      *this, "transform-library-file-name", llvm::cl::init(""),
+      llvm::cl::desc(
+          "Optional name of the file containing transform dialect symbol "
+          "definitions to be injected into the transform module.")};
 };
 
 struct TransformDialectEraseSchedulePass
@@ -199,11 +207,11 @@ struct TransformDialectEraseSchedulePass
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(
       TransformDialectEraseSchedulePass)
 
-  [[nodiscard]] StringRef getArgument() const final {
+  StringRef getArgument() const final {
     return "transform-dialect-erase-schedule";
   }
 
-  [[nodiscard]] StringRef getDescription() const final {
+  StringRef getDescription() const final {
     return "erase transform dialect schedule from the IR";
   }
 

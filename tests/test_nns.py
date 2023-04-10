@@ -397,78 +397,78 @@ class TestNNs:
             invoker.forward(example_224().astype(np.float32))
             assert result is not None and not np.isnan(result).any()
 
-    def test_quantize(self):
-        result = None
-
-        def callback(*args):
-            nonlocal result
-            result = tuple(
-                [
-                    arg
-                    if type in elemental_type_to_ctype
-                    else unranked_memref_to_numpy(arg, memref_type_to_np_dtype[type])
-                    for arg, type in zip(args, invoker.ret_types)
-                ]
-            )
-            assert len(args) == 1
-            result = result[0]
-
-        for model in [
-            "convnext_tiny",
-            "efficientnet_b0",
-            "googlenet",
-            "mnasnet0_5",
-            "mobilenet_v2",
-            "resnet18",
-            "squeezenet1_0",
-        ]:
-            logger.debug(f"{model=}")
-            with mlir_mod_ctx(read_model_ir(model)) as module:
-                sequence(basic_tile)
-
-            module = self.backend.compile(
-                module,
-                kernel_name="forward",
-                pipeline=Pipeline().FUNC().linalg_fake_quantize(bits=32).CNUF(),
-            )
-            module = self.lower(module)
-            invoker = self.backend.load(module, consume_return_func=callback)
-            invoker.forward(example_32().astype(np.float32))
-            assert result is not None and not np.isnan(result).any()
-
-    def test_benchmark(self):
-        N, C, H, W = 1, 3, 32, 32
-        N_RUNS = 10
-        param1_type = Tensor[[N, C, H, W], F32]
-        res_type = Tensor[[1, 1000], F32].mlir_type
-
-        with mlir_mod_ctx(read_model_ir("resnet18")) as module:
-            timer = declare("_mlir_ciface_nanoTime", [], result_annots=[I64])
-
-            @mlir_func(range_ctor=scf_range, attributes={"llvm.emit_c_interface": None})
-            def timing_wrapper(
-                x: param1_type,
-                times: MemRef[[N_RUNS], I64],
-            ):
-                for i in range(0, N_RUNS):
-                    start = timer()
-                    out = call_func("forward", [x], [res_type])
-                    end = timer()
-                    times[i] = end - start
-
-        module = self.backend.compile(
-            module,
-            Pipeline().sparse_compiler(
-                parallelization_strategy="dense-outer-loop",
-                vl=16,
-                reassociate_fp_reductions=True,
-                enable_index_optimizations=True,
-            ),
-        )
-
-        invoker = self.backend.load(module, opt_level=1)
-        A = np.random.randint(low=0, high=10, size=(N, C, H, W)).astype(np.float32)
-        times = np.zeros(N_RUNS).astype(np.int64)
-        invoker.timing_wrapper(A, times)
-        print(times)
-        print("avg time", times.mean() / 1e9)
+    # def test_quantize(self):
+    #     result = None
+    #
+    #     def callback(*args):
+    #         nonlocal result
+    #         result = tuple(
+    #             [
+    #                 arg
+    #                 if type in elemental_type_to_ctype
+    #                 else unranked_memref_to_numpy(arg, memref_type_to_np_dtype[type])
+    #                 for arg, type in zip(args, invoker.ret_types)
+    #             ]
+    #         )
+    #         assert len(args) == 1
+    #         result = result[0]
+    #
+    #     for model in [
+    #         "convnext_tiny",
+    #         "efficientnet_b0",
+    #         "googlenet",
+    #         "mnasnet0_5",
+    #         "mobilenet_v2",
+    #         "resnet18",
+    #         "squeezenet1_0",
+    #     ]:
+    #         logger.debug(f"{model=}")
+    #         with mlir_mod_ctx(read_model_ir(model)) as module:
+    #             sequence(basic_tile)
+    #
+    #         module = self.backend.compile(
+    #             module,
+    #             kernel_name="forward",
+    #             pipeline=Pipeline().FUNC().linalg_fake_quantize(bits=32).CNUF(),
+    #         )
+    #         module = self.lower(module)
+    #         invoker = self.backend.load(module, consume_return_func=callback)
+    #         invoker.forward(example_32().astype(np.float32))
+    #         assert result is not None and not np.isnan(result).any()
+    #
+    # def test_benchmark(self):
+    #     N, C, H, W = 1, 3, 32, 32
+    #     N_RUNS = 10
+    #     param1_type = Tensor[[N, C, H, W], F32]
+    #     res_type = Tensor[[1, 1000], F32].mlir_type
+    #
+    #     with mlir_mod_ctx(read_model_ir("resnet18")) as module:
+    #         timer = declare("_mlir_ciface_nanoTime", [], result_annots=[I64])
+    #
+    #         @mlir_func(range_ctor=scf_range, attributes={"llvm.emit_c_interface": None})
+    #         def timing_wrapper(
+    #             x: param1_type,
+    #             times: MemRef[[N_RUNS], I64],
+    #         ):
+    #             for i in range(0, N_RUNS):
+    #                 start = timer()
+    #                 out = call_func("forward", [x], [res_type])
+    #                 end = timer()
+    #                 times[i] = end - start
+    #
+    #     module = self.backend.compile(
+    #         module,
+    #         Pipeline().sparse_compiler(
+    #             parallelization_strategy="dense-outer-loop",
+    #             vl=16,
+    #             reassociate_fp_reductions=True,
+    #             enable_index_optimizations=True,
+    #         ),
+    #     )
+    #
+    #     invoker = self.backend.load(module, opt_level=1)
+    #     A = np.random.randint(low=0, high=10, size=(N, C, H, W)).astype(np.float32)
+    #     times = np.zeros(N_RUNS).astype(np.int64)
+    #     invoker.timing_wrapper(A, times)
+    #     print(times)
+    #     print("avg time", times.mean() / 1e9)

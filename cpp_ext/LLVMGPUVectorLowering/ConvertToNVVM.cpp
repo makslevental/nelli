@@ -25,6 +25,8 @@
 #include "mlir/Dialect/NVGPU/IR/NVGPUDialect.h"
 #include "mlir/Dialect/Vector/IR/VectorOps.h"
 #include "mlir/Dialect/Vector/Transforms/VectorRewritePatterns.h"
+#include "mlir/Dialect/Vector/Transforms/LoweringPatterns.h"
+#include "mlir/Dialect/MemRef/Transforms/Transforms.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "mlir/Transforms/Passes.h"
 
@@ -296,7 +298,8 @@ struct ConvertToNVVMPass
               vector::VectorContractLowering::OuterProduct));
       vector::populateVectorMaskOpLoweringPatterns(patterns);
       vector::populateVectorShapeCastLoweringPatterns(patterns);
-      vector::populateVectorTransposeLoweringPatterns(patterns);
+      vector::populateVectorTransposeLoweringPatterns(
+          patterns, vector::VectorTransformsOptions());
       vector::populateVectorTransferLoweringPatterns(patterns);
       if (failed(applyPatternsAndFoldGreedily(m, std::move(patterns)))) {
         return signalPassFailure();

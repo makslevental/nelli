@@ -182,11 +182,11 @@ void computeDirectionVector(
   for (unsigned j = 0; j < numCommonLoops; ++j) {
     (*dependenceComponents)[j].op = commonLoops[j].getOperation();
     auto lbConst = dependenceDomain->getConstantBound64(
-        mlir::presburger::IntegerPolyhedron::LB, j);
+        mlir::presburger::BoundType::LB, j);
     (*dependenceComponents)[j].lb =
         lbConst.value_or(std::numeric_limits<int64_t>::min());
     auto ubConst = dependenceDomain->getConstantBound64(
-        mlir::presburger::IntegerPolyhedron::UB, j);
+        mlir::presburger::BoundType::UB, j);
     (*dependenceComponents)[j].ub =
         ubConst.value_or(std::numeric_limits<int64_t>::max());
   }

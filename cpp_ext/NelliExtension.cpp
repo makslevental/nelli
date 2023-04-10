@@ -78,11 +78,11 @@ py::dict getBoundsFromRelation(const mlir::FlatAffineRelation &relation) {
     py::dict bound;
     if (relation.hasValue(i)) {
       auto LB =
-          relation.getConstantBound(mlir::presburger::IntegerRelation::LB, i);
+          relation.getConstantBound(mlir::presburger::BoundType::LB, i);
       auto UB =
-          relation.getConstantBound(mlir::presburger::IntegerRelation::UB, i);
+          relation.getConstantBound(mlir::presburger::BoundType::UB, i);
       auto EQ =
-          relation.getConstantBound(mlir::presburger::IntegerRelation::EQ, i);
+          relation.getConstantBound(mlir::presburger::BoundType::EQ, i);
       if (LB.has_value()) {
         bound["LB"] = int64FromMPInt(LB.value());
       } else {
@@ -226,9 +226,9 @@ PYBIND11_MODULE(_nelli_mlir, m) {
     py::dict bounds;
     py::dict bound;
     auto LB =
-        lowerRel.getConstantBound(mlir::presburger::IntegerRelation::LB, 0);
+        lowerRel.getConstantBound(mlir::presburger::BoundType::LB, 0);
     auto UB =
-        upperRel.getConstantBound(mlir::presburger::IntegerRelation::UB, 0);
+        upperRel.getConstantBound(mlir::presburger::BoundType::UB, 0);
     if (LB.has_value()) {
       bound["LB"] = int64FromMPInt(LB.value());
     } else {

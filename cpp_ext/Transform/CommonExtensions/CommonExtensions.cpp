@@ -28,6 +28,8 @@
 #include "mlir/Dialect/Tensor/Transforms/Transforms.h"
 #include "mlir/Dialect/Transform/IR/TransformInterfaces.h"
 #include "mlir/Dialect/Vector/Transforms/Passes.h"
+#include "mlir/Dialect/Vector/Transforms/LoweringPatterns.h"
+#include "mlir/Dialect/MemRef/Transforms/Transforms.h"
 #include "mlir/IR/Diagnostics.h"
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Transforms/DialectConversion.h"
@@ -97,7 +99,8 @@ transform::ApplyBufferOptimizationsOp::applyToOne(
     Operation *target, transform::ApplyToEachResultList &results,
     transform::TransformState &state) {
   // Apply store to load forwarding and dead store elimination.
-  vector::transferOpflowOpt(target);
+  IRRewriter rewriter(getContext());
+  vector::transferOpflowOpt(rewriter, target);
   eraseDeadAllocAndStores(target);
 
   return DiagnosedSilenceableFailure::success();
