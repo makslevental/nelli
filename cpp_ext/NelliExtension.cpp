@@ -3,6 +3,7 @@
 #include "mlir-c/Bindings/Python/Interop.h"
 #include "mlir-c/BuiltinAttributes.h"
 #include "mlir-c/IR.h"
+#include "mlir/Bindings/Python/PybindAdaptors.h"
 #include "mlir/CAPI/AffineExpr.h"
 #include "mlir/CAPI/AffineMap.h"
 #include "mlir/CAPI/IR.h"
@@ -12,12 +13,12 @@
 #include "mlir/Dialect/Affine/Analysis/Utils.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Affine/IR/AffineValueMap.h"
+#include "mlir/Dialect/Affine/LoopUtils.h"
 #include "mlir/IR/AffineExprVisitor.h"
 #include "mlir/IR/Operation.h"
 #include "llvm/ExecutionEngine/Orc/JITTargetMachineBuilder.h"
 #include "llvm/Support/Error.h"
 #include "llvm/Support/FileSystem.h"
-#include "mlir/Dialect/Affine/LoopUtils.h"
 #include <pybind11/functional.h>
 #include <pybind11/pybind11.h>
 
@@ -25,16 +26,16 @@
 #include "FakeQuantize/FakeQuantize.h"
 #include "GPUTransforms/GPUTransforms.h"
 #include "GPUTransforms/MapMemRefStorageClassPass.h"
+#include "LLVMGPUVectorLowering/LLVMGPUVectorLowering.h"
 #include "LinalgTransforms/LinalgTransforms.h"
 #include "LoopUtils.h"
+#include "PDLByteCodeInterpreter/PDLByteCodeInterpreter.h"
 #include "Pybind.h"
 #include "RaiseToAffine/RaiseToAffine.h"
 #include "RefBackend/RefBackend.h"
 #include "TilingInterface/TilingInterface.h"
-#include "Transform/TransformDialectInterpreter.h"
 #include "Transform/Structured/StructuredTransformOpsExt.h"
-#include "PDLByteCodeInterpreter/PDLByteCodeInterpreter.h"
-#include "LLVMGPUVectorLowering/LLVMGPUVectorLowering.h"
+#include "Transform/TransformDialectInterpreter.h"
 #include "utils.h"
 
 namespace py = pybind11;
@@ -77,12 +78,9 @@ py::dict getBoundsFromRelation(const mlir::FlatAffineRelation &relation) {
   for (unsigned i = 0; i < nds; ++i) {
     py::dict bound;
     if (relation.hasValue(i)) {
-      auto LB =
-          relation.getConstantBound(mlir::presburger::BoundType::LB, i);
-      auto UB =
-          relation.getConstantBound(mlir::presburger::BoundType::UB, i);
-      auto EQ =
-          relation.getConstantBound(mlir::presburger::BoundType::EQ, i);
+      auto LB = relation.getConstantBound(mlir::presburger::BoundType::LB, i);
+      auto UB = relation.getConstantBound(mlir::presburger::BoundType::UB, i);
+      auto EQ = relation.getConstantBound(mlir::presburger::BoundType::EQ, i);
       if (LB.has_value()) {
         bound["LB"] = int64FromMPInt(LB.value());
       } else {
@@ -107,10 +105,13 @@ py::dict getBoundsFromRelation(const mlir::FlatAffineRelation &relation) {
 thread_local py::object annotator_;
 
 PYBIND11_MODULE(_nelli_mlir, m) {
-  auto mod = py::module_::import(MAKE_MLIR_PYTHON_QUALNAME("ir"));
-  PyArithValue::bind(m);
-  PyMemRefValue::bind(m);
-  PyTensorValue::bind(m);
+
+  (void)adaptors::mlir_value_subclass(m, "ArithValue",
+                                [](MlirValue) { return true; });
+  (void)adaptors::mlir_value_subclass(m, "MemRefValue",
+                                [](MlirValue) { return true; });
+  (void)adaptors::mlir_value_subclass(m, "TensorValue",
+                                [](MlirValue) { return true; });
 
   m.def("walk_affine_exprs",
         [](PyAffineMap &self,
@@ -225,10 +226,8 @@ PYBIND11_MODULE(_nelli_mlir, m) {
     (void)getRelationFromMap(upperMap, upperRel);
     py::dict bounds;
     py::dict bound;
-    auto LB =
-        lowerRel.getConstantBound(mlir::presburger::BoundType::LB, 0);
-    auto UB =
-        upperRel.getConstantBound(mlir::presburger::BoundType::UB, 0);
+    auto LB = lowerRel.getConstantBound(mlir::presburger::BoundType::LB, 0);
+    auto UB = upperRel.getConstantBound(mlir::presburger::BoundType::UB, 0);
     if (LB.has_value()) {
       bound["LB"] = int64FromMPInt(LB.value());
     } else {

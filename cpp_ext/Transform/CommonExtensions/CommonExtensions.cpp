@@ -356,7 +356,7 @@ DiagnosedSilenceableFailure transform::ApplyPatternsOp::applyToOne(
         patterns, [](OpOperand *) { return true; });
   }
   if (getBubblePackUnPack())
-    linalg::populateDataLayoutPropagationPatterns(patterns);
+    linalg::populateDataLayoutPropagationPatterns(patterns, nullptr);
   if (getCanonicalization()) addAllRegisteredCanonicalizationPatterns(patterns);
   if (getEraseUnnecessaryTensorOperands())
     addEraseUnnecessaryTensorOperandsPatterns(patterns);

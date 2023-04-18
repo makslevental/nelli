@@ -8,10 +8,11 @@
 #include "mlir/Dialect/Bufferization/Transforms/Passes.h"
 #include "mlir/Dialect/Bufferization/Transforms/Transforms.h"
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
-#include "mlir/Dialect/Vector/IR/VectorOps.h"
 #include "mlir/Dialect/Linalg/Utils/Utils.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/MemRef/Transforms/Passes.h"
+#include "mlir/Dialect/Vector/IR/VectorOps.h"
+#include "mlir/Interfaces/ValueBoundsOpInterface.h"
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Transforms/Passes.h"
 #include "llvm/Support/Debug.h"
@@ -57,7 +58,9 @@ hoistOneStaticallyBoundAllocation(func::FuncOp funcOp, OpBuilder &builder,
       continue;
     }
     Value dynamicSize = dynamicSizes[index++];
-    auto ub = linalg::getConstantUpperBoundForIndex(dynamicSize);
+    auto ub = ValueBoundsConstraintSet::computeConstantBound(
+        presburger::BoundType::UB, dynamicSize, /*dim=*/std::nullopt,
+        /*stopCondition=*/nullptr, /*closedUB=*/true);
     if (failed(ub)) {
       return std::nullopt;
     }
@@ -234,8 +237,8 @@ Operation *createLinalgCopyOp(OpBuilder &b, Location loc, Value from, Value to,
 
 /// Pick an unrolling order that will allow tensorcore operation to reuse LHS
 /// register. This is needed to get good performance on sm_80 target.
-Optional<SmallVector<int64_t>> gpuMmaUnrollOrder(
-    vector::ContractionOp contract) {
+Optional<SmallVector<int64_t>>
+gpuMmaUnrollOrder(vector::ContractionOp contract) {
   SmallVector<int64_t> order;
   // First make reduction the outer dimensions.
   for (auto [index, iter] : llvm::enumerate(contract.getIteratorTypes())) {
@@ -285,9 +288,11 @@ Optional<SmallVector<int64_t>> getWmmaNativeVectorSize(Operation *op) {
     VectorType sliceType;
     for (Operation *users : op->getUsers()) {
       auto extract = dyn_cast<vector::ExtractStridedSliceOp>(users);
-      if (!extract) return std::nullopt;
+      if (!extract)
+        return std::nullopt;
       auto vecType = extract.getResult().getType().cast<VectorType>();
-      if (sliceType && sliceType != vecType) return std::nullopt;
+      if (sliceType && sliceType != vecType)
+        return std::nullopt;
       sliceType = vecType;
     }
     return llvm::to_vector(sliceType.getShape());
@@ -304,19 +309,23 @@ Optional<SmallVector<int64_t>> getWmmaNativeVectorSize(Operation *op) {
 }
 
 /// Returns vector::ContractionOp operand's index where the result is used.
-static Optional<int> getVectorContractOpOperandId(
-    vector::ContractionOp contractOp, OpResult result) {
-  if (contractOp.getLhs() == result) return 0;
-  if (contractOp.getRhs() == result) return 1;
-  if (contractOp.getAcc() == result) return 2;
+static Optional<int>
+getVectorContractOpOperandId(vector::ContractionOp contractOp,
+                             OpResult result) {
+  if (contractOp.getLhs() == result)
+    return 0;
+  if (contractOp.getRhs() == result)
+    return 1;
+  if (contractOp.getAcc() == result)
+    return 2;
   return std::nullopt;
 }
 
 /// Returns vector::ContractionOp operand's index  where the
 /// vector::TransferReadOp is consumed either consumed directly or via
 /// vector::ExtractStridedSliceOp.
-static Optional<int> getVectorContractOpOperandIdForVectorReadOp(
-    Operation *op) {
+static Optional<int>
+getVectorContractOpOperandIdForVectorReadOp(Operation *op) {
   vector::ContractionOp contractOp;
 
   Operation *firstLevelUser = *((op->getUsers()).begin());
@@ -435,9 +444,11 @@ Optional<SmallVector<int64_t>> getMmaNativeVectorSize(Operation *op) {
         VectorType sliceType;
         for (Operation *users : op->getUsers()) {
           auto extract = dyn_cast<vector::ExtractStridedSliceOp>(users);
-          if (!extract) return std::nullopt;
+          if (!extract)
+            return std::nullopt;
           auto vecType = extract.getResult().getType().cast<VectorType>();
-          if (sliceType && sliceType != vecType) return std::nullopt;
+          if (sliceType && sliceType != vecType)
+            return std::nullopt;
           sliceType = vecType;
         }
         return llvm::to_vector(sliceType.getShape());
