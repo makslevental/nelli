@@ -67,17 +67,13 @@ target_link_libraries(NelliPythonSources.SiteInitialize
         LLVMGPUExtensions
         )
 
-get_target_property(mlir_python_sources MLIRPythonExtension.Core INTERFACE_SOURCES)
-list(GET mlir_python_sources 0 HEADER)
-get_filename_component(header_dir ${HEADER} DIRECTORY)
-#list(FILTER mlir_python_sources INCLUDE REGEX "(IRAffine|IRAttributes|IRCore|IRInterfaces|IRModule|IRTypes|Pass|PybindUtils)\\.cpp")
-list(FILTER mlir_python_sources INCLUDE REGEX "(PybindUtils)\\.cpp")
-target_sources(NelliPythonSources.Extension INTERFACE ${mlir_python_sources})
-target_include_directories(NelliPythonSources.Extension INTERFACE ${header_dir})
+set(PYBINDINGS_SRC "${MLIR_INSTALL_PREFIX}/src/python/MLIRPythonExtension.Core")
+target_include_directories(NelliPythonSources.Extension INTERFACE "${PYBINDINGS_SRC}")
+#target_sources(NelliPythonSources.Extension INTERFACE "${PYBINDINGS_SRC}/PybindUtils.cpp")
 
-execute_process(COMMAND python ${CMAKE_SOURCE_DIR}/scripts/regex_mlir_bindings.py ${header_dir}/IRModule.h)
-execute_process(COMMAND python ${CMAKE_SOURCE_DIR}/scripts/regex_mlir_bindings.py ${header_dir}/IRCore.cpp)
-execute_process(COMMAND python ${CMAKE_SOURCE_DIR}/scripts/regex_mlir_bindings.py ${header_dir}/IRAffine.cpp)
+execute_process(COMMAND python ${CMAKE_SOURCE_DIR}/scripts/regex_mlir_bindings.py ${PYBINDINGS_SRC}/IRModule.h)
+execute_process(COMMAND python ${CMAKE_SOURCE_DIR}/scripts/regex_mlir_bindings.py ${PYBINDINGS_SRC}/IRCore.cpp)
+execute_process(COMMAND python ${CMAKE_SOURCE_DIR}/scripts/regex_mlir_bindings.py ${PYBINDINGS_SRC}/IRAffine.cpp)
 
 set(_source_components
         MLIRPythonSources
@@ -101,10 +97,3 @@ add_mlir_python_modules(NelliPythonModules
         COMMON_CAPI_LINK_LIBS
         NelliMLIRAggregateCAPI
         )
-
-
-file(READ "${MLIR_INCLUDE_DIRS}/mlir/Bindings/Python/PybindAdaptors.h" filedata)
-file(WRITE "${MLIR_INCLUDE_DIRS}/mlir/Bindings/Python/PybindAdaptors.h.bkup" "${filedata}")
-string(REPLACE "template <typename T>
-struct type_caster<llvm::Optional<T>> : optional_caster<llvm::Optional<T>> {}" "// typecaster" output "${filedata}")
-file(WRITE "${MLIR_INCLUDE_DIRS}/mlir/Bindings/Python/PybindAdaptors.h" "${output}")

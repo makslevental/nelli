@@ -9,18 +9,18 @@ def ir_module(fp):
     if not exists(f"{fp}.bkup"):
         with open(f"{fp}.bkup", "w") as bkup:
             bkup.write(f)
-    with open(fp, "w") as ff:
-        res = re.sub(
-            r"^class ((?!PYBIND11_EXPORT).*) {$",
-            r"class PYBIND11_EXPORT \1 {",
-            f,
-            flags=re.MULTILINE,
-        )
-        res = res.replace(
-            "class DefaultingPyMlirContext",
-            "class PYBIND11_EXPORT DefaultingPyMlirContext",
-        )
-        ff.write(res)
+        with open(fp, "w") as ff:
+            res = re.sub(
+                r"^class ((?!PYBIND11_EXPORT).*) {$",
+                r"class PYBIND11_EXPORT \1 {",
+                f,
+                flags=re.MULTILINE,
+            )
+            res = res.replace(
+                "class DefaultingPyMlirContext",
+                "class PYBIND11_EXPORT DefaultingPyMlirContext",
+            )
+            ff.write(res)
 
 
 def ir_core(fp):
@@ -29,9 +29,9 @@ def ir_core(fp):
     if not exists(f"{fp}.bkup"):
         with open(f"{fp}.bkup", "w") as bkup:
             bkup.write(f)
-    with open(fp, "w") as ff:
-        res = f.replace(", py::module_local()", "")
-        ff.write(res)
+        with open(fp, "w") as ff:
+            res = f.replace(", py::module_local()", "")
+            ff.write(res)
 
 
 if __name__ == "__main__":
