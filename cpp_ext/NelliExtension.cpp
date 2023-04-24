@@ -41,13 +41,15 @@
 namespace py = pybind11;
 using namespace mlir::python;
 using namespace mlir;
+using namespace mlir::affine;
 using namespace presburger;
 using namespace tabulate;
 
 static mlir::LogicalResult
-getOpIndexSet(mlir::Operation *op, mlir::FlatAffineValueConstraints *indexSet) {
+getOpIndexSet(mlir::Operation *op,
+              mlir::affine::FlatAffineValueConstraints *indexSet) {
   llvm::SmallVector<mlir::Operation *, 4> ops;
-  mlir::getEnclosingAffineOps(*op, &ops);
+  mlir::affine::getEnclosingAffineOps(*op, &ops);
   return getIndexSet(ops, indexSet);
 }
 
@@ -72,7 +74,8 @@ py::object getOpView(MlirOperation op) {
   return pyFoundOp->createOpView();
 }
 
-py::dict getBoundsFromRelation(const mlir::FlatAffineRelation &relation) {
+py::dict
+getBoundsFromRelation(const mlir::affine::FlatAffineRelation &relation) {
   py::dict bounds;
   auto nds = relation.getNumDimAndSymbolVars();
   for (unsigned i = 0; i < nds; ++i) {
@@ -107,11 +110,11 @@ thread_local py::object annotator_;
 PYBIND11_MODULE(_nelli_mlir, m) {
 
   (void)adaptors::mlir_value_subclass(m, "ArithValue",
-                                [](MlirValue) { return true; });
+                                      [](MlirValue) { return true; });
   (void)adaptors::mlir_value_subclass(m, "MemRefValue",
-                                [](MlirValue) { return true; });
+                                      [](MlirValue) { return true; });
   (void)adaptors::mlir_value_subclass(m, "TensorValue",
-                                [](MlirValue) { return true; });
+                                      [](MlirValue) { return true; });
 
   m.def("walk_affine_exprs",
         [](PyAffineMap &self,
@@ -145,8 +148,8 @@ PYBIND11_MODULE(_nelli_mlir, m) {
     return nelli::showValueAsOperand(unwrap(mlirValue));
   });
   m.def("get_affine_value_map", [](const py::handle affineOpApiObject) {
-    auto affineApplyOp = unwrapOpObject<mlir::AffineApplyOp>(affineOpApiObject);
-    mlir::AffineValueMap valueMap;
+    auto affineApplyOp = unwrapOpObject<AffineApplyOp>(affineOpApiObject);
+    AffineValueMap valueMap;
     valueMap = affineApplyOp.getAffineValueMap();
     py::list dims;
     py::list syms;
@@ -163,16 +166,15 @@ PYBIND11_MODULE(_nelli_mlir, m) {
   });
   m.def("get_access_relation", [](const py::handle affineOpApiObject) {
     auto *op = unwrapApiOpObject<mlir::Operation>(affineOpApiObject);
-    mlir::MemRefAccess *access;
-    access = new mlir::MemRefAccess(op);
+    auto *access = new MemRefAccess(op);
     py::dict indices;
     for (const auto &pos_idx : llvm::enumerate(access->indices)) {
       indices[py::cast<>(pos_idx.index())] = py::cast<>(wrap(pos_idx.value()));
     }
-    mlir::FlatAffineValueConstraints domain;
+    FlatAffineValueConstraints domain;
     (void)getOpIndexSet(op, &domain);
-    mlir::FlatAffineRelation domainRel(domain.getNumDimVars(),
-                                       /*numRangeDims=*/0, domain);
+    mlir::affine::FlatAffineRelation domainRel(domain.getNumDimVars(),
+                                               /*numRangeDims=*/0, domain);
     auto bounds = getBoundsFromRelation(domainRel);
     return py::make_tuple(bounds, indices);
   });
@@ -216,12 +218,12 @@ PYBIND11_MODULE(_nelli_mlir, m) {
         });
 
   m.def("get_loop_bounds", [](const py::handle srcOpApiObject) {
-    auto affForOp = unwrapOpObject<mlir::AffineForOp>(srcOpApiObject);
+    auto affForOp = unwrapOpObject<AffineForOp>(srcOpApiObject);
 
-    mlir::FlatAffineRelation lowerRel;
+    mlir::affine::FlatAffineRelation lowerRel;
     auto lowerMap = affForOp.getLowerBoundMap();
     (void)getRelationFromMap(lowerMap, lowerRel);
-    mlir::FlatAffineRelation upperRel;
+    mlir::affine::FlatAffineRelation upperRel;
     auto upperMap = affForOp.getUpperBoundMap();
     (void)getRelationFromMap(upperMap, upperRel);
     py::dict bounds;
@@ -266,8 +268,8 @@ PYBIND11_MODULE(_nelli_mlir, m) {
 
   m.def("affine_for_skew", [](const py::handle forOpApiObject,
                               const std::vector<uint64_t> &shifts) {
-    auto forOp = unwrapOpObject<mlir::AffineForOp>(forOpApiObject);
-    if (failed(mlir::affineForOpBodySkew(forOp, shifts))) {
+    auto forOp = unwrapOpObject<AffineForOp>(forOpApiObject);
+    if (failed(affineForOpBodySkew(forOp, shifts))) {
       throw py::value_error("skew failed");
     }
   });
@@ -275,7 +277,7 @@ PYBIND11_MODULE(_nelli_mlir, m) {
   m.def("affine_for_unroll_by_factor", [](const py::handle forOpApiObject,
                                           int unrollFactor,
                                           const py::object &annotator) {
-    auto forOp = unwrapOpObject<mlir::AffineForOp>(forOpApiObject);
+    auto forOp = unwrapOpObject<AffineForOp>(forOpApiObject);
     llvm::function_ref<void(unsigned, Operation *, OpBuilder)> annotateFn =
         nullptr;
     using Annotation = std::pair<std::string, MlirAttribute>;
@@ -289,7 +291,8 @@ PYBIND11_MODULE(_nelli_mlir, m) {
         }
       };
     }
-    if (failed(mlir::loopUnrollByFactor(forOp, unrollFactor, annotateFn))) {
+    if (failed(mlir::affine::loopUnrollByFactor(forOp, unrollFactor,
+                                                annotateFn))) {
       throw py::value_error("unroll by factor failed");
     }
   });

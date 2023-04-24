@@ -37,6 +37,7 @@
 #include "mlir/Transforms/LoopInvariantCodeMotionUtils.h"
 
 using namespace mlir;
+using namespace mlir::affine;
 
 transform::CommonExtensions::CommonExtensions() {
   registerTransformOps<

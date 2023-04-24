@@ -32,7 +32,7 @@ def get_llvm_url():
     assert LLVM_RELEASE_VERSION, "empty LLVM_RELEASE_VERSION"
     # print(f"ARCH {LIB_ARCH}")
     name = f"llvm+mlir+openmp-{sys.version_info.major}.{sys.version_info.minor}-{LLVM_RELEASE_VERSION}-{LIB_ARCH}-{system_suffix}-release"
-    url = f"https://github.com/makslevental/llvm-releases/releases/download/llvm-{LLVM_RELEASE_VERSION}/{name}.tar.xz"
+    url = f"https://github.com/makslevental/llvm-releases/releases/latest/download/{name}.tar.xz"
     return url
 
 

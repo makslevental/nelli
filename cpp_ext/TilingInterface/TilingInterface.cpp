@@ -23,6 +23,7 @@
 #include "TilingInterface.h"
 
 using namespace mlir;
+using namespace mlir::affine;
 
 namespace {
 

@@ -204,7 +204,7 @@ struct LinalgFakeQuantize
           // Convert tensor typed constant values. At this point, we have known
           // that the tensor has floating-point elements.
           if (constant.getValue().getType().isa<RankedTensorType>()) {
-            DenseIntElementsAttr attr = DenseIntElementsAttr::get(quanType, 1);
+            DenseIntElementsAttr attr = builder.getI64TensorAttr({1});
             constant.setValueAttr(attr);
           } else {
             auto attr = IntegerAttr::get(quanType, 1);

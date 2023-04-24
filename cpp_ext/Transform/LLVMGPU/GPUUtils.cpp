@@ -4,22 +4,19 @@
 
 #include "GPUUtils.h"
 
-#include "llvm/Support/Debug.h"
-#include "mlir/Dialect/Affine/IR/AffineOps.h"
-#include "mlir/Dialect/Arith/IR/Arith.h"
-#include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
-#include "mlir/Dialect/Vector/IR/VectorOps.h"
-#include "mlir/Dialect/NVGPU/IR/NVGPUDialect.h"
 #include "mlir/Dialect/GPU/IR/GPUDialect.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
+#include "mlir/Dialect/NVGPU/IR/NVGPUDialect.h"
+#include "mlir/Dialect/SCF/IR/SCF.h"
+#include "mlir/Dialect/Vector/IR/VectorOps.h"
 #include "mlir/IR/Matchers.h"
 #include "mlir/Interfaces/SideEffectInterfaces.h"
+#include "llvm/Support/Debug.h"
 
 #define DEBUG_TYPE "llvm-gpu-utils"
 #define DBGS() (llvm::dbgs() << "[" DEBUG_TYPE "]: ")
-
 
 static constexpr unsigned kShuffleBitWidth = 32;
 
@@ -108,8 +105,8 @@ static Value reduceToSupportedWidth(Location loc, OpBuilder &builder,
     Attribute identityAttr =
         getCombiningKindIdentity(builder, kind, elementType);
     identityAttr = DenseElementsAttr::get(unrolledLaneValType, identityAttr);
-    Value identity = builder.create<arith::ConstantOp>(loc, identityAttr,
-                                                       unrolledLaneValType);
+    Value identity =
+        builder.create<arith::ConstantOp>(loc, cast<TypedAttr>(identityAttr));
     perLaneReduction = builder.create<vector::InsertStridedSliceOp>(
         loc, input, identity, /*offsets=*/ArrayRef<int64_t>{0},
         /*strides=*/ArrayRef<int64_t>{1});
@@ -130,7 +127,7 @@ static Value promoteElementToVector(Location loc, OpBuilder &builder,
 /// Packs vector of lower precision into a single 32-bit width element.
 /// (i.e <2xf16> -> i32 and <4xi8> -> i32)
 Value packVectorToSupportedWidth(Location loc, OpBuilder &builder,
-                                        Value input) {
+                                 Value input) {
   LLVM_DEBUG({
     auto vecType = input.getType().cast<VectorType>();
     Type elementType = vecType.getElementType();
@@ -150,7 +147,7 @@ Value packVectorToSupportedWidth(Location loc, OpBuilder &builder,
 /// Unpack single scalar element into a target vector type.
 /// (i.e i32 -> vector<4xi8> or f32 -> vector<2xf16>)
 Value unpackToVector(Location loc, OpBuilder &builder, Value packedInput,
-                            VectorType targetVecType) {
+                     VectorType targetVecType) {
   LLVM_DEBUG({
     Type packedType = packedInput.getType();
     assert(packedType.isIntOrFloat() && "Only ints and floats are unpackable.");
@@ -164,7 +161,6 @@ Value unpackToVector(Location loc, OpBuilder &builder, Value packedInput,
       builder.create<vector::BitCastOp>(loc, targetVecType, packedVector);
   return unpackedVector;
 }
-
 
 /// Emit warp reduction code sequence for a given input.
 static Value warpReduction(Location loc, OpBuilder &builder, Value input,
@@ -221,7 +217,7 @@ static Value getCombiningIdentityValue(Location loc, OpBuilder &builder,
   }
   assert(identityAttr && "Unknown identity value for the reduction");
   Value identity =
-      builder.create<arith::ConstantOp>(loc, identityAttr, identityType);
+      builder.create<arith::ConstantOp>(loc, cast<TypedAttr>(identityAttr));
   return identity;
 }
 
@@ -287,7 +283,7 @@ Value emitGPUGroupReduction(Location loc, OpBuilder &builder, Value input,
   return laneVal;
 }
 
-static bool isContiguousStore(Operation* write) {
+static bool isContiguousStore(Operation *write) {
   if (auto transferWrite = dyn_cast<vector::TransferWriteOp>(write)) {
     if (!transferWrite.getPermutationMap().isMinorIdentity() ||
         !transferWrite.isDimInBounds(0)) {
@@ -301,7 +297,7 @@ static bool isContiguousStore(Operation* write) {
   return false;
 }
 
-static bool isContiguousRead(Operation* read) {
+static bool isContiguousRead(Operation *read) {
   if (auto transferRead = dyn_cast<vector::TransferReadOp>(read)) {
     if (!transferRead.isDimInBounds(0) ||
         !transferRead.getPermutationMap().isMinorIdentity()) {
@@ -315,7 +311,7 @@ static bool isContiguousRead(Operation* read) {
   return false;
 }
 
-static Value getMemrefOperand(Operation* op) {
+static Value getMemrefOperand(Operation *op) {
   if (auto transferWrite = dyn_cast<vector::TransferWriteOp>(op)) {
     return transferWrite.getSource();
   }
@@ -331,7 +327,7 @@ static Value getMemrefOperand(Operation* op) {
   return Value();
 }
 
-static Value getValueStored(Operation* writeOp) {
+static Value getValueStored(Operation *writeOp) {
   if (auto transferWrite = dyn_cast<vector::TransferWriteOp>(writeOp)) {
     return transferWrite.getValue();
   }
@@ -341,7 +337,7 @@ static Value getValueStored(Operation* writeOp) {
   return Value();
 }
 
-static Operation::operand_range getIndices(Operation* op) {
+static Operation::operand_range getIndices(Operation *op) {
   if (auto vectorReadOp = dyn_cast<vector::LoadOp>(op))
     return vectorReadOp.getIndices();
   if (auto vectorStoreOp = dyn_cast<vector::StoreOp>(op))
@@ -353,12 +349,12 @@ static Operation::operand_range getIndices(Operation* op) {
   llvm_unreachable("unsupported op type");
 }
 
-void createAsyncGroups(RewriterBase& rewriter, func::FuncOp funcOp,
+void createAsyncGroups(RewriterBase &rewriter, func::FuncOp funcOp,
                        bool useMMASync) {
   LLVM_DEBUG(DBGS() << "Start asyncGroups: useMMASync=" << useMMASync << "\n");
-  llvm::SmallSetVector<Operation*, 16> copyToSharedMem;
+  llvm::SmallSetVector<Operation *, 16> copyToSharedMem;
   // Look for all the copy that can be converted to async copy ops.
-  funcOp.walk([&](Operation* writeOp) {
+  funcOp.walk([&](Operation *writeOp) {
     if (!isContiguousStore(writeOp)) {
       return WalkResult::advance();
     }
@@ -380,7 +376,7 @@ void createAsyncGroups(RewriterBase& rewriter, func::FuncOp funcOp,
       LLVM_DEBUG(DBGS() << "----address space is not workgroup -> Skip \n");
       return WalkResult::advance();
     }
-    Operation* readOp = vectorVal.getDefiningOp();
+    Operation *readOp = vectorVal.getDefiningOp();
     if (readOp == nullptr || !isContiguousRead(readOp)) {
       LLVM_DEBUG(DBGS() << "----no readOp defining the writeOp -> Skip \n");
       return WalkResult::advance();
@@ -401,12 +397,12 @@ void createAsyncGroups(RewriterBase& rewriter, func::FuncOp funcOp,
   });
 
   while (!copyToSharedMem.empty()) {
-    SmallVector<Operation*> group;
-    Operation* writeOp = *copyToSharedMem.begin();
+    SmallVector<Operation *> group;
+    Operation *writeOp = *copyToSharedMem.begin();
     // Start a group with the first write.
     copyToSharedMem.remove(writeOp);
     group.push_back(writeOp);
-    Operation* nextNode = writeOp;
+    Operation *nextNode = writeOp;
     // Look in the next nodes for more copies to add to the same group.
     while ((nextNode = nextNode->getNextNode())) {
       // Ignore ops without side effects
@@ -416,7 +412,7 @@ void createAsyncGroups(RewriterBase& rewriter, func::FuncOp funcOp,
         continue;
       // ignore read from a different address space.
       if (isa<vector::TransferReadOp, vector::LoadOp>(nextNode)) {
-        Operation* readOp = nextNode;
+        Operation *readOp = nextNode;
         Value memrefOperand = getMemrefOperand(readOp);
         auto addressSpaceAttr = memrefOperand.getType()
                                     .cast<MemRefType>()
@@ -439,10 +435,10 @@ void createAsyncGroups(RewriterBase& rewriter, func::FuncOp funcOp,
     }
     // emit the group.
     SmallVector<Value> tokens;
-    for (Operation* writeOp : group) {
+    for (Operation *writeOp : group) {
       rewriter.setInsertionPoint(writeOp);
       Value vectorVal = getValueStored(writeOp);
-      Operation* readOp = vectorVal.getDefiningOp();
+      Operation *readOp = vectorVal.getDefiningOp();
       Value storeBase = getMemrefOperand(writeOp);
       Value loadBase = getMemrefOperand(readOp);
       Value token = rewriter.create<nvgpu::DeviceAsyncCopyOp>(
@@ -462,8 +458,9 @@ void createAsyncGroups(RewriterBase& rewriter, func::FuncOp funcOp,
     rewriter.create<nvgpu::DeviceAsyncWaitOp>(funcOp.getLoc(), groupToken,
                                               nullptr);
     // Clean up old stores.
-    for (Operation* writeOp : group) rewriter.eraseOp(writeOp);
+    for (Operation *writeOp : group)
+      rewriter.eraseOp(writeOp);
   }
 }
 
-}
+} // namespace mlir

@@ -1,17 +1,22 @@
 import contextlib
 from typing import Optional
 
+from nelli.mlir.passes import Pipeline
+
 from nelli.mlir._mlir.ir import Module, InsertionPoint
 
 
 from textwrap import dedent
+
+from nelli.mlir.arith import constant
+from nelli.mlir.utils import run_pipeline
+from nelli.utils import find_ops, mlir_mod_ctx
 
 src = dedent(
     """\
 module {
   func.func @parallel_loop(%arg0: index, %arg1: index, %arg2: index, %arg3: index, %arg4: index, %arg5: index, %arg6: memref<?x?xf32>, %arg7: memref<?x?xf32>, %arg8: memref<?x?xf32>, %arg9: memref<?x?xf32>) {
     %c0 = arith.constant 0 : index
-    %c1 = arith.constant 1 : index
     %c4 = arith.constant 4 : index
     %0 = arith.muli %arg5, %c4 : index
     %1 = llvm.mlir.constant(1 : i64) : i64
@@ -55,18 +60,22 @@ module {
 )
 
 
-@contextlib.contextmanager
-def mlir_mod_ctx(src: Optional[str] = None):
-    if src is not None:
-        module = Module.parse(src)
-    else:
-        module = Module.create()
-    with InsertionPoint(module.body):
-        yield module
-
-
 with mlir_mod_ctx(src) as module:
-    pass
+    func = find_ops(module, lambda op: op.name in {"func.func"})
+    assert len(func) == 1
+    func = func[0].opview
+    with InsertionPoint.at_block_begin(func.entry_block):
+        constants = find_ops(module, lambda op: op.name in {"arith.constant"})
+        new_constant_1 = constant(333, index=True)
+        new_constant_2 = constant(666, index=True)
+        constants[0].result.replace_all_uses_with(new_constant_1)
+        constants[1].result.replace_all_uses_with(new_constant_2)
+
+run_pipeline(
+    module,
+    Pipeline().cse().materialize(),
+)
+print(module)
 
 
 class Visitor:

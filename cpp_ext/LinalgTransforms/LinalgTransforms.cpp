@@ -28,6 +28,7 @@
 
 using namespace mlir;
 using namespace mlir::linalg;
+using namespace mlir::affine;
 
 namespace {
 struct LinalgTransforms
