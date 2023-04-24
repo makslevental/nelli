@@ -19,6 +19,7 @@
 
 using namespace mlir;
 using namespace mlir::arith;
+using namespace mlir::affine;
 
 bool isReadOnly(Operation *op) {
   bool hasRecursiveEffects = op->hasTrait<OpTrait::HasRecursiveMemoryEffects>();

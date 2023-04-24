@@ -12,6 +12,7 @@
 
 using namespace llvm;
 using namespace mlir;
+using namespace mlir::affine;
 
 /// Generates an affine.for op with the specified lower and upper bounds
 /// while generating the right IV remappings to realize shifts for operations in

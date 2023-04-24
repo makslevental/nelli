@@ -21,6 +21,7 @@
 
 using namespace mlir;
 using namespace mlir::arith;
+using namespace mlir::affine;
 
 struct ForOpRaising : public OpRewritePattern<scf::ForOp> {
   using OpRewritePattern<scf::ForOp>::OpRewritePattern;

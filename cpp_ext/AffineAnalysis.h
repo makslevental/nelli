@@ -44,6 +44,7 @@
 
 using namespace llvm;
 using namespace mlir;
+using namespace mlir::affine;
 using namespace presburger;
 using namespace tabulate;
 

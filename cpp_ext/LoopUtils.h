@@ -41,7 +41,7 @@
 #define NELLI_LOOPUTILS_H
 
 namespace nelli {
-mlir::LogicalResult affineForOpBodySkew(mlir::AffineForOp forOp,
+mlir::LogicalResult affineForOpBodySkew(mlir::affine::AffineForOp forOp,
                                         llvm::ArrayRef<uint64_t> shifts,
                                         bool unrollPrologueEpilogue = false);
 }

@@ -18,6 +18,8 @@
 
 namespace mlir {
 
+using namespace affine;
+
 namespace {
 
 static constexpr int maxTensorDims = 2;
