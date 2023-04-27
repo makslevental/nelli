@@ -7,5 +7,6 @@ pip
 pybind11
 setuptools>=42
 wheel
+cmakelang
 #auditwheel
 #patchelf

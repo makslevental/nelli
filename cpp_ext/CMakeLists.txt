@@ -71,9 +71,9 @@ set(PYBINDINGS_SRC "${MLIR_INSTALL_PREFIX}/src/python/MLIRPythonExtension.Core")
 target_include_directories(NelliPythonSources.Extension INTERFACE "${PYBINDINGS_SRC}")
 #target_sources(NelliPythonSources.Extension INTERFACE "${PYBINDINGS_SRC}/PybindUtils.cpp")
 
-execute_process(COMMAND python ${CMAKE_SOURCE_DIR}/scripts/regex_mlir_bindings.py ${PYBINDINGS_SRC}/IRModule.h)
-execute_process(COMMAND python ${CMAKE_SOURCE_DIR}/scripts/regex_mlir_bindings.py ${PYBINDINGS_SRC}/IRCore.cpp)
-execute_process(COMMAND python ${CMAKE_SOURCE_DIR}/scripts/regex_mlir_bindings.py ${PYBINDINGS_SRC}/IRAffine.cpp)
+#execute_process(COMMAND python ${CMAKE_SOURCE_DIR}/scripts/regex_mlir_bindings.py ${PYBINDINGS_SRC}/IRModule.h)
+#execute_process(COMMAND python ${CMAKE_SOURCE_DIR}/scripts/regex_mlir_bindings.py ${PYBINDINGS_SRC}/IRCore.cpp)
+#execute_process(COMMAND python ${CMAKE_SOURCE_DIR}/scripts/regex_mlir_bindings.py ${PYBINDINGS_SRC}/IRAffine.cpp)
 
 set(_source_components
         MLIRPythonSources
@@ -89,6 +89,7 @@ add_mlir_python_common_capi_library(NelliMLIRAggregateCAPI
         RELATIVE_INSTALL_ROOT "../../../../.."
         DECLARED_SOURCES ${_source_components}
         )
+set_target_properties(NelliMLIRAggregateCAPI PROPERTIES LINKER_LANGUAGE CXX)
 
 add_mlir_python_modules(NelliPythonModules
         ROOT_PREFIX "${NELLI_MLIR_PYTHON_PACKAGES_DIR}/nelli/mlir/_mlir"
@@ -97,3 +98,13 @@ add_mlir_python_modules(NelliPythonModules
         COMMON_CAPI_LINK_LIBS
         NelliMLIRAggregateCAPI
         )
+#
+#_flatten_mlir_python_targets(_flat_targets ${_source_components})
+#foreach(sources_target ${_flat_targets})
+#    get_target_property(_source_type ${sources_target} mlir_python_SOURCES_TYPE)
+#    if(_source_type STREQUAL "extension")
+#        get_target_property(_module_name ${sources_target} mlir_python_EXTENSION_MODULE_NAME)
+#        set(_extension_target "NelliPythonModules${modules_target}.extension.${_module_name}.dso")
+#        set_target_properties(${_extension_target} PROPERTIES CXX_VISIBILITY_PRESET "default")
+#    endif ()
+#endforeach()
