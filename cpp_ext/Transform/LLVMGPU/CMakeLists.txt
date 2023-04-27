@@ -1,44 +1,41 @@
-add_mlir_library(LLVMGPUExtensions
-        LLVMGPUExtensions.cpp
-        LLVMGPUExtensionsOps.cpp.inc
-        GPUUtils.cpp
-        LLVMGPULayoutAnalysisAndDistribution.cpp
-
-        ADDITIONAL_HEADERS
-        LLVMGPUExtensions.h
-        LLVMGPUExtensionsOps.h.inc
-
-        DISABLE_INSTALL
-
-        LINK_LIBS PUBLIC
-        LLVMSupport
-        MLIRAffineDialect
-        MLIRAffineUtils
-        MLIRAnalysis
-        MLIRArithDialect
-        MLIRArithUtils
-        MLIRBufferizationDialect
-        MLIRBufferizationTransforms
-        MLIRGPUOps
-        MLIRNVGPUDialect
-        MLIRNVGPUTransforms
-        MLIRIR
-        MLIRLinalgDialect
-        MLIRLinalgTransformOps
-        MLIRLinalgTransforms
-        MLIRMemRefDialect
-        MLIRMemRefTransforms
-        MLIRPDLDialect
-        MLIRPass
-        MLIRSCFDialect
-        MLIRSCFTransforms
-        MLIRSCFUtils
-        MLIRTensorDialect
-        MLIRTensorTransforms
-        MLIRTransformDialect
-        MLIRTransforms
-        MLIRVectorDialect
-        MLIRVectorTransforms
-
-        DialectsTransforms
-        )
+add_mlir_library(
+  LLVMGPUExtensions
+  LLVMGPUExtensions.cpp
+  LLVMGPUExtensionsOps.cpp.inc
+  GPUUtils.cpp
+  LLVMGPULayoutAnalysisAndDistribution.cpp
+  ADDITIONAL_HEADERS
+  LLVMGPUExtensions.h
+  LLVMGPUExtensionsOps.h.inc
+  DISABLE_INSTALL
+  LINK_LIBS
+  PUBLIC
+  LLVMSupport
+  MLIRAffineDialect
+  MLIRAffineUtils
+  MLIRAnalysis
+  MLIRArithDialect
+  MLIRArithUtils
+  MLIRBufferizationDialect
+  MLIRBufferizationTransforms
+  MLIRGPUOps
+  MLIRNVGPUDialect
+  MLIRNVGPUTransforms
+  MLIRIR
+  MLIRLinalgDialect
+  MLIRLinalgTransformOps
+  MLIRLinalgTransforms
+  MLIRMemRefDialect
+  MLIRMemRefTransforms
+  MLIRPDLDialect
+  MLIRPass
+  MLIRSCFDialect
+  MLIRSCFTransforms
+  MLIRSCFUtils
+  MLIRTensorDialect
+  MLIRTensorTransforms
+  MLIRTransformDialect
+  MLIRTransforms
+  MLIRVectorDialect
+  MLIRVectorTransforms
+  DialectsTransforms)

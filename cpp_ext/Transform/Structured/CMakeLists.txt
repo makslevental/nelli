@@ -1,40 +1,37 @@
-add_mlir_library(StructuredTransformOpsExt
-        StructuredTransformOpsExt.cpp
-        StructuredTransformOpsExt.cpp.inc
-
-        ADDITIONAL_HEADERS
-        StructuredTransformOpsExt.h
-        StructuredTransformOpsExt.h.inc
-
-        DISABLE_INSTALL
-
-        LINK_LIBS PUBLIC
-        LLVMSupport
-        MLIRAffineDialect
-        MLIRAffineUtils
-        MLIRAnalysis
-        MLIRArithDialect
-        MLIRArithUtils
-        MLIRBufferizationDialect
-        MLIRBufferizationTransforms
-        MLIRGPUOps
-        MLIRIR
-        MLIRLinalgDialect
-        MLIRLinalgTransformOps
-        MLIRLinalgTransforms
-        MLIRMemRefDialect
-        MLIRMemRefTransforms
-        MLIRPDLDialect
-        MLIRPass
-        MLIRSCFDialect
-        MLIRSCFTransforms
-        MLIRSCFUtils
-        MLIRTensorDialect
-        MLIRTensorTransforms
-        MLIRTransformDialect
-        MLIRTransforms
-        MLIRVectorDialect
-        MLIRVectorTransforms
-
-        DialectsTransforms
-        )
+add_mlir_library(
+  StructuredTransformOpsExt
+  StructuredTransformOpsExt.cpp
+  StructuredTransformOpsExt.cpp.inc
+  ADDITIONAL_HEADERS
+  StructuredTransformOpsExt.h
+  StructuredTransformOpsExt.h.inc
+  DISABLE_INSTALL
+  LINK_LIBS
+  PUBLIC
+  LLVMSupport
+  MLIRAffineDialect
+  MLIRAffineUtils
+  MLIRAnalysis
+  MLIRArithDialect
+  MLIRArithUtils
+  MLIRBufferizationDialect
+  MLIRBufferizationTransforms
+  MLIRGPUOps
+  MLIRIR
+  MLIRLinalgDialect
+  MLIRLinalgTransformOps
+  MLIRLinalgTransforms
+  MLIRMemRefDialect
+  MLIRMemRefTransforms
+  MLIRPDLDialect
+  MLIRPass
+  MLIRSCFDialect
+  MLIRSCFTransforms
+  MLIRSCFUtils
+  MLIRTensorDialect
+  MLIRTensorTransforms
+  MLIRTransformDialect
+  MLIRTransforms
+  MLIRVectorDialect
+  MLIRVectorTransforms
+  DialectsTransforms)

@@ -1,28 +1,26 @@
-add_mlir_library(GPUTransforms
-        SerializeSPIRV.cpp
-        InsertGPUAllocs.cpp
-        SetSPIRVCapabilities.cpp
-        SetSPIRVAbiAttribute.cpp
-        AddOuterParallelLoop.cpp
-        BufferHostRegister.cpp
-        GPUToSPIRVPass.cpp
-        MapMemRefStorageClassPass.cpp
-
-        LINK_LIBS PUBLIC
-
-        MLIRArithToSPIRV
-        MLIRFuncDialect
-        MLIRFuncToSPIRV
-        MLIRGPUOps
-        MLIRIR
-        MLIRMemRefDialect
-        MLIRPass
-        MLIRSCFDialect
-        MLIRSCFToSPIRV
-        MLIRSPIRVConversion
-        MLIRSPIRVDialect
-        MLIRSupport
-        MLIRTransformUtils
-        MLIRTransforms
-
-        )
+add_mlir_library(
+  GPUTransforms
+  SerializeSPIRV.cpp
+  InsertGPUAllocs.cpp
+  SetSPIRVCapabilities.cpp
+  SetSPIRVAbiAttribute.cpp
+  AddOuterParallelLoop.cpp
+  BufferHostRegister.cpp
+  GPUToSPIRVPass.cpp
+  MapMemRefStorageClassPass.cpp
+  LINK_LIBS
+  PUBLIC
+  MLIRArithToSPIRV
+  MLIRFuncDialect
+  MLIRFuncToSPIRV
+  MLIRGPUOps
+  MLIRIR
+  MLIRMemRefDialect
+  MLIRPass
+  MLIRSCFDialect
+  MLIRSCFToSPIRV
+  MLIRSPIRVConversion
+  MLIRSPIRVDialect
+  MLIRSupport
+  MLIRTransformUtils
+  MLIRTransforms)

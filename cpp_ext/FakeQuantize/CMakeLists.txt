@@ -1,10 +1,9 @@
-add_mlir_library(FakeQuantize
-        FakeQuantize.cpp
-
-        DISABLE_INSTALL
-
-        LINK_LIBS PUBLIC
-        MLIRFuncDialect
-        MLIRMemRefDialect
-        MLIRLinalgDialect
-        )
+add_mlir_library(
+  FakeQuantize
+  FakeQuantize.cpp
+  DISABLE_INSTALL
+  LINK_LIBS
+  PUBLIC
+  MLIRFuncDialect
+  MLIRMemRefDialect
+  MLIRLinalgDialect)
