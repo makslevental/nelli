@@ -105,7 +105,7 @@ class TestOMP:
                     with InsertionPoint.at_block_begin(ws_loop.body):
                         two = constant(2, type=I32)
                         idx = arith_dialect.IndexCastOp(
-                            Index, ws_loop.induction_variable
+                            Index, ws_loop.induction_variable[0]
                         )
                         mem[idx] = two
                         YieldOp([])

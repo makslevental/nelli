@@ -162,7 +162,7 @@ module {
 and 
 
 ```python
-@mlir_func(range_ctor=scf_range)
+@mlir_func(range_ctor=scf_for)
 def loop_unroll_op():
     for i in range(0, 42, 5):
         v = i + i

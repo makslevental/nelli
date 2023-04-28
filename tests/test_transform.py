@@ -17,7 +17,7 @@ from nelli.mlir.refbackend import (
     elemental_type_to_ctype,
     memref_type_to_np_dtype,
 )
-from nelli.mlir.scf import scf_range, forall
+from nelli.mlir.scf import scf_for, forall
 from nelli.mlir.tensor import TensorValue as Tensor, pad
 from nelli.mlir.tensor import (
     parallel_insert_slice,
@@ -96,7 +96,7 @@ class TestTiling:
     def test_basic_unroll(self):
         with mlir_mod_ctx() as module:
 
-            @mlir_func(range_ctor=scf_range)
+            @mlir_func(range_ctor=scf_for)
             def loop_unroll_op():
                 for i in range(0, 42, 5):
                     v = i + i

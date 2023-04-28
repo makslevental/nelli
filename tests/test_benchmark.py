@@ -17,7 +17,7 @@ from nelli.mlir.func import mlir_func, declare
 from nelli.mlir.memref import MemRefValue as MemRef
 from nelli.mlir.passes import Pipeline
 from nelli.mlir.refbackend import LLVMJITBackend
-from nelli.mlir.scf import scf_range
+from nelli.mlir.scf import scf_for
 from nelli.mlir.tensor import TensorValue as Tensor
 from nelli.utils import shlib_ext, mlir_mod_ctx
 from util import check_correct
@@ -179,7 +179,7 @@ class TestBenchmark:
             def matmul(x: param1_type, y: param2_type, z: result_type):
                 return matmul_dsl(x, y, outs=[z])
 
-            @mlir_func(range_ctor=scf_range, attributes={"llvm.emit_c_interface": None})
+            @mlir_func(range_ctor=scf_for, attributes={"llvm.emit_c_interface": None})
             def timing_wrapper(
                 x: param1_type,
                 y: param2_type,

@@ -127,29 +127,6 @@ class CmpIOp(arith_dialect.CmpIOp):
         super().__init__(predicate, lhs, rhs, loc=loc, ip=ip)
 
 
-def cast_to_integer(to_type: Type, operand: OpView, is_unsigned_cast: bool) -> OpView:
-    operand: Value = get_op_result_or_value(operand)
-    to_width = IntegerType(to_type).width
-    operand_type = operand.type
-    if _is_floating_point_type(operand_type):
-        if is_unsigned_cast:
-            return arith.FPToUIOp(to_type, operand)
-        return arith.FPToSIOp(to_type, operand)
-    if _is_index_type(operand_type):
-        return arith.IndexCastOp(to_type, operand)
-    # Assume integer.
-    from_width = IntegerType(operand_type).width
-    if to_width > from_width:
-        if is_unsigned_cast:
-            return arith.ExtUIOp(to_type, operand)
-        return arith.ExtSIOp(to_type, operand)
-    elif to_width < from_width:
-        return arith.TruncIOp(to_type, operand)
-    raise ValueError(
-        f"Unable to cast body expression from {operand_type} to " f"{to_type}"
-    )
-
-
 def cast_to_floating_point(
     to_type: Type, operand: OpView, is_unsigned_cast: bool
 ) -> OpView:
@@ -394,3 +371,28 @@ def constant(py_cst: Union[int, float, bool], type: Type = None, index: bool = F
         constant = arith.ConstantOp(type, py_cst).result
 
     return ArithValue(constant)
+
+
+def cast_to_integer(
+    to_type: Type, operand: OpView, is_unsigned_cast: bool = False
+) -> OpView:
+    operand: Value = get_op_result_or_value(operand)
+    operand_type = operand.type
+    if _is_floating_point_type(operand_type):
+        if is_unsigned_cast:
+            return ArithValue(arith.FPToUIOp(to_type, operand).result)
+        return ArithValue(arith.FPToSIOp(to_type, operand).result)
+    if _is_index_type(operand_type) or _is_index_type(to_type):
+        return ArithValue(arith.IndexCastOp(to_type, operand).result)
+    # Assume integer.
+    from_width = IntegerType(operand_type).width
+    to_width = IntegerType(to_type).width
+    if to_width > from_width:
+        if is_unsigned_cast:
+            return ArithValue(arith.ExtUIOp(to_type, operand).result)
+        return ArithValue(arith.ExtSIOp(to_type, operand).result)
+    elif to_width < from_width:
+        return ArithValue(arith.TruncIOp(to_type, operand).result)
+    raise ValueError(
+        f"Unable to cast body expression from {operand_type} to " f"{to_type}"
+    )

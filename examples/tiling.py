@@ -2,7 +2,8 @@ import ctypes
 
 import numpy as np
 
-from nelli import DefaultContext
+from nelli.mlir import DefaultContext
+from nelli.mlir.passes import Pipeline
 from nelli.mlir.utils import F32, F64, Index
 from nelli.mlir._mlir.execution_engine import ExecutionEngine
 from nelli.mlir._mlir.ir import _stringAttr
@@ -20,9 +21,9 @@ def skewing():
 
         @mlir_func
         def matmul(
-            A: MemRef[16, 16, F32],
-            B: MemRef[16, 16, F32],
-            C: MemRef[16, 16, F32],
+            A: MemRef[(16, 16), F32],
+            B: MemRef[(16, 16), F32],
+            C: MemRef[(16, 16), F32],
         ):
             D = MemRef.alloca([32, 32], F32)
             E = MemRef.alloca([32, 32], F32)
@@ -47,7 +48,7 @@ def skewing():
     print(module)
 
     backend = LLVMJITBackend()
-    module = backend.compile(module, kernel_name="matmul")
+    module = backend.compile(module, Pipeline().lower_to_llvm(), kernel_name="matmul")
 
     A = np.random.randint(low=0, high=10, size=(16, 16)).astype(np.float32)
     B = np.random.randint(low=0, high=10, size=(16, 16)).astype(np.float32)

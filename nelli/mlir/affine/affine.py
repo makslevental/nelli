@@ -27,6 +27,7 @@ from .._mlir.ir import (
     Value,
     Type,
 )
+from ..utils import LoopLike
 
 
 @_cext.register_operation(_Dialect)
@@ -155,23 +156,13 @@ class StoreOp(affine.AffineStoreOp):
 _for_ip = None
 
 
-def affine_range(start, stop=None, step=1):
-    global _for_ip
+class affine_for(LoopLike):
+    def __init__(self, start, stop=None, step=1):
+        if stop is None:
+            stop = start
+            start = 0
 
-    if stop is None:
-        stop = start
-        start = 0
-
-    for_op = AffineForOp(start, stop, step)
-    _for_ip = InsertionPoint(for_op.body)
-    _for_ip.__enter__()
-    return [ArithValue(for_op.induction_variable)]
-
-
-def end_for():
-    affine.AffineYieldOp([])
-    global _for_ip
-    _for_ip.__exit__(None, None, None)
+        super().__init__(AffineForOp(start, stop, step), affine.AffineYieldOp)
 
 
 def store(
