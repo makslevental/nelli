@@ -28,11 +28,12 @@ def get_llvm_url():
     if LIB_ARCH == "aarch64":
         LIB_ARCH = "arm64"
     # print(f"ARCH {LIB_ARCH}")
-    LLVM_RELEASE_VERSION = os.environ.get("LLVM_RELEASE_VERSION", "17.0.0")
+    LLVM_RELEASE_VERSION = os.environ.get("LLVM_RELEASE_VERSION", "398d68f624d667a17727d346a2139a951a1ebce4")
     assert LLVM_RELEASE_VERSION, "empty LLVM_RELEASE_VERSION"
     # print(f"ARCH {LIB_ARCH}")
-    name = f"llvm+mlir+openmp-{sys.version_info.major}.{sys.version_info.minor}-{LLVM_RELEASE_VERSION}-{LIB_ARCH}-{system_suffix}-release"
-    url = f"https://github.com/makslevental/llvm-releases/releases/latest/download/{name}.tar.xz"
+    name = f"llvm+mlir+openmp-{sys.version_info.major}.{sys.version_info.minor}-17.0.0-{LIB_ARCH}-{system_suffix}-release"
+    # https://github.com/makslevental/llvm-releases/releases/download/llvm-17.0.0-398d68f624d667a17727d346a2139a951a1ebce4/llvm+mlir+openmp-3.10-17.0.0-arm64-apple-darwin-release.tar.xz
+    url = f"https://github.com/makslevental/llvm-releases/releases/download/llvm-17.0.0-{LLVM_RELEASE_VERSION}/{name}.tar.xz"
     return url
 
 
