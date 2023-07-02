@@ -249,7 +249,7 @@ or peruse the [release page](https://github.com/makslevental/nelli/releases).
 In fact, you can `pip install` directly from such a release:
 
 ```shell
-pip install nelli -f https://github.com/makslevental/nelli/releases/expanded_assets/0.0.7
+pip install nelli -f https://github.com/makslevental/nelli/releases/expanded_assets/0.0.8
 ```
 
 For Raspberry Pi (`linux-aarch64`) prefix `pip install` with these CMake args (in order to prevent OOMing with GNU's `ld`):
