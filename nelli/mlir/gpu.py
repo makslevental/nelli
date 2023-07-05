@@ -25,25 +25,8 @@ from .arith import ArithValue, constant
 from .func import MLIRFunc
 from .module import Module
 from .scf import scf_range
-from .utils import doublewrap
+from .utils import doublewrap, get_symbol_ref_attr
 from ..mlir._mlir.dialects import gpu
-
-
-# // CHECK: _ODS_OPERAND_SEGMENTS = [-1,1,0,]
-# def AttrSizedOperandsOp : TestOp<"attr_sized_operands",
-#                                  [AttrSizedOperandSegments]> {
-#   // CHECK: def __init__(self, variadic1, non_variadic, *, variadic2=None, loc=None, ip=None):
-#   // CHECK:   operands = []
-#   // CHECK:   results = []
-#   // CHECK:   attributes = {}
-#   // CHECK:   regions = None
-#   // CHECK:   operands.append(_get_op_results_or_values(variadic1))
-#   // CHECK:   operands.append(_get_op_result_or_value(non_variadic))
-#   // CHECK:   operands.append(_get_op_result_or_value(variadic2) if variadic2 is not None else None)
-#   // CHECK:   _ods_successors = None
-#   // CHECK:   super().__init__(self.build_generic(
-#   // CHECK:     attributes=attributes, results=results, operands=operands,
-#   // CHECK:     successors=_ods_successors, regions=regions, loc=loc, ip=ip))
 
 
 class LaunchFuncOp(gpu.LaunchFuncOp):
@@ -71,7 +54,7 @@ class LaunchFuncOp(gpu.LaunchFuncOp):
                     issubclass(type(kernel), ir.Attribute)
                     or not ir.AttrBuilder.contains("SymbolRefAttr")
                 )
-                else ir.AttrBuilder.get("SymbolRefAttr")(kernel, context=_ods_context)
+                else get_symbol_ref_attr(kernel, _ods_context)
             )
         }
 
