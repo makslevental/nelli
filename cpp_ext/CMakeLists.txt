@@ -35,6 +35,7 @@ declare_mlir_python_extension(
   LoopUtils.cpp
   AffineAnalysis.cpp
   PRIVATE_LINK_LIBS
+  MLIRAnalysis
   MLIRPresburger
   MLIRAffineAnalysis
   MLIRSparseTensorPipelines
@@ -63,8 +64,12 @@ declare_mlir_python_extension(
   MLIRIR)
 target_link_libraries(
   NelliPythonSources.SiteInitialize
-  INTERFACE MLIROpenMPToLLVMIRTranslation CommonExtensions
-            StructuredTransformOpsExt LLVMGPUExtensions)
+  INTERFACE
+  MLIROpenMPToLLVMIRTranslation
+#  CommonExtensions
+#  StructuredTransformOpsExt
+#  LLVMGPUExtensions
+)
 
 set(PYBINDINGS_SRC "${MLIR_INSTALL_PREFIX}/src/python/MLIRPythonExtension.Core")
 target_include_directories(NelliPythonSources.Extension

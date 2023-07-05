@@ -20,20 +20,29 @@ PLAT_TO_CMAKE = {
 
 def get_llvm_url():
     system = platform.system()
-    system_suffix = {"Linux": "linux-gnu-ubuntu-22.04", "Darwin": "apple-darwin"}[
-        system
-    ]
+    system_suffix = {"Linux": "ubuntu-20.04", "Darwin": "macos-latest"}[system]
+
     LIB_ARCH = os.environ.get("LIB_ARCH", platform.machine())
     assert LIB_ARCH, "empty LIB_ARCH"
-    if LIB_ARCH == "aarch64":
-        LIB_ARCH = "arm64"
-    # print(f"ARCH {LIB_ARCH}")
-    LLVM_RELEASE_VERSION = os.environ.get("LLVM_RELEASE_VERSION", "398d68f624d667a17727d346a2139a951a1ebce4")
-    assert LLVM_RELEASE_VERSION, "empty LLVM_RELEASE_VERSION"
-    # print(f"ARCH {LIB_ARCH}")
-    name = f"llvm+mlir+openmp-{sys.version_info.major}.{sys.version_info.minor}-17.0.0-{LIB_ARCH}-{system_suffix}-release"
-    # https://github.com/makslevental/llvm-releases/releases/download/llvm-17.0.0-398d68f624d667a17727d346a2139a951a1ebce4/llvm+mlir+openmp-3.10-17.0.0-arm64-apple-darwin-release.tar.xz
-    url = f"https://github.com/makslevental/llvm-releases/releases/download/llvm-17.0.0-{LLVM_RELEASE_VERSION}/{name}.tar.xz"
+    LIB_ARCH = {
+        "aarch64": "AArch64",
+        "arm64": "AArch64",
+        "x86": "X86",
+        "x86_64": "X86",
+        "AMD64": "X86",
+    }[LIB_ARCH]
+
+    LLVM_COMMIT = os.environ.get("LLVM_COMMIT", "f171c76b")
+    assert LLVM_COMMIT, "empty LLVM_COMMIT"
+
+    name = f"llvm-{LLVM_COMMIT}-{system_suffix}-{LIB_ARCH}"
+    if platform.system() == "Linux":
+        if platform.machine() == "x86_64":
+            name += "-cuda"
+        name += "-vulkan"
+    elif platform.system() == "Darwin":
+        name += "-vulkan"
+    url = f"https://github.com/makslevental/pristine-llvm-release/releases/download/llvm-{LLVM_COMMIT}/{name}.tar.xz"
     return url
 
 
@@ -135,9 +144,11 @@ class CMakeBuild(build_ext):
         for shlib in shlibs:
             shlib_name = f"lib{shlib}.{shlib_ext}"
             llvm_install_dir = (Path(".").parent / "llvm_install").absolute()
-            assert llvm_install_dir.exists()
+            if not llvm_install_dir.exists():
+                continue
             llvm_install_fp = (llvm_install_dir / "lib" / shlib_name).absolute()
-            assert llvm_install_fp.exists()
+            if not llvm_install_fp.exists():
+                continue
             dst_path = mlir_libs_dir / shlib_name
             shutil.copyfile(llvm_install_fp, dst_path)
             if platform.system() == "Linux":
