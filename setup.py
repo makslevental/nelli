@@ -32,16 +32,16 @@ def get_llvm_url():
         "AMD64": "X86",
     }[LIB_ARCH]
 
-    LLVM_COMMIT = os.environ.get("LLVM_COMMIT", "f171c76b")
+    LLVM_COMMIT = os.environ.get("LLVM_COMMIT", "6c7fd723")
     assert LLVM_COMMIT, "empty LLVM_COMMIT"
 
     name = f"llvm-{LLVM_COMMIT}-{system_suffix}-{LIB_ARCH}"
     if platform.system() == "Linux":
         if platform.machine() == "x86_64":
             name += "-cuda"
-        name += "-vulkan"
+        name += "-vulkan-openmp"
     elif platform.system() == "Darwin":
-        name += "-vulkan"
+        name += "-vulkan-openmp"
     url = f"https://github.com/makslevental/pristine-llvm-release/releases/download/llvm-{LLVM_COMMIT}/{name}.tar.xz"
     return url
 

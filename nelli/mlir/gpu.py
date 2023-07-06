@@ -25,7 +25,7 @@ from .arith import ArithValue, constant
 from .func import MLIRFunc
 from .module import Module
 from .scf import scf_range
-from .utils import doublewrap, get_symbol_ref_attr
+from .utils import doublewrap
 from ..mlir._mlir.dialects import gpu
 
 
@@ -54,7 +54,7 @@ class LaunchFuncOp(gpu.LaunchFuncOp):
                     issubclass(type(kernel), ir.Attribute)
                     or not ir.AttrBuilder.contains("SymbolRefAttr")
                 )
-                else get_symbol_ref_attr(kernel, _ods_context)
+                else ir.AttrBuilder.get("SymbolRefAttr")(kernel, context=_ods_context)
             )
         }
 
@@ -400,7 +400,7 @@ class ModuleOp(gpu.GPUModuleOp):
 class ModuleOp(ModuleOp):
     def __init__(self, *, loc=None, ip=None):
         super().__init__(self.build_generic(results=[], operands=[], loc=loc, ip=ip))
-        body = self.regions[0].blocks.append()
+        self.regions[0].blocks.append()
 
     @property
     def body(self):
@@ -510,7 +510,7 @@ def all_reduce(op, val, uniform=False):
 def gpu_all_reduce_op_attr(
     op: str, context: Optional[Context] = None
 ) -> FlatSymbolRefAttr:
-    from .. import DefaultContext
+    from . import DefaultContext
 
     if context is None:
         context = DefaultContext
