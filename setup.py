@@ -1,63 +1,49 @@
 import os
 import platform
-import re
 import shutil
 import subprocess
 import sys
+import tarfile
+import urllib.request
 from pathlib import Path
 
 from pip._internal.req import parse_requirements
 from setuptools import Extension, setup, find_namespace_packages
 from setuptools.command.build_ext import build_ext
 
-# Convert distutils Windows platform specifiers to CMake -A arguments
-PLAT_TO_CMAKE = {
-    "win-amd64": "x64",
-    "win-arm32": "ARM",
-    "win-arm64": "ARM64",
-}
 
-
-def get_llvm_url():
-    system = platform.system()
-    system_suffix = {"Linux": "ubuntu-20.04", "Darwin": "macos-latest"}[system]
-
-    LIB_ARCH = os.environ.get("LIB_ARCH", platform.machine())
-    assert LIB_ARCH, "empty LIB_ARCH"
-    LIB_ARCH = {
-        "aarch64": "AArch64",
-        "arm64": "AArch64",
-        "x86": "X86",
-        "x86_64": "X86",
-        "AMD64": "X86",
-    }[LIB_ARCH]
-
-    LLVM_COMMIT = os.environ.get("LLVM_COMMIT", "6c7fd723")
-    assert LLVM_COMMIT, "empty LLVM_COMMIT"
-
-    name = f"llvm-{LLVM_COMMIT}-{system_suffix}-{LIB_ARCH}"
-    if platform.system() == "Linux":
-        if platform.machine() == "x86_64":
-            name += "-cuda"
-        name += "-vulkan-openmp"
-    elif platform.system() == "Darwin":
-        name += "-vulkan-openmp"
-    url = f"https://github.com/makslevental/pristine-llvm-release/releases/download/llvm-{LLVM_COMMIT}/{name}.tar.xz"
-    return url
-
-
-# A CMakeExtension needs a sourcedir instead of a file list.
-# The name must be the _single_ output extension from the CMake build.
-# If you need multiple extensions, see scikit-build.
 class CMakeExtension(Extension):
     def __init__(self, name: str, sourcedir: str = "") -> None:
         super().__init__(name, sources=[])
         self.sourcedir = os.fspath(Path(sourcedir).resolve())
 
 
+def download_native_tools(package_root_dir, cmake_args):
+    if platform.system() == "Linux":
+        system = "ubuntu-20.04-x86_64"
+    elif platform.system() == "Darwin":
+        system = "macos-11-x86_64"
+    elif platform.system() == "Windows":
+        system = "windows-2022-AMD64"
+    else:
+        raise ValueError(f"unknown system {platform.system()}")
+    url = f"https://github.com/makslevental/cibuildwheel-llvm-mlir/releases/download/latest/{system}-native_tools.tar.xz"
+    ftpstream = urllib.request.urlopen(url)
+    file = tarfile.open(fileobj=ftpstream, mode="r|*")
+    file.extractall(path=package_root_dir)
+    cmake_args.extend(
+        [
+            f"-DLLVM_TABLEGEN={os.getcwd()}/bin/llvm-tblgen",
+            f"-DMLIR_LINALG_ODS_YAML_GEN={os.getcwd()}/bin/mlir-linalg-ods-yaml-gen",
+            f"-DMLIR_LINALG_ODS_YAML_GEN_EXE={os.getcwd()}/bin/mlir-linalg-ods-yaml-gen",
+            f"-DMLIR_PDLL_TABLEGEN={os.getcwd()}/bin/mlir-pdll",
+            f"-DMLIR_TABLEGEN={os.getcwd()}/bin/mlir-tblgen",
+        ]
+    )
+
+
 class CMakeBuild(build_ext):
     def build_extension(self, ext: CMakeExtension) -> None:
-        # Must be in this form due to bug in .resolve() only fixed in Python 3.10+
         ext_fullpath = Path.cwd() / self.get_ext_fullpath(ext.name)  # type: ignore[no-untyped-call]
         ext_build_lib_dir = ext_fullpath.parent.resolve()
 
@@ -73,13 +59,22 @@ class CMakeBuild(build_ext):
         llvm_install_dir = os.environ.get("LLVM_INSTALL_DIR", None)
         if llvm_install_dir is not None:
             cmake_args.append(f"-DLLVM_INSTALL_DIR={llvm_install_dir}")
+        else:
+            import mlir
+
+            assert len(mlir.__path__), "mlir path doesn't exist"
+            cmake_args.append(f"-DLLVM_INSTALL_DIR={mlir.__path__[0]}")
+
+        # if os.getenv("CIBW_ARCHS") != platform.machine():
+        #     download_native_tools(os.getcwd(), cmake_args)
+
         build_args = []
         if "CMAKE_ARGS" in os.environ:
             cmake_args += [item for item in os.environ["CMAKE_ARGS"].split(" ") if item]
 
         if not cmake_generator or cmake_generator == "Ninja":
             try:
-                import ninja  # noqa: F401
+                import ninja
 
                 ninja_executable_path = Path(ninja.BIN_DIR) / "ninja"
                 cmake_args += [
@@ -89,18 +84,10 @@ class CMakeBuild(build_ext):
             except ImportError:
                 pass
 
-        if sys.platform.lower().startswith("darwin"):
-            # Cross-compile support for macOS - respect ARCHFLAGS if set
-            archs = re.findall(r"-arch (\S+)", os.environ.get("ARCHFLAGS", ""))
-            if archs:
-                cmake_args += ["-DCMAKE_OSX_ARCHITECTURES={}".format(";".join(archs))]
-
-        if "CMAKE_BUILD_PARALLEL_LEVEL" not in os.environ:
-            # self.parallel is a Python 3 only way to set parallel jobs by hand
-            # using -j in the build_ext call, not supported by pip or PyPA-build.
-            if hasattr(self, "parallel") and self.parallel:
-                # CMake 3.12+ only.
-                build_args += [f"-j{self.parallel}"]
+        if "PARALLEL_LEVEL" not in os.environ:
+            build_args += [f"-j{str(2 * os.cpu_count())}"]
+        else:
+            build_args += [f"-j{os.environ.get('PARALLEL_LEVEL')}"]
 
         build_temp = Path(self.build_temp) / ext.name
         if not build_temp.exists():
@@ -178,8 +165,6 @@ VERSION = "0.0.8"
 
 if len(sys.argv) > 1 and sys.argv[1] == "--version":
     print(VERSION)
-elif len(sys.argv) > 1 and sys.argv[1] == "--llvm-url":
-    print(get_llvm_url())
 else:
     install_reqs = parse_requirements("requirements.txt", session="hack")
     setup(
