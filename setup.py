@@ -1,10 +1,9 @@
 import os
 import platform
+import re
 import shutil
 import subprocess
 import sys
-import tarfile
-import urllib.request
 from pathlib import Path
 
 from pip._internal.req import parse_requirements
@@ -18,41 +17,17 @@ class CMakeExtension(Extension):
         self.sourcedir = os.fspath(Path(sourcedir).resolve())
 
 
-def download_native_tools(package_root_dir, cmake_args):
-    if platform.system() == "Linux":
-        system = "ubuntu-20.04-x86_64"
-    elif platform.system() == "Darwin":
-        system = "macos-11-x86_64"
-    elif platform.system() == "Windows":
-        system = "windows-2022-AMD64"
-    else:
-        raise ValueError(f"unknown system {platform.system()}")
-    url = f"https://github.com/makslevental/cibuildwheel-llvm-mlir/releases/download/latest/{system}-native_tools.tar.xz"
-    ftpstream = urllib.request.urlopen(url)
-    file = tarfile.open(fileobj=ftpstream, mode="r|*")
-    file.extractall(path=package_root_dir)
-    cmake_args.extend(
-        [
-            f"-DLLVM_TABLEGEN={os.getcwd()}/bin/llvm-tblgen",
-            f"-DMLIR_LINALG_ODS_YAML_GEN={os.getcwd()}/bin/mlir-linalg-ods-yaml-gen",
-            f"-DMLIR_LINALG_ODS_YAML_GEN_EXE={os.getcwd()}/bin/mlir-linalg-ods-yaml-gen",
-            f"-DMLIR_PDLL_TABLEGEN={os.getcwd()}/bin/mlir-pdll",
-            f"-DMLIR_TABLEGEN={os.getcwd()}/bin/mlir-tblgen",
-        ]
-    )
-
-
 class CMakeBuild(build_ext):
     def build_extension(self, ext: CMakeExtension) -> None:
         ext_fullpath = Path.cwd() / self.get_ext_fullpath(ext.name)  # type: ignore[no-untyped-call]
-        ext_build_lib_dir = ext_fullpath.parent.resolve()
+        ext_build_dir = ext_fullpath.parent.resolve()
 
         debug = int(os.environ.get("DEBUG", 0)) if self.debug is None else self.debug
         cfg = "Debug" if debug else "Release"
 
         cmake_generator = os.environ.get("CMAKE_GENERATOR", "")
         cmake_args = [
-            f"-DCMAKE_INSTALL_PREFIX={ext_build_lib_dir}/{PACKAGE_NAME}/mlir",
+            f"-DCMAKE_INSTALL_PREFIX={ext_build_dir}/{PACKAGE_NAME}/mlir",
             f"-DPython3_EXECUTABLE={sys.executable}",
             f"-DCMAKE_BUILD_TYPE={cfg}",  # not used on MSVC, but no harm
         ]
@@ -65,24 +40,46 @@ class CMakeBuild(build_ext):
             assert len(mlir.__path__), "mlir path doesn't exist"
             cmake_args.append(f"-DLLVM_INSTALL_DIR={mlir.__path__[0]}")
 
-        # if os.getenv("CIBW_ARCHS") != platform.machine():
-        #     download_native_tools(os.getcwd(), cmake_args)
-
         build_args = []
         if "CMAKE_ARGS" in os.environ:
             cmake_args += [item for item in os.environ["CMAKE_ARGS"].split(" ") if item]
 
-        if not cmake_generator or cmake_generator == "Ninja":
-            try:
-                import ninja
+        if self.compiler.compiler_type != "msvc":
+            if not cmake_generator or cmake_generator == "Ninja":
+                try:
+                    import ninja
 
-                ninja_executable_path = Path(ninja.BIN_DIR) / "ninja"
+                    ninja_executable_path = Path(ninja.BIN_DIR) / "ninja"
+                    cmake_args += [
+                        "-GNinja",
+                        f"-DCMAKE_MAKE_PROGRAM:FILEPATH={ninja_executable_path}",
+                    ]
+                except ImportError:
+                    pass
+
+        else:
+            single_config = any(x in cmake_generator for x in {"NMake", "Ninja"})
+            contains_arch = any(x in cmake_generator for x in {"ARM", "Win64"})
+            if not single_config and not contains_arch:
+                PLAT_TO_CMAKE = {
+                    "win32": "Win32",
+                    "win-amd64": "x64",
+                    "win-arm32": "ARM",
+                    "win-arm64": "ARM64",
+                }
+                cmake_args += ["-A", PLAT_TO_CMAKE[self.plat_name]]
+            if not single_config:
                 cmake_args += [
-                    "-GNinja",
-                    f"-DCMAKE_MAKE_PROGRAM:FILEPATH={ninja_executable_path}",
+                    f"-DCMAKE_LIBRARY_OUTPUT_DIRECTORY_{cfg.upper()}={ext_build_dir}"
                 ]
-            except ImportError:
-                pass
+                build_args += ["--config", cfg]
+
+        if sys.platform.startswith("darwin"):
+            cmake_args += ["-DCMAKE_OSX_DEPLOYMENT_TARGET=11.6"]
+            # Cross-compile support for macOS - respect ARCHFLAGS if set
+            archs = re.findall(r"-arch (\S+)", os.environ.get("ARCHFLAGS", ""))
+            if archs:
+                cmake_args += ["-DCMAKE_OSX_ARCHITECTURES={}".format(";".join(archs))]
 
         if "PARALLEL_LEVEL" not in os.environ:
             build_args += [f"-j{str(2 * os.cpu_count())}"]
@@ -106,12 +103,12 @@ class CMakeBuild(build_ext):
             shlib_ext = "dylib"
         elif platform.system() == "Linux":
             shlib_ext = "so"
+        elif platform.system() == "Windows":
+            shlib_ext = "dll"
         else:
             raise NotImplementedError(f"unknown platform {platform.system()}")
 
-        mlir_libs_dir = Path(
-            f"{ext_build_lib_dir}/{PACKAGE_NAME}/mlir/_mlir/_mlir_libs"
-        )
+        mlir_libs_dir = Path(f"{ext_build_dir}/{PACKAGE_NAME}/mlir/_mlir/_mlir_libs")
         shlibs = [
             "LTO",
             "MLIR-C",
