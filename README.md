@@ -1,3 +1,5 @@
+# All work has moved to https://github.com/makslevental/mlir-python-utils
+
 - [Nelli](#nelli)
 - [Examples](#examples)
 - [Installing](#installing)
